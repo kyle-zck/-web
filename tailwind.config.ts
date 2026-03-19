@@ -11,20 +11,20 @@ const config: Config = {
     extend: {
       colors: {
         brand: {
-          DEFAULT: "#7C3AED",
-          foreground: "#F9FAFB"
+          DEFAULT: "#E50914",
+          foreground: "#FFFFFF"
         },
-        background: "#020617",
-        foreground: "#F9FAFB",
+        background: "#000000",
+        foreground: "#FFFFFF",
         muted: {
-          DEFAULT: "#020617",
-          foreground: "#6B7280"
+          DEFAULT: "#030712",
+          foreground: "#9CA3AF"
         },
         card: {
-          DEFAULT: "#020617",
+          DEFAULT: "#050712",
           foreground: "#F9FAFB"
         },
-        border: "#111827"
+        border: "#1F2933"
       },
       borderRadius: {
         lg: "0.75rem",
@@ -32,7 +32,7 @@ const config: Config = {
         "2xl": "1.5rem"
       },
       boxShadow: {
-        "soft-glow": "0 0 40px rgba(124, 58, 237, 0.45)"
+        "soft-glow": "0 0 32px rgba(229, 9, 20, 0.45)"
       }
     }
   },

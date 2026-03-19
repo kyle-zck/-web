@@ -15,7 +15,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN" className="dark">
-      <body className="min-h-screen bg-background text-foreground antialiased">
+      <body className="min-h-screen bg-black text-white antialiased">
         <div className="app-shell mx-auto flex min-h-screen flex-col bg-black">
           <I18nProvider>
             <TopNavV2 />

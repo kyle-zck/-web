@@ -7,7 +7,7 @@
 }
 
 body {
-  @apply bg-background text-foreground;
+  @apply bg-black text-white;
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
   letter-spacing: -0.01em;
@@ -27,39 +27,19 @@ body {
   border-radius: 9999px;
 }
 
-/* Layout/Video orientation adaptation
-   默认按横屏 16:9 展示；竖屏会自动切回 9:16（以及封面卡片横竖比例）
-   这里不再限制 max-width，使横屏可以铺满整个可视区域。 */
+/* 全局统一 9:16 竖版：视频播放器、缩略图、海报 */
 .app-shell {
   max-width: 100%;
 }
 
 .video-aspect {
-  aspect-ratio: 16 / 9;
-}
-
-@media (orientation: portrait) {
-  .video-aspect {
-    aspect-ratio: 9 / 16;
-  }
+  aspect-ratio: 9 / 16;
 }
 
 .thumb-aspect {
-  aspect-ratio: 16 / 9;
-}
-
-@media (orientation: portrait) {
-  .thumb-aspect {
-    aspect-ratio: 9 / 16;
-  }
+  aspect-ratio: 9 / 16;
 }
 
 .poster-aspect {
-  aspect-ratio: 16 / 9;
-}
-
-@media (orientation: portrait) {
-  .poster-aspect {
-    aspect-ratio: 3 / 4;
-  }
+  aspect-ratio: 9 / 16;
 }

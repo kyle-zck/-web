@@ -128,8 +128,15 @@ export const resources: Record<AppLanguage, any> = {
         selectEpisodes: "Select Episodes",
         description: "Description",
         youMayAlsoLike: "You May Also Like",
+        recommendedForYou: "Recommended For You",
         episodesHint: "Episodes 1-3 are free preview. Episodes 4+ are locked (Coins required).",
-        copiedLink: "Link copied"
+        copiedLink: "Link copied",
+        plotOfEpisode: "Plot of Episode {{index}}",
+        more: "...More",
+        allEpisodes: "All Episodes",
+        likes: "Likes",
+        favorites: "Favorites",
+        share: "Share"
       },
       locked: {
         title: "This episode is locked",
@@ -268,8 +275,15 @@ export const resources: Record<AppLanguage, any> = {
         selectEpisodes: "选集",
         description: "剧情简介",
         youMayAlsoLike: "猜你喜欢",
+        recommendedForYou: "推荐给你",
         episodesHint: "1-3 集免费，4+ 集锁定（可用 Coins 解锁）",
-        copiedLink: "已复制链接"
+        copiedLink: "已复制链接",
+        plotOfEpisode: "第 {{index}} 集剧情",
+        more: "...更多",
+        allEpisodes: "全部剧集",
+        likes: "点赞",
+        favorites: "收藏",
+        share: "分享"
       },
       locked: {
         title: "该集已锁定",

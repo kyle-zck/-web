@@ -1,13 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Series } from "@/constants/mock-data";
-import { Badge } from "@/components/ui/badge";
 import type { AppLanguage } from "@/lib/i18n/languages";
 import { getSeriesI18nText } from "@/lib/i18n/seriesText";
-import { getTagKey } from "@/lib/i18n/tagKey";
 
 interface HeroCarouselProps {
   items: Series[];
@@ -15,6 +13,7 @@ interface HeroCarouselProps {
 
 export function HeroCarousel({ items }: HeroCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const active = items[activeIndex] ?? items[0];
   const { t, i18n } = useTranslation();
   const lang = i18n.language as AppLanguage;
@@ -23,69 +22,71 @@ export function HeroCarousel({ items }: HeroCarouselProps) {
     if (items.length <= 1) return;
     const id = window.setInterval(() => {
       setActiveIndex((i) => (i + 1) % items.length);
-    }, 6000);
+    }, 5000);
     return () => window.clearInterval(id);
   }, [items.length]);
 
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || items.length === 0) return;
+    const card = el.querySelector(`[data-index="${activeIndex}"]`);
+    card?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [activeIndex, items.length]);
+
+  if (items.length === 0) return null;
+
   return (
-    <section className="relative mb-4">
-      <div className="relative video-aspect w-full overflow-hidden rounded-3xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/80 to-black shadow-soft-glow">
-        {/* Purple ambience layer (avoid Tailwind arbitrary values to prevent layout/CSS issues) */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-brand/20 via-transparent to-transparent" />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-        <div className="absolute inset-0">
-          <img
-            src={active.poster}
-            alt={getSeriesI18nText(active, lang).title}
-            className="h-full w-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
-        </div>
-        <div className="relative flex h-full flex-col justify-end p-4">
-          <div className="space-y-2">
-            <h1 className="line-clamp-2 text-lg font-semibold text-white">
-              {getSeriesI18nText(active, lang).title}
-            </h1>
-            <p className="line-clamp-2 text-xs text-zinc-300">
-              {getSeriesI18nText(active, lang).tagline}
-            </p>
-            <div className="mt-2 flex items-center gap-2 text-[11px] text-zinc-400">
-              <span>{t("home.episodesCount", { count: active.episodes.length })}</span>
-            </div>
-            <Link
-              href={`/series/${active.id}`}
-              className="mt-3 inline-flex h-10 items-center justify-center rounded-full bg-brand px-6 text-sm font-semibold text-white shadow-soft-glow"
+    <section className="relative mb-6">
+      <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin snap-x snap-mandatory scroll-smooth md:justify-center md:gap-6" ref={scrollRef}>
+        {items.map((item, index) => {
+          const { title, tagline } = getSeriesI18nText(item, lang);
+          const isActive = index === activeIndex;
+          return (
+            <div
+              key={item.id}
+              data-index={index}
+              className="relative w-[180px] shrink-0 snap-center md:w-[220px]"
             >
-              {t("series.play")}
-            </Link>
-          </div>
-        </div>
-      </div>
-      <div className="mt-3 flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
-        {items.map((item, index) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => setActiveIndex(index)}
-            className="group relative thumb-aspect w-16 shrink-0 overflow-hidden rounded-2xl border border-zinc-800/80"
-          >
-            <img
-              src={item.poster}
-              alt={getSeriesI18nText(item, lang).title}
-              className="h-full w-full object-cover transition duration-200 group-hover:scale-105"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-            <div className="absolute bottom-1 left-1 right-1">
-              <p className="line-clamp-2 text-[10px] font-medium text-zinc-100">
-                {getSeriesI18nText(item, lang).title}
-              </p>
+              <Link
+                href={`/series/${item.id}`}
+                onClick={() => setActiveIndex(index)}
+                className="block"
+              >
+                <div className={`relative aspect-[9/16] w-full overflow-hidden rounded-xl bg-zinc-900 shadow-lg transition-all duration-300 ${isActive ? "ring-2 ring-brand" : ""}`}
+                >
+                  <img
+                    src={item.poster}
+                    alt={title}
+                    className="h-full w-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <h2 className="line-clamp-2 text-sm font-bold text-white">{title}</h2>
+                    <p className="mt-0.5 line-clamp-2 text-[11px] text-zinc-300">{tagline}</p>
+                    <p className="mt-1 text-[10px] text-zinc-400">{t("home.episodesCount", { count: item.episodes.length })}</p>
+                    <span className="mt-2 inline-flex items-center justify-center rounded-full bg-brand px-4 py-1.5 text-xs font-semibold text-white">
+                      {t("series.play")}
+                    </span>
+                  </div>
+                </div>
+              </Link>
             </div>
-            {index === activeIndex && (
-              <div className="absolute inset-0 ring-2 ring-brand" />
-            )}
-          </button>
-        ))}
+          );
+        })}
       </div>
+      {items.length > 1 && (
+        <div className="mt-3 flex justify-center gap-1.5">
+          {items.slice(0, Math.min(items.length, 8)).map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setActiveIndex(i)}
+              className={`h-1.5 rounded-full transition-all ${i === activeIndex ? "w-5 bg-brand" : "w-1.5 bg-zinc-600"}`}
+              aria-label={`Slide ${i + 1}`}
+            />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
