@@ -1,0 +1,321 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useAppLanguage } from "@/components/i18n/I18nProvider";
+import { usePlayerStore } from "@/lib/store/player";
+import { useUserStore } from "@/lib/store/user";
+
+function SearchGlyph() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <path
+        d="M10.5 18.5C14.9183 18.5 18.5 14.9183 18.5 10.5C18.5 6.08172 14.9183 2.5 10.5 2.5C6.08172 2.5 2.5 6.08172 2.5 10.5C2.5 14.9183 6.08172 18.5 10.5 18.5Z"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
+      <path
+        d="M21 21L16.65 16.65"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function BurgerGlyph() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 7H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M4 12H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M4 17H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function TopNavV2() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { t, i18n } = useTranslation();
+  const { lang, setLanguage, languageOptions } = useAppLanguage();
+
+  const { coinBalance } = usePlayerStore();
+  const { isLoggedIn, userId } = useUserStore();
+
+  const hidden = useMemo(() => pathname.startsWith("/admin"), [pathname]);
+
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [userHover, setUserHover] = useState(false);
+
+  const uidDisplay = isLoggedIn ? userId ?? "—" : "—";
+
+  const navItems = useMemo(
+    () => [
+      { href: "/", label: t("nav.home"), active: pathname === "/" },
+      {
+        href: "/explore",
+        label: t("nav.explore"),
+        active: pathname.startsWith("/explore")
+      },
+      {
+        href: "/library",
+        label: t("nav.library"),
+        active: pathname.startsWith("/library")
+      },
+      {
+        href: "/profile",
+        label: t("nav.profile"),
+        active: pathname.startsWith("/profile")
+      }
+    ],
+    [t, pathname]
+  );
+
+  const closeAll = () => {
+    setSearchOpen(false);
+    setMenuOpen(false);
+  };
+
+  const submitSearch = () => {
+    const query = q.trim();
+    if (!query) {
+      closeAll();
+      router.push("/explore");
+      return;
+    }
+    closeAll();
+    const params = new URLSearchParams({ q: query });
+    router.push(`/explore?${params.toString()}`);
+  };
+
+  if (hidden) return null;
+
+  return (
+    <>
+      <header className="sticky top-0 z-50 border-b border-zinc-800/60 bg-black/75 backdrop-blur">
+        <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-3 px-4 py-2">
+          {/* Left: Logo + name */}
+          <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand/15 ring-1 ring-brand/40">
+                <span className="text-base font-extrabold text-brand">R</span>
+              </div>
+              <div className="leading-tight">
+                <p className="text-sm font-extrabold text-zinc-100">ReelShort</p>
+                <p className="mt-0.5 text-[11px] text-zinc-400">
+                  {t("brandTagline")}
+                </p>
+              </div>
+            </Link>
+
+            {/* Middle nav (desktop) */}
+            <nav className="hidden items-center gap-8 md:flex">
+              {navItems.map((it) => (
+                <Link
+                  key={it.href}
+                  href={it.href}
+                  onClick={() => closeAll()}
+                  className={[
+                    "rounded-full px-3 py-1.5 text-sm font-semibold transition-all",
+                    it.active
+                      ? "bg-brand/15 text-brand ring-1 ring-brand/40"
+                      : "text-zinc-300 hover:text-brand hover:bg-brand/10 hover:ring-1 hover:ring-brand/20"
+                  ].join(" ")}
+                >
+                  {it.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+
+          {/* Right: search icon, language selector, user avatar */}
+          <div className="flex items-center gap-3">
+            {/* Mobile: hamburger menu */}
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 ring-1 ring-zinc-800/80 text-zinc-200 md:hidden"
+              aria-label="Menu"
+            >
+              <BurgerGlyph />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSearchOpen(true);
+                setMenuOpen(false);
+              }}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 ring-1 ring-zinc-800/80 text-zinc-200"
+              aria-label={t("nav.search")}
+            >
+              <SearchGlyph />
+            </button>
+
+            <div className="hidden items-center md:flex">
+              <select
+                value={lang}
+                onChange={(e) => setLanguage(e.target.value as any)}
+                className="rounded-full bg-black/40 px-3 py-2 text-sm font-semibold text-zinc-200 ring-1 ring-zinc-800/80 outline-none"
+                aria-label="Language"
+              >
+                {languageOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div
+              className="relative hidden items-center md:flex"
+              onMouseEnter={() => setUserHover(true)}
+              onMouseLeave={() => setUserHover(false)}
+            >
+              <Link href="/profile">
+                <button
+                  type="button"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 ring-1 ring-zinc-800/80"
+                  aria-label="User"
+                >
+                  <span className="text-lg">👤</span>
+                </button>
+              </Link>
+
+              {userHover ? (
+                <div className="absolute right-0 top-12 w-[320px] rounded-3xl border border-zinc-800/80 bg-zinc-950 p-4 shadow-soft-glow">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900 ring-1 ring-zinc-800/80">
+                      <span className="text-xl">👤</span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-zinc-100">
+                        {isLoggedIn ? t("profile.user") : t("profile.guest")}
+                      </p>
+                      <p className="mt-1 text-[11px] text-zinc-400">
+                        {t("uidLabel")} {uidDisplay}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div className="rounded-2xl bg-black/20 p-3">
+                      <p className="text-[11px] font-semibold text-zinc-500">
+                        {t("profile.coinBalance")}
+                      </p>
+                      <p className="mt-2 text-xl font-extrabold text-white">
+                        {coinBalance}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl bg-black/20 p-3">
+                      <p className="text-[11px] font-semibold text-zinc-500">
+                        {t("profile.bonus")}
+                      </p>
+                      <p className="mt-2 text-xl font-extrabold text-white">0</p>
+                    </div>
+                  </div>
+
+                  <Link href="/store">
+                    <button
+                      type="button"
+                      className="mt-4 w-full rounded-2xl bg-red-600 px-4 py-3 text-sm font-extrabold text-white hover:bg-red-500"
+                    >
+                      {t("profile.toStore")}
+                    </button>
+                  </Link>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Mobile user avatar */}
+            <div className="md:hidden">
+              <Link href="/profile">
+                <button
+                  type="button"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 ring-1 ring-zinc-800/80"
+                  aria-label="User"
+                >
+                  <span className="text-lg">👤</span>
+                </button>
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile menu */}
+        {menuOpen ? (
+          <div className="border-t border-zinc-800/60 bg-black/85 px-4 py-3 md:hidden">
+            <div className="flex flex-col gap-2">
+              {navItems.map((it) => (
+                <Link
+                  key={it.href}
+                  href={it.href}
+                  onClick={() => closeAll()}
+                  className="rounded-2xl px-3 py-2 text-sm font-semibold text-zinc-300 ring-1 ring-zinc-800/80 hover:text-brand hover:bg-brand/10"
+                >
+                  {it.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </header>
+
+      {/* Search modal (no language inside) */}
+      {searchOpen ? (
+        <div className="fixed inset-0 z-[60] bg-black/60">
+          <div className="mx-auto mt-16 w-[calc(100%-2rem)] max-w-xl rounded-3xl border border-zinc-800/80 bg-zinc-950 p-4 shadow-soft-glow">
+            <div className="flex items-center gap-3">
+              <div className="flex-1 rounded-full border border-brand/30 bg-black/20 px-4 py-3">
+                <input
+                  autoFocus
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder={t("search.placeholder")}
+                  className="w-full bg-transparent text-sm font-semibold text-zinc-100 outline-none placeholder:text-zinc-500"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") submitSearch();
+                  }}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchOpen(false);
+                }}
+                className="flex h-12 w-12 items-center justify-center rounded-full bg-black/20 ring-1 ring-zinc-800/80 text-zinc-200"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-4 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={submitSearch}
+                className="rounded-full bg-brand px-6 py-3 text-sm font-extrabold text-white shadow-soft-glow"
+              >
+                {t("search.button")}
+              </button>
+              <p className="text-[11px] text-zinc-500">{t("search.help")}</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
