@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppLanguage } from "@/components/i18n/I18nProvider";
 import { usePlayerStore } from "@/lib/store/player";
@@ -58,8 +58,21 @@ export function TopNavV2() {
   const [q, setQ] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [userHover, setUserHover] = useState(false);
+  const [brandName, setBrandName] = useState("ReelShorts");
 
   const uidDisplay = isLoggedIn ? userId ?? "—" : "—";
+
+  useEffect(() => {
+    fetch("/api/app-config")
+      .then((r) => r.json())
+      .then((json) => {
+        if (json?.brandName) setBrandName(json.brandName);
+      })
+      .catch(() => {
+        // ignore
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const navItems = useMemo(
     () => [
@@ -104,34 +117,35 @@ export function TopNavV2() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-zinc-800/60 bg-black/75 backdrop-blur">
-        <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-3 px-4 py-2">
-          {/* Left: Logo + name */}
-          <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-50 border-b border-zinc-800/70 bg-black/70 backdrop-blur-md">
+        <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-6 px-8 py-4">
+          {/* 左侧：Logo + 品牌名 + 中部菜单 */}
+          <div className="flex flex-1 items-center gap-8">
             <Link href="/" className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand/15 ring-1 ring-brand/40">
-                <span className="text-base font-extrabold text-brand">R</span>
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-brand via-red-600 to-brand ring-2 ring-zinc-600">
+                <span className="text-4xl font-extrabold leading-none text-white">
+                  Rs
+                </span>
               </div>
               <div className="leading-tight">
-                <p className="text-sm font-extrabold text-zinc-100">ReelShort</p>
-                <p className="mt-0.5 text-[11px] text-zinc-400">
-                  {t("brandTagline")}
+                <p className="text-3xl font-bold text-white truncate max-w-[260px]">
+                  {brandName}
                 </p>
               </div>
             </Link>
 
             {/* Middle nav (desktop) */}
-            <nav className="hidden items-center gap-8 md:flex">
+            <nav className="hidden flex-1 items-center justify-between gap-12 md:flex px-4">
               {navItems.map((it) => (
                 <Link
                   key={it.href}
                   href={it.href}
                   onClick={() => closeAll()}
                   className={[
-                    "rounded-full px-3 py-1.5 text-sm font-semibold transition-all",
+                    "whitespace-nowrap text-lg font-bold transition-colors pb-1 border-b-2",
                     it.active
-                      ? "bg-brand/15 text-brand ring-1 ring-brand/40"
-                      : "text-zinc-300 hover:text-brand hover:bg-brand/10 hover:ring-1 hover:ring-brand/20"
+                      ? "text-[#EE2737] border-[#EE2737]"
+                      : "text-white border-transparent hover:text-white hover:border-zinc-600"
                   ].join(" ")}
                 >
                   {it.label}
@@ -140,13 +154,13 @@ export function TopNavV2() {
             </nav>
           </div>
 
-          {/* Right: search icon, language selector, user avatar */}
-          <div className="flex items-center gap-3">
+          {/* 右侧：搜索 / 语言 / 头像 */}
+          <div className="flex flex-1 items-center justify-end gap-4">
             {/* Mobile: hamburger menu */}
             <button
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 ring-1 ring-zinc-800/80 text-zinc-200 md:hidden"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-black/60 ring-1 ring-zinc-700 text-zinc-200 md:hidden"
               aria-label="Menu"
             >
               <BurgerGlyph />
@@ -158,7 +172,7 @@ export function TopNavV2() {
                 setSearchOpen(true);
                 setMenuOpen(false);
               }}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 ring-1 ring-zinc-800/80 text-zinc-200"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-black/60 ring-1 ring-zinc-700 text-zinc-200"
               aria-label={t("nav.search")}
             >
               <SearchGlyph />
@@ -168,7 +182,7 @@ export function TopNavV2() {
               <select
                 value={lang}
                 onChange={(e) => setLanguage(e.target.value as any)}
-                className="rounded-full bg-black/40 px-3 py-2 text-sm font-semibold text-zinc-200 ring-1 ring-zinc-800/80 outline-none"
+                className="rounded-full bg-black/60 px-4 py-2 text-base font-semibold text-zinc-100 ring-1 ring-zinc-700 outline-none"
                 aria-label="Language"
               >
                 {languageOptions.map((o) => (
@@ -187,7 +201,7 @@ export function TopNavV2() {
               <Link href="/profile">
                 <button
                   type="button"
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 ring-1 ring-zinc-800/80"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-black/70 ring-1 ring-zinc-700"
                   aria-label="User"
                 >
                   <span className="text-lg">👤</span>
@@ -195,13 +209,13 @@ export function TopNavV2() {
               </Link>
 
               {userHover ? (
-                <div className="absolute right-0 top-12 w-[320px] rounded-3xl border border-zinc-800/80 bg-zinc-950 p-4 shadow-soft-glow">
+                <div className="absolute right-0 top-11 w-[320px] rounded-2xl border border-zinc-800 bg-black/95 p-4 shadow-xl shadow-black/70">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900 ring-1 ring-zinc-800/80">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-900 ring-1 ring-zinc-700">
                       <span className="text-xl">👤</span>
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-zinc-100">
+                      <p className="text-sm font-semibold text-white">
                         {isLoggedIn ? t("profile.user") : t("profile.guest")}
                       </p>
                       <p className="mt-1 text-[11px] text-zinc-400">
@@ -211,7 +225,7 @@ export function TopNavV2() {
                   </div>
 
                   <div className="mt-4 grid grid-cols-2 gap-3">
-                    <div className="rounded-2xl bg-black/20 p-3">
+                    <div className="rounded-2xl bg-black/40 p-3">
                       <p className="text-[11px] font-semibold text-zinc-500">
                         {t("profile.coinBalance")}
                       </p>
@@ -219,7 +233,7 @@ export function TopNavV2() {
                         {coinBalance}
                       </p>
                     </div>
-                    <div className="rounded-2xl bg-black/20 p-3">
+                    <div className="rounded-2xl bg-black/40 p-3">
                       <p className="text-[11px] font-semibold text-zinc-500">
                         {t("profile.bonus")}
                       </p>
@@ -230,7 +244,7 @@ export function TopNavV2() {
                   <Link href="/store">
                     <button
                       type="button"
-                      className="mt-4 w-full rounded-2xl bg-red-600 px-4 py-3 text-sm font-extrabold text-white hover:bg-red-500"
+                      className="mt-4 w-full rounded-full bg-[#EE2737] px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-500"
                     >
                       {t("profile.toStore")}
                     </button>
@@ -244,7 +258,7 @@ export function TopNavV2() {
               <Link href="/profile">
                 <button
                   type="button"
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 ring-1 ring-zinc-800/80"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-black/60 ring-1 ring-zinc-700"
                   aria-label="User"
                 >
                   <span className="text-lg">👤</span>

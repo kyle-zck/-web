@@ -27,12 +27,12 @@ export function Modal({
       />
       <div
         className={cn(
-          "absolute left-1/2 top-1/2 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-3xl",
-          "border border-zinc-800/80 bg-zinc-950 p-4 shadow-soft-glow backdrop-blur"
+          "absolute left-1/2 top-1/2 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl",
+          "border border-zinc-800/80 bg-black p-4 shadow-xl shadow-black/70 backdrop-blur"
         )}
       >
         {title ? (
-          <p className="text-sm font-semibold text-zinc-100">{title}</p>
+          <p className="text-base font-semibold text-white">{title}</p>
         ) : null}
         <div className="mt-3">{children}</div>
         {footer ? <div className="mt-4">{footer}</div> : null}

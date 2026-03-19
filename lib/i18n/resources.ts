@@ -51,6 +51,19 @@ export const resources: Record<AppLanguage, any> = {
         viewAll: "View all",
         moreMoviesCta: "More Movies"
       },
+      explore: {
+        all: "All",
+        expand: "Expand",
+        collapse: "Collapse",
+        moviesOfAllActors: "Movies of All Actors",
+        actors: "Actors",
+        tabs: {
+          actors: "Actors",
+          actresses: "Actresses",
+          identities: "Identities",
+          storyBeats: "Story Beats"
+        }
+      },
       library: {
         title: "My Library",
         subtitle: "Saved, Continue Watching, and History"
@@ -196,6 +209,19 @@ export const resources: Record<AppLanguage, any> = {
         resultsFound: "找到 {{count}} 条结果：“{{query}}”",
         viewAll: "查看全部",
         moreMoviesCta: "更多电影"
+      },
+      explore: {
+        all: "全部",
+        expand: "展开",
+        collapse: "收起",
+        moviesOfAllActors: "全部演员的作品",
+        actors: "演员",
+        tabs: {
+          actors: "演员",
+          actresses: "女演员",
+          identities: "身份",
+          storyBeats: "情节"
+        }
       },
       library: {
         title: "片单",

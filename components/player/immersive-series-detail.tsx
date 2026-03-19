@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import type { AppLanguage } from "@/lib/i18n/languages";
 import { getSeriesI18nText } from "@/lib/i18n/seriesText";
 import { getTagKey } from "@/lib/i18n/tagKey";
+import { Modal } from "@/components/ui/modal";
 
 const EPISODES_PER_TAB = 30;
 
@@ -55,19 +56,13 @@ function ShareButton({ title }: { title: string }) {
 }
 
 export function ImmersiveSeriesDetail({ series }: { series: Series }) {
-  const {
-    setSeries,
-    episodeIndex,
-    setEpisodeIndex,
-    isEpisodeUnlocked,
-    coinBalance,
-    addCoins
-  } = usePlayerStore();
+  const { setSeries, episodeIndex, setEpisodeIndex, isEpisodeUnlocked } = usePlayerStore();
 
   const { t, i18n } = useTranslation();
   const lang = i18n.language as AppLanguage;
   const [plotExpanded, setPlotExpanded] = useState(false);
   const [episodeTab, setEpisodeTab] = useState(0);
+  const [allEpisodesOpen, setAllEpisodesOpen] = useState(false);
 
   useEffect(() => {
     setSeries(series.id);
@@ -100,31 +95,37 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
 
   return (
     <div className="min-h-screen pb-16">
-      {/* 两栏布局：左 9:16 竖屏播放器，右 信息区（图4/5） */}
-      <div className="mx-auto max-w-6xl px-4 pt-4 lg:flex lg:gap-8 lg:px-6">
+      {/* 两栏布局：左约 40% 播放器，右约 60% 信息区 */}
+      <div className="mx-auto flex max-w-6xl flex-col px-4 pt-4 lg:flex-row lg:gap-8 lg:px-6">
         {/* 左侧：返回 + 9:16 播放器 */}
-        <div className="lg:w-[360px] lg:shrink-0">
-          <div className="flex items-center gap-2 pb-3">
-            <Link href="/" className="rounded-lg border border-zinc-700/80 bg-black/40 p-2 text-zinc-200 hover:bg-zinc-800/80">
-              ← {t("backHome")}
-            </Link>
-          </div>
-          <div className="mx-auto w-full max-w-[280px] sm:max-w-[320px] lg:max-w-[360px]">
+        <div className="mb-6 w-full lg:mb-0 lg:w-2/5 lg:min-w-[320px]">
+          <div className="relative mx-auto w-full max-w-[320px]">
+            {/* 半透明圆形返回按钮覆盖在左上角 */}
+            <button
+              type="button"
+              onClick={() => (window.location.href = "/")}
+              className="absolute left-2 top-2 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/70 text-zinc-200 ring-1 ring-zinc-800/80 hover:bg-black"
+              aria-label={t("backHome")}
+            >
+              ←
+            </button>
             <ImmersivePlayer series={series} episode={episode} />
           </div>
         </div>
 
         {/* 右侧：面包屑、标题、剧情、标签、互动、选集（图5） */}
-        <div className="mt-6 flex-1 lg:mt-0 lg:min-w-0">
-          <nav className="text-xs text-zinc-400">
-            <Link href="/" className="hover:text-zinc-200">Home</Link>
+        <div className="w-full lg:w-3/5 lg:min-w-0">
+          <nav className="text-xs text-zinc-500">
+            <Link href="/" className="hover:text-zinc-200">
+              Home
+            </Link>
             <span className="mx-1">/</span>
             <span className="text-zinc-300">{seriesTitle}</span>
             <span className="mx-1">/</span>
             <span>{episodeLabel}</span>
           </nav>
 
-          <h1 className="mt-2 text-xl font-bold text-white md:text-2xl">
+          <h1 className="mt-2 text-2xl font-bold text-white md:text-3xl">
             {episodeLabel} - {seriesTitle}
           </h1>
 
@@ -146,32 +147,52 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
 
           <div className="mt-4 flex flex-wrap gap-2">
             {series.tags.map((tag) => (
-              <Badge key={tag} variant="pill" className="bg-zinc-800/80 text-zinc-200">
+              <Badge
+                key={tag}
+                variant="pill"
+                className="bg-[#222222] text-white px-3 py-1 text-[11px]"
+              >
                 {t(`tags.${getTagKey(tag)}`)}
               </Badge>
             ))}
           </div>
 
-          <div className="mt-4 flex items-center gap-4 text-sm text-zinc-400">
-            <span>♥ 0 {t("seriesDetail.likes")}</span>
-            <span>★ 0 {t("seriesDetail.favorites")}</span>
-            <ShareButton title={seriesTitle} />
-            <span className="ml-auto text-zinc-500">{t("profile.coinBalance")}: {coinBalance}</span>
-            <button
-              type="button"
-              onClick={() => addCoins(10)}
-              className="rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white"
-            >
-              + Coins
-            </button>
+          <div className="mt-4 flex items-center gap-6 text-xs text-zinc-400">
+            <div className="flex flex-col items-center gap-1">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900 ring-1 ring-zinc-700">
+                ♥
+              </span>
+              <span>16.3k</span>
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900 ring-1 ring-zinc-700">
+                ★
+              </span>
+              <span>15.6k</span>
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900 ring-1 ring-zinc-700">
+                ↗
+              </span>
+              <span>5.7k</span>
+            </div>
+            <div className="ml-auto">
+              <ShareButton title={seriesTitle} />
+            </div>
           </div>
 
           <section className="mt-6">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-zinc-100">{t("seriesDetail.selectEpisodes")}</h2>
-              <Link href="/explore" className="text-xs font-medium text-brand hover:underline">
+              <h2 className="text-sm font-semibold text-zinc-100">
+                {t("seriesDetail.selectEpisodes")}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setAllEpisodesOpen(true)}
+                className="text-xs font-medium text-brand hover:underline"
+              >
                 {t("seriesDetail.allEpisodes")} &gt;
-              </Link>
+              </button>
             </div>
             {tabs.length > 1 && (
               <div className="mt-2 flex gap-2 border-b border-zinc-800/80 pb-2">
@@ -190,11 +211,14 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
                 ))}
               </div>
             )}
-            <p className="mt-1 text-[11px] text-zinc-500">{t("seriesDetail.episodesHint")}</p>
+            <p className="mt-1 text-[11px] text-zinc-500">
+              {t("seriesDetail.episodesHint")}
+            </p>
             <div className="mt-3 grid grid-cols-6 gap-2 sm:grid-cols-8">
               {episodesInTab.map((ep) => {
                 const selected = ep.index === episode.index;
                 const unlocked = isEpisodeUnlocked(series, ep);
+                const isLockedCandidate = ep.index >= 4 && !unlocked;
                 return (
                   <button
                     key={ep.id}
@@ -202,17 +226,28 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
                     onClick={() => setEpisodeIndex(ep.index)}
                     className={cn(
                       "relative flex aspect-square items-center justify-center rounded-lg border text-xs font-semibold transition-colors",
-                      selected ? "border-brand bg-brand/20 text-white" : "border-zinc-700/80 bg-zinc-900/60 text-zinc-200 hover:border-zinc-600",
-                      !unlocked && !selected && "opacity-80"
+                      selected
+                        ? "border-transparent bg-gradient-to-br from-brand to-red-600 text-white"
+                        : "border-zinc-700/80 bg-zinc-900/60 text-zinc-200 hover:border-zinc-600",
+                      isLockedCandidate && "opacity-90"
                     )}
                   >
                     {selected ? (
-                      <span className="text-brand">▶</span>
+                      <span className="eq-bars" aria-hidden="true">
+                        <span />
+                        <span />
+                        <span />
+                      </span>
                     ) : (
                       ep.index
                     )}
-                    {!unlocked && (
-                      <span className="absolute right-0.5 top-0.5 text-[10px]" title={t("series.locked")}>🔒</span>
+                    {isLockedCandidate && (
+                      <span
+                        className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[9px] text-white"
+                        title={t("series.locked")}
+                      >
+                        🔒
+                      </span>
                     )}
                   </button>
                 );
@@ -252,6 +287,68 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
           })}
         </div>
       </section>
+
+      {/* 全部剧集选择弹窗 */}
+      <Modal
+        open={allEpisodesOpen}
+        onClose={() => setAllEpisodesOpen(false)}
+        title={t("seriesDetail.allEpisodes")}
+        footer={null}
+      >
+        <div className="max-h-[420px] overflow-y-auto scrollbar-thin episode-scroll">
+          <div className="grid grid-cols-6 gap-2 sm:grid-cols-10">
+            {series.episodes.map((ep) => {
+              const selected = ep.index === episode.index;
+              const unlocked = isEpisodeUnlocked(series, ep);
+              const isLockedCandidate = ep.index >= 4 && !unlocked;
+              return (
+                <button
+                  key={ep.id}
+                  type="button"
+                  onClick={() => {
+                    setEpisodeIndex(ep.index);
+                    setAllEpisodesOpen(false);
+                  }}
+                  className={cn(
+                    "relative flex aspect-square items-center justify-center rounded-md border text-xs font-semibold transition-colors",
+                    selected
+                      ? "border-transparent bg-gradient-to-br from-brand to-red-600 text-white"
+                      : "border-zinc-700/80 bg-zinc-900/70 text-zinc-200 hover:border-zinc-600",
+                    isLockedCandidate && "opacity-90"
+                  )}
+                >
+                  {selected ? (
+                    <span className="eq-bars" aria-hidden="true">
+                      <span />
+                      <span />
+                      <span />
+                    </span>
+                  ) : (
+                    ep.index
+                  )}
+                  {isLockedCandidate && (
+                    <span
+                      className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[9px] text-white"
+                      title={t("series.locked")}
+                    >
+                      🔒
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </Modal>
+
+      {/* 右下角客服 / 反馈小头像浮标 */}
+      <button
+        type="button"
+        className="fixed bottom-6 right-6 z-40 flex h-11 w-11 items-center justify-center rounded-full bg-zinc-900 text-sm text-white ring-2 ring-zinc-700 shadow-lg shadow-black/70"
+        aria-label="feedback"
+      >
+        🙂
+      </button>
     </div>
   );
 }

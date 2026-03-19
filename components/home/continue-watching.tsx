@@ -7,6 +7,7 @@ import type { Episode, Series } from "@/constants/mock-data";
 import { usePlayerStore } from "@/lib/store/player";
 import type { AppLanguage } from "@/lib/i18n/languages";
 import { getSeriesI18nText } from "@/lib/i18n/seriesText";
+import { getTagKey } from "@/lib/i18n/tagKey";
 
 function formatSeconds(seconds: number) {
   const s = Math.max(0, Math.floor(seconds));
@@ -55,7 +56,7 @@ export function ContinueWatching() {
   return (
     <section className="mt-4">
       <div className="flex items-end justify-between">
-        <h2 className="text-sm font-semibold text-zinc-100">
+        <h2 className="text-3xl font-extrabold tracking-tight text-zinc-50">
           {t("home.continueWatching")}
         </h2>
         <p className="text-[11px] text-zinc-500">
@@ -65,40 +66,52 @@ export function ContinueWatching() {
 
       <div className="mt-3 flex gap-3 overflow-x-auto pb-2 scrollbar-thin md:grid md:grid-cols-6 md:overflow-visible md:gap-4 md:pb-0">
         {watched.map((row) => (
-          <Link
+          <div
             key={`${row.series.id}-${row.episode.id}`}
-            href={`/series/${row.series.id}`}
-            onClick={(e) => {
-              // Keep client state in sync for the player component
-              e.preventDefault();
-              setSeries(row.series.id);
-              setEpisodeIndex(row.episode.index);
-              window.location.href = `/series/${row.series.id}`;
-            }}
-            className="group relative"
+            className="w-40 shrink-0 md:w-auto"
           >
-            <div className="relative poster-aspect overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-900/50">
-              <img
-                src={row.series.cover}
-                alt={getSeriesI18nText(row.series, lang).title}
-                className="h-full w-full object-cover transition duration-200 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-              <div className="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-semibold text-zinc-200 ring-1 ring-zinc-800/80">
-                {row.episode.index <= 3 ? t("series.free") : t("series.locked")}
+            <Link
+              href={`/series/${row.series.id}`}
+              onClick={(e) => {
+                // Keep client state in sync for the player component
+                e.preventDefault();
+                setSeries(row.series.id);
+                setEpisodeIndex(row.episode.index);
+                window.location.href = `/series/${row.series.id}`;
+              }}
+              className="group block"
+            >
+              <div className="relative poster-aspect overflow-hidden rounded-2xl bg-zinc-900 transition-transform duration-200 group-hover:scale-105 group-hover:shadow-[0_0_28px_rgba(0,0,0,0.9)]">
+                <img
+                  src={row.series.cover}
+                  alt={getSeriesI18nText(row.series, lang).title}
+                  className="h-full w-full object-cover"
+                />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black" />
+
+                <div className="pointer-events-none absolute inset-0 flex flex-col justify-end bg-black/80 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                  <div className="space-y-2 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-red-400">
+                      {t(`tags.${getTagKey(row.series.category)}`)}
+                    </p>
+                    <p className="line-clamp-3 text-xs font-medium text-zinc-100">
+                      {getSeriesI18nText(row.series, lang).description ??
+                        getSeriesI18nText(row.series, lang).title}
+                    </p>
+                    <button
+                      type="button"
+                      className="mt-1 inline-flex w-1/2 items-center justify-center rounded-full bg-red-600 px-2 py-1 text-xs font-extrabold text-white shadow-[0_0_18px_rgba(229,9,20,0.7)] group-hover:bg-red-500"
+                    >
+                      Play
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div className="absolute bottom-2 left-2 right-2">
-                <p className="line-clamp-1 text-xs font-semibold text-white">
-                  {lang === "zh-CN"
-                    ? t("series.episodeLabelZh", { index: row.episode.index })
-                    : t("series.episodeLabel", { index: row.episode.index })}
-                </p>
-                <p className="mt-1 text-[11px] text-zinc-200">
-                  {formatSeconds(row.seconds)} {t("home.watched")}
-                </p>
-              </div>
-            </div>
-          </Link>
+            </Link>
+            <p className="mt-2 line-clamp-2 text-xl font-semibold text-zinc-50">
+              {getSeriesI18nText(row.series, lang).title}
+            </p>
+          </div>
         ))}
       </div>
     </section>

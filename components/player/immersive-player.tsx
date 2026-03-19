@@ -22,15 +22,8 @@ export function ImmersivePlayer({
   const { t, i18n } = useTranslation();
   const lang = i18n.language as AppLanguage;
 
-  const {
-    coinBalance,
-    isEpisodeUnlocked,
-    unlockEpisode,
-    episodeIndex,
-    setEpisodeIndex,
-    saveProgress,
-    getProgress
-  } = usePlayerStore();
+  const { isEpisodeUnlocked, unlockEpisode, episodeIndex, setEpisodeIndex, saveProgress, getProgress } =
+    usePlayerStore();
 
   const unlocked = isEpisodeUnlocked(series, episode);
   const initialSeek = useMemo(
@@ -96,7 +89,7 @@ export function ImmersivePlayer({
 
   return (
     <section className="relative">
-      <div className="relative video-aspect w-full overflow-hidden rounded-3xl border border-zinc-800/80 bg-black shadow-soft-glow">
+      <div className="relative video-aspect w-full overflow-hidden rounded-md border border-zinc-800/80 bg-black">
         <video
           ref={videoRef}
           className="h-full w-full object-cover"
@@ -114,14 +107,11 @@ export function ImmersivePlayer({
           }}
         />
 
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-28 bg-gradient-to-b from-black/70 via-black/20 to-transparent" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-20 bg-gradient-to-b from-black/80 via-black/30 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-20 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
 
-        <div className="absolute left-3 top-3 z-20 rounded-full bg-black/55 px-3 py-1 text-[11px] font-medium text-zinc-200 ring-1 ring-zinc-800/80">
+        <div className="absolute left-3 top-3 z-20 rounded-full bg-black/65 px-3 py-1 text-[11px] font-medium text-zinc-200 ring-1 ring-zinc-800/80">
           {episodeLabel} · {hint}
-        </div>
-        <div className="absolute right-3 top-3 z-20 rounded-full bg-black/55 px-3 py-1 text-[11px] font-semibold text-brand ring-1 ring-zinc-800/80">
-          {coinBalance}
         </div>
 
         {!ready ? (

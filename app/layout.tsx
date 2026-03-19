@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { TopNavV2 } from "@/components/app/top-nav-v2";
-import { I18nProvider } from "@/components/i18n/I18nProvider";
+import { I18nAppShell } from "@/components/i18n/I18nAppShell";
 
 export const metadata: Metadata = {
   title: "ReelShort 风格短剧平台",
@@ -17,10 +16,7 @@ export default function RootLayout({
     <html lang="zh-CN" className="dark">
       <body className="min-h-screen bg-black text-white antialiased">
         <div className="app-shell mx-auto flex min-h-screen flex-col bg-black">
-          <I18nProvider>
-            <TopNavV2 />
-            <div className="flex-1">{children}</div>
-          </I18nProvider>
+          <I18nAppShell>{children}</I18nAppShell>
         </div>
       </body>
     </html>

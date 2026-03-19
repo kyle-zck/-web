@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ResponsiveContainer,
   LineChart,
@@ -23,6 +23,30 @@ function hashScore(input: string) {
 
 export default function AdminDashboardPage() {
   const { series } = useAdminSeriesStore();
+  const [brandName, setBrandName] = useState("ReelShorts");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/admin/api/app-config")
+      .then((r) => r.json())
+      .then((json) => {
+        if (json?.brandName) setBrandName(json.brandName);
+      })
+      .catch(() => {});
+  }, []);
+
+  const saveConfig = async () => {
+    try {
+      setSaving(true);
+      await fetch("/admin/api/app-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brandName, tagline })
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const topTrending = useMemo(() => {
     return [...series]
@@ -49,16 +73,44 @@ export default function AdminDashboardPage() {
 
   return (
     <main>
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-extrabold text-zinc-100">Admin Dashboard</h1>
-          <p className="mt-1 text-xs text-zinc-400">
-            Internal metrics UI（示例数据 + 本地存储）
-          </p>
+      <div className="flex flex-col gap-4">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-extrabold text-zinc-100">Admin Dashboard</h1>
+            <p className="mt-1 text-xs text-zinc-400">
+              Internal metrics UI（示例数据 + 本地存储）
+            </p>
+          </div>
+          <Badge variant="pill" className="bg-zinc-900 text-zinc-200 ring-1 ring-zinc-700">
+            App Branding Config
+          </Badge>
         </div>
-        <Badge variant="pill" className="bg-brand/15 text-brand ring-1 ring-brand/40">
-          Purple Accent #7C3AED
-        </Badge>
+
+        {/* App 品牌配置：Navbar Logo & 标题文案 */}
+        <section className="rounded-3xl border border-zinc-800/80 bg-zinc-950/60 p-4">
+          <h2 className="text-sm font-semibold text-zinc-100">Branding</h2>
+          <p className="mt-1 text-xs text-zinc-500">
+            设置导航栏左侧的 Logo 文本与副标题，保存后会同步到前台网站。
+          </p>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <label className="flex flex-col gap-1 text-xs text-zinc-400">
+              Brand name
+              <input
+                value={brandName}
+                onChange={(e) => setBrandName(e.target.value)}
+                className="rounded-2xl border border-zinc-800/80 bg-black/40 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-brand/60"
+              />
+            </label>
+          </div>
+          <button
+            type="button"
+            onClick={saveConfig}
+            disabled={saving}
+            className="mt-3 inline-flex items-center rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
+          >
+            {saving ? "Saving..." : "Save branding"}
+          </button>
+        </section>
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">

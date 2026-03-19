@@ -17,54 +17,60 @@ export function SeriesRow({ titleKey, items }: SeriesRowProps) {
   const lang = i18n.language as AppLanguage;
 
   return (
-    <section className="mb-6 lg:mb-8">
-      <div className="mb-2 flex items-end justify-between px-1">
-        <h2 className="text-sm font-semibold text-zinc-100">{t(titleKey)}</h2>
+    <section className="mb-6 lg:mb-10">
+      <div className="mb-4 flex items-end justify-between px-1">
+        <h2 className="text-3xl font-extrabold tracking-tight text-zinc-50">
+          {t(titleKey)}
+        </h2>
         <Link
           href="/explore"
-          className="text-xs font-medium text-zinc-400 hover:text-zinc-200"
+          className="text-xs font-semibold text-zinc-400 hover:text-zinc-100 lg:text-sm"
         >
           {t("home.viewAll")}
         </Link>
       </div>
-      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin md:grid md:grid-cols-5 lg:grid-cols-6 md:gap-4 lg:gap-5 md:overflow-visible md:pb-0">
+      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin md:grid md:grid-cols-6 md:gap-4 md:overflow-visible md:pb-0 lg:gap-6">
         {items.map((s) => (
           (() => {
             const { title } = getSeriesI18nText(s, lang);
             const categoryLabel = t(`tags.${getTagKey(s.category)}`);
             return (
-          <Link
-            key={s.id}
-            href={`/series/${s.id}`}
-            className="group relative w-40 shrink-0 md:w-auto"
-          >
-            <div className="relative poster-aspect overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-900/50">
-              <img
-                src={s.cover}
-                alt={title}
-                className="h-full w-full object-cover transition duration-200 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
-              <div className="absolute left-2 top-2">
-                <span className="rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-semibold text-zinc-200 ring-1 ring-zinc-800/80">
-                  {categoryLabel}
-                </span>
+              <div key={s.id} className="w-40 shrink-0 md:w-auto">
+                <Link
+                  href={`/series/${s.id}`}
+                  className="group block"
+                >
+                  <div className="relative poster-aspect overflow-hidden rounded-2xl bg-zinc-900 transition-transform duration-200 group-hover:scale-105 group-hover:shadow-[0_0_28px_rgba(0,0,0,0.9)]">
+                    <img
+                      src={s.cover}
+                      alt={title}
+                      className="h-full w-full object-cover"
+                    />
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black" />
+
+                    <div className="pointer-events-none absolute inset-0 flex flex-col justify-end bg-black/80 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                      <div className="space-y-2 p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-red-400">
+                          {categoryLabel}
+                        </p>
+                        <p className="line-clamp-3 text-xs font-medium text-zinc-100">
+                          {getSeriesI18nText(s, lang).description ??
+                            getSeriesI18nText(s, lang).title}
+                        </p>
+                        <button
+                          type="button"
+                          className="mt-1 inline-flex w-1/2 items-center justify-center rounded-full bg-red-600 px-2 py-1 text-xs font-extrabold text-white shadow-[0_0_18px_rgba(229,9,20,0.7)] group-hover:bg-red-500"
+                        >
+                          Play
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+                <p className="mt-2 line-clamp-2 text-xl font-semibold text-zinc-50">
+                  {title}
+                </p>
               </div>
-              <div className="absolute bottom-2 right-2">
-                <span className="inline-flex items-center justify-center rounded-full bg-brand px-3 py-1 text-[11px] font-semibold text-white shadow-soft-glow">
-                  {t("series.play")}
-                </span>
-              </div>
-            </div>
-            <div className="mt-2">
-              <p className="line-clamp-1 text-xs font-semibold text-zinc-100">
-                {title}
-              </p>
-              <p className="line-clamp-1 text-[11px] text-zinc-400">
-                {categoryLabel}
-              </p>
-            </div>
-          </Link>
             );
           })()
         ))}
