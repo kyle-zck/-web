@@ -41,7 +41,7 @@ export default function AdminDashboardPage() {
       await fetch("/admin/api/app-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brandName, tagline })
+        body: JSON.stringify({ brandName })
       });
     } finally {
       setSaving(false);

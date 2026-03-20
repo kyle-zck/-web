@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { I18nAppShell } from "@/components/i18n/I18nAppShell";
+import I18nAppShell from "@/components/i18n/I18nAppShell";
 
 export const metadata: Metadata = {
   title: "ReelShort 风格短剧平台",

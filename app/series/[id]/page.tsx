@@ -13,7 +13,7 @@ export default async function SeriesDetailPage({
   if (!series) return notFound();
 
   return (
-    <main className="min-h-screen pb-10">
+    <main className="h-full min-h-0 overflow-hidden lg:flex lg:flex-col">
       <ImmersiveSeriesDetail series={series} />
     </main>
   );

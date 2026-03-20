@@ -88,8 +88,8 @@ export function ImmersivePlayer({
   const hint = episode.index <= 3 ? t("locked.hintFree") : t("locked.hintLocked", { cost: LOCK_COST });
 
   return (
-    <section className="relative">
-      <div className="relative video-aspect w-full overflow-hidden rounded-md border border-zinc-800/80 bg-black">
+    <section className="relative h-full w-full min-h-0">
+      <div className="relative h-full w-full min-h-0 overflow-hidden rounded-none border-0 bg-[#000000] shadow-none ring-0">
         <video
           ref={videoRef}
           className="h-full w-full object-cover"

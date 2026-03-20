@@ -146,7 +146,10 @@ export const resources: Record<AppLanguage, any> = {
         copiedLink: "Link copied",
         plotOfEpisode: "Plot of Episode {{index}}",
         more: "...More",
+        less: "Less",
         allEpisodes: "All Episodes",
+        coinBalance: "Coin Balance",
+        addCoins: "+ Coins",
         likes: "Likes",
         favorites: "Favorites",
         share: "Share"
@@ -306,7 +309,10 @@ export const resources: Record<AppLanguage, any> = {
         copiedLink: "已复制链接",
         plotOfEpisode: "第 {{index}} 集剧情",
         more: "...更多",
+        less: "收起",
         allEpisodes: "全部剧集",
+        coinBalance: "金币余额",
+        addCoins: "+ 充值",
         likes: "点赞",
         favorites: "收藏",
         share: "分享"

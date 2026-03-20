@@ -6,8 +6,6 @@ import type { Episode, Series } from "@/constants/mock-data";
 import { usePlayerStore } from "@/lib/store/player";
 import { ImmersivePlayer } from "@/components/player/immersive-player";
 import { IconButton } from "@/components/ui/icon-button";
-import { Badge } from "@/components/ui/badge";
-import { SERIES_LIST } from "@/constants/mock-data";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import type { AppLanguage } from "@/lib/i18n/languages";
@@ -15,13 +13,10 @@ import { getSeriesI18nText } from "@/lib/i18n/seriesText";
 import { getTagKey } from "@/lib/i18n/tagKey";
 import { Modal } from "@/components/ui/modal";
 
-const EPISODES_PER_TAB = 30;
+const EPISODES_PER_TAB = 50;
+const LOCK_COST = 10;
 
-function pickRecommended(currentId: string) {
-  return SERIES_LIST.filter((s) => s.id !== currentId).slice(0, 14);
-}
-
-function ShareButton({ title }: { title: string }) {
+function ShareButton({ title, compact }: { title: string; compact?: boolean }) {
   const [copied, setCopied] = useState(false);
   const { t } = useTranslation();
 
@@ -41,6 +36,26 @@ function ShareButton({ title }: { title: string }) {
     }
   };
 
+  if (compact) {
+    return (
+      <div className="relative flex flex-col items-center gap-1">
+        <button
+          type="button"
+          aria-label={t("seriesDetail.share")}
+          onClick={onShare}
+          className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-800/50 hover:text-zinc-200"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+            <polyline points="16 6 12 2 8 6" />
+            <line x1="12" y1="2" x2="12" y2="15" />
+          </svg>
+        </button>
+        <span className="text-base font-medium text-zinc-500">{t("seriesDetail.share")}</span>
+      </div>
+    );
+  }
+
   return (
     <div className="relative">
       <IconButton label={t("seriesDetail.share")} onClick={onShare}>
@@ -56,13 +71,14 @@ function ShareButton({ title }: { title: string }) {
 }
 
 export function ImmersiveSeriesDetail({ series }: { series: Series }) {
-  const { setSeries, episodeIndex, setEpisodeIndex, isEpisodeUnlocked } = usePlayerStore();
+  const { setSeries, episodeIndex, setEpisodeIndex, isEpisodeUnlocked, unlockEpisode, coinBalance } = usePlayerStore();
 
   const { t, i18n } = useTranslation();
   const lang = i18n.language as AppLanguage;
   const [plotExpanded, setPlotExpanded] = useState(false);
   const [episodeTab, setEpisodeTab] = useState(0);
   const [allEpisodesOpen, setAllEpisodesOpen] = useState(false);
+  const [lockedEpisodeModal, setLockedEpisodeModal] = useState<Episode | null>(null);
 
   useEffect(() => {
     setSeries(series.id);
@@ -72,7 +88,6 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
     return series.episodes.find((e) => e.index === episodeIndex) ?? series.episodes[0];
   }, [episodeIndex, series.episodes]);
 
-  const recommended = useMemo(() => pickRecommended(series.id), [series.id]);
   const seriesTitle = getSeriesI18nText(series, lang).title;
   const description = getSeriesI18nText(series, lang).description ?? getSeriesI18nText(series, lang).tagline ?? "";
   const episodeLabel = lang === "zh-CN" ? t("series.episodeLabelZh", { index: episode.index }) : t("series.episodeLabel", { index: episode.index });
@@ -82,7 +97,7 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
     const list: { label: string; start: number; end: number }[] = [];
     for (let start = 1; start <= total; start += EPISODES_PER_TAB) {
       const end = Math.min(start + EPISODES_PER_TAB - 1, total);
-      list.push({ label: `${start}-${end}`, start, end });
+      list.push({ label: `${start - 1} - ${end - 1}`, start, end });
     }
     return list;
   }, [series.episodes.length]);
@@ -94,138 +109,138 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
   }, [series.episodes, tabs, episodeTab]);
 
   return (
-    <div className="min-h-screen pb-16">
-      {/* 两栏布局：左约 40% 播放器，右约 60% 信息区 */}
-      <div className="mx-auto flex max-w-6xl flex-col px-4 pt-4 lg:flex-row lg:gap-8 lg:px-6">
-        {/* 左侧：返回 + 9:16 播放器 */}
-        <div className="mb-6 w-full lg:mb-0 lg:w-2/5 lg:min-w-[320px]">
-          <div className="relative mx-auto w-full max-w-[320px]">
-            {/* 半透明圆形返回按钮覆盖在左上角 */}
-            <button
-              type="button"
-              onClick={() => (window.location.href = "/")}
-              className="absolute left-2 top-2 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/70 text-zinc-200 ring-1 ring-zinc-800/80 hover:bg-black"
-              aria-label={t("backHome")}
-            >
-              ←
-            </button>
-            <ImmersivePlayer series={series} episode={episode} />
+    <>
+      <div className="flex h-full min-h-0 flex-col bg-black pb-16">
+        {/* 左侧：桌面端 fixed 固定，不随页面滚动；移动端正常流式布局 */}
+        <aside className="relative z-10 mb-6 flex w-full shrink-0 justify-center bg-black lg:fixed lg:left-0 lg:top-20 lg:mb-0 lg:h-[calc(100dvh-5rem)] lg:w-[65vw] lg:overflow-hidden lg:border-r lg:border-zinc-900">
+        <div className="relative flex h-full w-full items-center justify-center px-3 py-4 lg:px-4 lg:py-0">
+          <div className="relative h-full w-auto max-w-full shrink-0 aspect-[9/16]">
+              <button
+                type="button"
+                onClick={() => (window.location.href = "/")}
+                className="absolute left-2 top-2 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-base text-zinc-100 backdrop-blur-sm ring-1 ring-white/15 hover:bg-black/80"
+                aria-label={t("backHome")}
+              >
+                ←
+              </button>
+              <ImmersivePlayer series={series} episode={episode} />
+            </div>
           </div>
-        </div>
+        </aside>
 
-        {/* 右侧：面包屑、标题、剧情、标签、互动、选集（图5） */}
-        <div className="w-full lg:w-3/5 lg:min-w-0">
-          <nav className="text-xs text-zinc-500">
+        <div className="w-full min-w-0 flex-1 overflow-y-auto px-5 pb-16 pt-5 lg:ml-[65vw] lg:h-full lg:min-h-0 lg:w-[35vw] lg:px-6 lg:pt-7">
+          <nav className="text-sm text-zinc-500">
             <Link href="/" className="hover:text-zinc-200">
-              Home
+              {t("nav.home")}
             </Link>
-            <span className="mx-1">/</span>
-            <span className="text-zinc-300">{seriesTitle}</span>
-            <span className="mx-1">/</span>
+            <span className="mx-1.5">/</span>
+            <span className="text-zinc-400">{seriesTitle}</span>
+            <span className="mx-1.5">/</span>
             <span>{episodeLabel}</span>
           </nav>
 
-          <h1 className="mt-2 text-2xl font-bold text-white md:text-3xl">
+          <h1 className="mt-4 text-xl font-bold leading-tight text-white lg:text-2xl">
             {episodeLabel} - {seriesTitle}
           </h1>
 
-          <section className="mt-4">
-            <h2 className="text-sm font-semibold text-zinc-200">{t("seriesDetail.plotOfEpisode", { index: episode.index })}</h2>
-            <p className="mt-1 text-sm leading-6 text-zinc-400">
-              {plotExpanded ? description : `${description.slice(0, 180)}${description.length > 180 ? "…" : ""}`}
+          <section className="mt-5">
+            <h2 className="text-sm font-bold text-white">{t("seriesDetail.plotOfEpisode", { index: episode.index })}</h2>
+            <p className={cn("mt-1.5 text-xs leading-5 text-zinc-500", !plotExpanded && "line-clamp-3")}>
+              {description}
             </p>
-            {description.length > 180 && (
+            {description.length > 60 && (
               <button
                 type="button"
                 onClick={() => setPlotExpanded((v) => !v)}
-                className="mt-1 text-sm font-medium text-brand hover:underline"
+                className="mt-0.5 text-xs font-medium text-brand hover:underline"
               >
-                {plotExpanded ? "↑" : t("seriesDetail.more")}
+                {plotExpanded ? "↑ " + t("seriesDetail.less") : t("seriesDetail.more")}
               </button>
             )}
           </section>
 
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-5 flex flex-wrap gap-3">
             {series.tags.map((tag) => (
-              <Badge
+              <span
                 key={tag}
-                variant="pill"
-                className="bg-[#222222] text-white px-3 py-1 text-[11px]"
+                className="rounded-full bg-[#222222] px-2.5 py-0.5 text-xs font-medium text-white"
               >
                 {t(`tags.${getTagKey(tag)}`)}
-              </Badge>
+              </span>
             ))}
           </div>
 
-          <div className="mt-4 flex items-center gap-6 text-xs text-zinc-400">
+          <div className="mt-5 flex items-center justify-around border-y border-zinc-800/80 py-4">
             <div className="flex flex-col items-center gap-1">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900 ring-1 ring-zinc-700">
-                ♥
-              </span>
-              <span>16.3k</span>
+              <span className="text-3xl text-zinc-400" aria-hidden>♥</span>
+              <span className="text-base font-medium text-zinc-500">4.8k</span>
             </div>
             <div className="flex flex-col items-center gap-1">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900 ring-1 ring-zinc-700">
-                ★
-              </span>
-              <span>15.6k</span>
+              <span className="text-3xl text-zinc-400" aria-hidden>★</span>
+              <span className="text-base font-medium text-zinc-500">100.5k</span>
             </div>
-            <div className="flex flex-col items-center gap-1">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900 ring-1 ring-zinc-700">
-                ↗
-              </span>
-              <span>5.7k</span>
-            </div>
-            <div className="ml-auto">
-              <ShareButton title={seriesTitle} />
-            </div>
+            <ShareButton title={seriesTitle} compact />
           </div>
 
           <section className="mt-6">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-zinc-100">
-                {t("seriesDetail.selectEpisodes")}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setAllEpisodesOpen(true)}
-                className="text-xs font-medium text-brand hover:underline"
-              >
-                {t("seriesDetail.allEpisodes")} &gt;
-              </button>
-            </div>
-            {tabs.length > 1 && (
-              <div className="mt-2 flex gap-2 border-b border-zinc-800/80 pb-2">
+            <h2 className="text-base font-bold text-zinc-100">
+              {t("seriesDetail.selectEpisodes")}
+            </h2>
+            {/* 每50集为一组，超过50集显示范围 Tab，与 All Episodes 同排 */}
+            {tabs.length > 1 ? (
+              <div className="mt-3 flex items-center gap-4 border-b border-zinc-800/80 pb-2">
                 {tabs.map((tab, i) => (
                   <button
                     key={tab.label}
                     type="button"
                     onClick={() => setEpisodeTab(i)}
                     className={cn(
-                      "rounded px-3 py-1.5 text-xs font-medium transition-colors",
-                      episodeTab === i ? "border-b-2 border-brand text-brand" : "text-zinc-400 hover:text-white"
+                      "pb-1.5 text-base font-medium transition-colors",
+                      episodeTab === i ? "border-b-2 border-brand text-brand" : "border-b-2 border-transparent text-zinc-500 hover:text-white"
                     )}
                   >
                     {tab.label}
                   </button>
                 ))}
+                <div className="flex-1" />
+                <button
+                  type="button"
+                  onClick={() => setAllEpisodesOpen(true)}
+                  className="text-base font-medium text-zinc-500 hover:text-white"
+                >
+                  {t("seriesDetail.allEpisodes")} &gt;
+                </button>
+              </div>
+            ) : (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => setAllEpisodesOpen(true)}
+                  className="text-base font-medium text-brand hover:underline"
+                >
+                  {t("seriesDetail.allEpisodes")} &gt;
+                </button>
               </div>
             )}
-            <p className="mt-1 text-[11px] text-zinc-500">
-              {t("seriesDetail.episodesHint")}
-            </p>
-            <div className="mt-3 grid grid-cols-6 gap-2 sm:grid-cols-8">
-              {episodesInTab.map((ep) => {
-                const selected = ep.index === episode.index;
-                const unlocked = isEpisodeUnlocked(series, ep);
-                const isLockedCandidate = ep.index >= 4 && !unlocked;
-                return (
-                  <button
-                    key={ep.id}
-                    type="button"
-                    onClick={() => setEpisodeIndex(ep.index)}
-                    className={cn(
-                      "relative flex aspect-square items-center justify-center rounded-lg border text-xs font-semibold transition-colors",
+            <div className="episode-scroll-hide mt-3 overflow-y-auto scroll-smooth">
+              <div className="grid grid-cols-6 gap-2">
+                {episodesInTab.map((ep) => {
+                  const selected = ep.index === episode.index;
+                  const unlocked = isEpisodeUnlocked(series, ep);
+                  const isLockedCandidate = ep.index >= 4 && !unlocked;
+                  return (
+                    <button
+                      key={ep.id}
+                      type="button"
+                      onClick={() => {
+                        if (isLockedCandidate) {
+                          setLockedEpisodeModal(ep);
+                        } else {
+                          setEpisodeIndex(ep.index);
+                        }
+                      }}
+                      className={cn(
+                      "relative flex aspect-square items-center justify-center rounded-md border text-base font-semibold transition-colors",
                       selected
                         ? "border-transparent bg-gradient-to-br from-brand to-red-600 text-white"
                         : "border-zinc-700/80 bg-zinc-900/60 text-zinc-200 hover:border-zinc-600",
@@ -233,17 +248,20 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
                     )}
                   >
                     {selected ? (
-                      <span className="eq-bars" aria-hidden="true">
-                        <span />
-                        <span />
-                        <span />
-                      </span>
+                      <>
+                        <span>{ep.index}</span>
+                        <span className="eq-bars absolute right-1 bottom-1" aria-hidden="true">
+                          <span />
+                          <span />
+                          <span />
+                        </span>
+                      </>
                     ) : (
                       ep.index
                     )}
                     {isLockedCandidate && (
                       <span
-                        className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[9px] text-white"
+                        className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[11px] text-white"
                         title={t("series.locked")}
                       >
                         🔒
@@ -253,40 +271,47 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
                 );
               })}
             </div>
+            </div>
           </section>
         </div>
       </div>
 
-      {/* 底部：推荐位（图6）9:16 海报网格 */}
-      <section className="mx-auto max-w-6xl px-4 pt-10 lg:px-6">
-        <h2 className="text-lg font-bold text-white">{t("seriesDetail.recommendedForYou")}</h2>
-        <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7">
-          {recommended.map((s) => {
-            const { title } = getSeriesI18nText(s, lang);
-            const categoryLabel = t(`tags.${getTagKey(s.category)}`);
-            return (
-              <Link
-                key={s.id}
-                href={`/series/${s.id}`}
-                className="group"
-              >
-                <div className="relative poster-aspect overflow-hidden rounded-lg bg-zinc-900">
-                  <img
-                    src={s.cover}
-                    alt={title}
-                    className="h-full w-full object-cover transition group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-                <p className="mt-1.5 line-clamp-2 text-xs font-medium text-white">{title}</p>
-                <span className="mt-0.5 inline-block rounded bg-zinc-800/80 px-1.5 py-0.5 text-[10px] text-zinc-300">
-                  {categoryLabel}
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-      </section>
+      {/* 锁定剧集：点击弹出充值/解锁浮层 - 放在 Fragment 内与主布局同级 */}
+      <Modal
+        open={!!lockedEpisodeModal}
+        onClose={() => setLockedEpisodeModal(null)}
+        title={t("locked.title")}
+        footer={
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={coinBalance < LOCK_COST}
+              onClick={() => {
+                if (lockedEpisodeModal && unlockEpisode(series, lockedEpisodeModal, LOCK_COST)) {
+                  setLockedEpisodeModal(null);
+                }
+              }}
+              className={cn(
+                "flex-1 rounded-full px-4 py-3 text-sm font-semibold text-white",
+                coinBalance >= LOCK_COST ? "bg-brand hover:bg-red-600" : "cursor-not-allowed bg-zinc-700"
+              )}
+            >
+              {t("locked.unlock", { cost: LOCK_COST })}
+            </button>
+            <Link
+              href="/store"
+              className="rounded-full bg-zinc-900 px-4 py-3 text-sm font-semibold text-zinc-100 ring-1 ring-zinc-800/80 hover:bg-zinc-800"
+              onClick={() => setLockedEpisodeModal(null)}
+            >
+              {t("seriesDetail.addCoins")}
+            </Link>
+          </div>
+        }
+      >
+        {lockedEpisodeModal ? (
+          <p className="text-sm text-zinc-400">{t("locked.body", { index: lockedEpisodeModal.index })}</p>
+        ) : null}
+      </Modal>
 
       {/* 全部剧集选择弹窗 */}
       <Modal
@@ -295,7 +320,7 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
         title={t("seriesDetail.allEpisodes")}
         footer={null}
       >
-        <div className="max-h-[420px] overflow-y-auto scrollbar-thin episode-scroll">
+        <div className="episode-scroll-hide max-h-[420px] overflow-y-auto scroll-smooth">
           <div className="grid grid-cols-6 gap-2 sm:grid-cols-10">
             {series.episodes.map((ep) => {
               const selected = ep.index === episode.index;
@@ -306,11 +331,16 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
                   key={ep.id}
                   type="button"
                   onClick={() => {
-                    setEpisodeIndex(ep.index);
-                    setAllEpisodesOpen(false);
+                    if (isLockedCandidate) {
+                      setAllEpisodesOpen(false);
+                      setLockedEpisodeModal(ep);
+                    } else {
+                      setEpisodeIndex(ep.index);
+                      setAllEpisodesOpen(false);
+                    }
                   }}
                   className={cn(
-                    "relative flex aspect-square items-center justify-center rounded-md border text-xs font-semibold transition-colors",
+                    "relative flex aspect-square items-center justify-center rounded-md border text-base font-semibold transition-colors",
                     selected
                       ? "border-transparent bg-gradient-to-br from-brand to-red-600 text-white"
                       : "border-zinc-700/80 bg-zinc-900/70 text-zinc-200 hover:border-zinc-600",
@@ -328,7 +358,7 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
                   )}
                   {isLockedCandidate && (
                     <span
-                      className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[9px] text-white"
+                      className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[11px] text-white"
                       title={t("series.locked")}
                     >
                       🔒
@@ -349,6 +379,6 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
       >
         🙂
       </button>
-    </div>
+    </>
   );
 }
