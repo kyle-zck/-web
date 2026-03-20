@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Episode, Series } from "@/constants/mock-data";
 import { usePlayerStore } from "@/lib/store/player";
+import { useFavoritesStore } from "@/lib/store/favorites";
+import { useLikesStore } from "@/lib/store/likes";
+import { useUserStore } from "@/lib/store/user";
 import { ImmersivePlayer } from "@/components/player/immersive-player";
 import { IconButton } from "@/components/ui/icon-button";
 import { cn } from "@/lib/utils";
@@ -14,7 +17,12 @@ import { getTagKey } from "@/lib/i18n/tagKey";
 import { Modal } from "@/components/ui/modal";
 
 const EPISODES_PER_TAB = 50;
-const LOCK_COST = 10;
+
+function formatCount(n: number): string {
+  if (n === 0) return "0";
+  if (n < 1000) return String(n);
+  return `${(n / 1000).toFixed(1)}k`;
+}
 
 function ShareButton({ title, compact }: { title: string; compact?: boolean }) {
   const [copied, setCopied] = useState(false);
@@ -23,9 +31,15 @@ function ShareButton({ title, compact }: { title: string; compact?: boolean }) {
   const onShare = async () => {
     try {
       const url = window.location.href;
-      const nav = navigator as Navigator & { share?: (data: { title: string; url: string }) => Promise<void> };
+      const nav = navigator as Navigator & {
+        share?: (data: { title?: string; text?: string; url?: string }) => Promise<void>;
+      };
       if (nav.share) {
-        await nav.share({ title, url });
+        await nav.share({
+          title,
+          text: `${title} - 精彩短剧，快来观看`,
+          url
+        });
         return;
       }
       await navigator.clipboard.writeText(url);
@@ -71,18 +85,36 @@ function ShareButton({ title, compact }: { title: string; compact?: boolean }) {
 }
 
 export function ImmersiveSeriesDetail({ series }: { series: Series }) {
-  const { setSeries, episodeIndex, setEpisodeIndex, isEpisodeUnlocked, unlockEpisode, coinBalance } = usePlayerStore();
+  const { setSeries, episodeIndex, setEpisodeIndex, isEpisodeUnlocked } = usePlayerStore();
+  const { has: isFavorited, toggle: toggleFavorite, seriesIds } = useFavoritesStore();
+  const { has: isLiked, toggle: toggleLike } = useLikesStore();
+  const { isLoggedIn, userId } = useUserStore();
+  const [collectionCount, setCollectionCount] = useState(0);
+  const [likesCount, setLikesCount] = useState(0);
 
   const { t, i18n } = useTranslation();
   const lang = i18n.language as AppLanguage;
   const [plotExpanded, setPlotExpanded] = useState(false);
   const [episodeTab, setEpisodeTab] = useState(0);
   const [allEpisodesOpen, setAllEpisodesOpen] = useState(false);
-  const [lockedEpisodeModal, setLockedEpisodeModal] = useState<Episode | null>(null);
+
+  const lockStartIndex = series.lockStartIndex ?? 4;
 
   useEffect(() => {
     setSeries(series.id);
   }, [series.id, setSeries]);
+
+  useEffect(() => {
+    fetch(`/api/series/${series.id}/counts`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (json?.ok) {
+          setCollectionCount(json.collectionCount ?? 0);
+          setLikesCount(json.likesCount ?? 0);
+        }
+      })
+      .catch(() => {});
+  }, [series.id]);
 
   const episode = useMemo<Episode>(() => {
     return series.episodes.find((e) => e.index === episodeIndex) ?? series.episodes[0];
@@ -171,14 +203,69 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
           </div>
 
           <div className="mt-5 flex items-center justify-around border-y border-zinc-800/80 py-4">
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-3xl text-zinc-400" aria-hidden>♥</span>
-              <span className="text-base font-medium text-zinc-500">4.8k</span>
-            </div>
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-3xl text-zinc-400" aria-hidden>★</span>
-              <span className="text-base font-medium text-zinc-500">100.5k</span>
-            </div>
+            {/* 收藏：星星，显示收藏人数 */}
+            <button
+              type="button"
+              onClick={() => {
+                const wasCollected = isFavorited(series.id);
+                toggleFavorite(series.id);
+                if (isLoggedIn && userId) {
+                  const next = wasCollected
+                    ? seriesIds.filter((id) => id !== series.id)
+                    : [...seriesIds, series.id];
+                  fetch("/api/user/favorites", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ clientId: userId, seriesIds: next })
+                  }).then(() => {
+                    setCollectionCount((c) => (wasCollected ? c - 1 : c + 1));
+                  }).catch(() => {});
+                }
+              }}
+              className="flex flex-col items-center gap-1 transition-colors hover:text-brand"
+            >
+              <span
+                className={cn("text-3xl", isFavorited(series.id) ? "text-brand" : "text-zinc-400")}
+                aria-hidden
+              >
+                ★
+              </span>
+              <span className="text-base font-medium text-zinc-500">
+                {formatCount(collectionCount)}
+              </span>
+            </button>
+            {/* 喜欢：爱心，显示喜欢人数 */}
+            <button
+              type="button"
+              onClick={() => {
+                const wasLiked = isLiked(series.id);
+                toggleLike(series.id);
+                if (isLoggedIn && userId) {
+                  fetch("/api/user/likes", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      clientId: userId,
+                      seriesId: series.id,
+                      liked: !wasLiked
+                    })
+                  }).then(() => {
+                    setLikesCount((c) => (wasLiked ? c - 1 : c + 1));
+                  }).catch(() => {});
+                }
+              }}
+              className="flex flex-col items-center gap-1 transition-colors hover:text-brand"
+            >
+              <span
+                className={cn("text-3xl", isLiked(series.id) ? "text-brand" : "text-zinc-400")}
+                aria-hidden
+              >
+                ♥
+              </span>
+              <span className="text-base font-medium text-zinc-500">
+                {formatCount(likesCount)}
+              </span>
+            </button>
             <ShareButton title={seriesTitle} compact />
           </div>
 
@@ -227,20 +314,19 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
                 {episodesInTab.map((ep) => {
                   const selected = ep.index === episode.index;
                   const unlocked = isEpisodeUnlocked(series, ep);
-                  const isLockedCandidate = ep.index >= 4 && !unlocked;
+                  const isLockedCandidate = ep.index >= lockStartIndex && !unlocked;
                   return (
                     <button
                       key={ep.id}
                       type="button"
                       onClick={() => {
+                        setEpisodeIndex(ep.index);
                         if (isLockedCandidate) {
-                          setLockedEpisodeModal(ep);
-                        } else {
-                          setEpisodeIndex(ep.index);
+                          setAllEpisodesOpen(false);
                         }
                       }}
                       className={cn(
-                      "relative flex aspect-square items-center justify-center rounded-md border text-base font-semibold transition-colors",
+                      "relative flex aspect-[5/4] items-center justify-center rounded-md border text-base font-semibold transition-colors",
                       selected
                         ? "border-transparent bg-gradient-to-br from-brand to-red-600 text-white"
                         : "border-zinc-700/80 bg-zinc-900/60 text-zinc-200 hover:border-zinc-600",
@@ -276,44 +362,7 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
         </div>
       </div>
 
-      {/* 锁定剧集：点击弹出充值/解锁浮层 - 放在 Fragment 内与主布局同级 */}
-      <Modal
-        open={!!lockedEpisodeModal}
-        onClose={() => setLockedEpisodeModal(null)}
-        title={t("locked.title")}
-        footer={
-          <div className="flex gap-2">
-            <button
-              type="button"
-              disabled={coinBalance < LOCK_COST}
-              onClick={() => {
-                if (lockedEpisodeModal && unlockEpisode(series, lockedEpisodeModal, LOCK_COST)) {
-                  setLockedEpisodeModal(null);
-                }
-              }}
-              className={cn(
-                "flex-1 rounded-full px-4 py-3 text-sm font-semibold text-white",
-                coinBalance >= LOCK_COST ? "bg-brand hover:bg-red-600" : "cursor-not-allowed bg-zinc-700"
-              )}
-            >
-              {t("locked.unlock", { cost: LOCK_COST })}
-            </button>
-            <Link
-              href="/store"
-              className="rounded-full bg-zinc-900 px-4 py-3 text-sm font-semibold text-zinc-100 ring-1 ring-zinc-800/80 hover:bg-zinc-800"
-              onClick={() => setLockedEpisodeModal(null)}
-            >
-              {t("seriesDetail.addCoins")}
-            </Link>
-          </div>
-        }
-      >
-        {lockedEpisodeModal ? (
-          <p className="text-sm text-zinc-400">{t("locked.body", { index: lockedEpisodeModal.index })}</p>
-        ) : null}
-      </Modal>
-
-      {/* 全部剧集选择弹窗 */}
+      {/* 全部剧集选择弹窗 - 点击锁定剧集会切换集数，播放器显示图3 覆盖层 */}
       <Modal
         open={allEpisodesOpen}
         onClose={() => setAllEpisodesOpen(false)}
@@ -321,26 +370,21 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
         footer={null}
       >
         <div className="episode-scroll-hide max-h-[420px] overflow-y-auto scroll-smooth">
-          <div className="grid grid-cols-6 gap-2 sm:grid-cols-10">
+          <div className="grid grid-cols-6 gap-2">
             {series.episodes.map((ep) => {
               const selected = ep.index === episode.index;
               const unlocked = isEpisodeUnlocked(series, ep);
-              const isLockedCandidate = ep.index >= 4 && !unlocked;
+              const isLockedCandidate = ep.index >= lockStartIndex && !unlocked;
               return (
                 <button
                   key={ep.id}
                   type="button"
                   onClick={() => {
-                    if (isLockedCandidate) {
-                      setAllEpisodesOpen(false);
-                      setLockedEpisodeModal(ep);
-                    } else {
-                      setEpisodeIndex(ep.index);
-                      setAllEpisodesOpen(false);
-                    }
+                    setEpisodeIndex(ep.index);
+                    setAllEpisodesOpen(false);
                   }}
                   className={cn(
-                    "relative flex aspect-square items-center justify-center rounded-md border text-base font-semibold transition-colors",
+                    "relative flex aspect-[5/4] items-center justify-center rounded-md border text-base font-semibold transition-colors",
                     selected
                       ? "border-transparent bg-gradient-to-br from-brand to-red-600 text-white"
                       : "border-zinc-700/80 bg-zinc-900/70 text-zinc-200 hover:border-zinc-600",

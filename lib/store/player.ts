@@ -6,20 +6,29 @@ type SeriesId = Series["id"];
 
 type ProgressKey = `${SeriesId}::${number}`;
 
+/** 是否锁定：episode.index >= lockStartIndex 且未订阅 */
+export function isEpisodeLocked(series: Series, episode: Episode): boolean {
+  const lockStart = series.lockStartIndex ?? 4;
+  return episode.index >= lockStart;
+}
+
 interface PlayerState {
   seriesId?: SeriesId;
   episodeIndex: number;
-  coinBalance: number;
-  unlocked: Record<SeriesId, number[]>;
+  isSubscribed: boolean;
+  /** 订阅到期时间戳（毫秒），用于计算倒数天数 */
+  subscriptionExpiryDate?: number;
+  /** 会员类型：Monthly VIP / Weekly VIP / Yearly VIP */
+  subscriptionTier?: string;
   progressSeconds: Record<ProgressKey, number>;
 
   setSeries: (seriesId: SeriesId) => void;
   setEpisodeIndex: (episodeIndex: number) => void;
   isEpisodeUnlocked: (series: Series, episode: Episode) => boolean;
-  unlockEpisode: (series: Series, episode: Episode, cost: number) => boolean;
+  setSubscribed: (v: boolean, durationDays?: number, tier?: string) => void;
+  getDaysRemaining: () => number;
   saveProgress: (seriesId: SeriesId, episodeIndex: number, seconds: number) => void;
   getProgress: (seriesId: SeriesId, episodeIndex: number) => number;
-  addCoins: (amount: number) => void;
 }
 
 export const usePlayerStore = create<PlayerState>()(
@@ -27,8 +36,7 @@ export const usePlayerStore = create<PlayerState>()(
     (set, get) => ({
       seriesId: undefined,
       episodeIndex: 1,
-      coinBalance: 30,
-      unlocked: {},
+      isSubscribed: false,
       progressSeconds: {},
 
       setSeries: (seriesId) =>
@@ -40,25 +48,31 @@ export const usePlayerStore = create<PlayerState>()(
       setEpisodeIndex: (episodeIndex) => set({ episodeIndex }),
 
       isEpisodeUnlocked: (series, episode) => {
-        if (episode.isFree) return true;
-        const list = get().unlocked[series.id] ?? [];
-        return list.includes(episode.index);
+        if (get().isSubscribed) return true;
+        return !isEpisodeLocked(series, episode);
       },
 
-      unlockEpisode: (series, episode, cost) => {
-        if (episode.isFree) return true;
-        const state = get();
-        if (state.coinBalance < cost) return false;
-        const current = state.unlocked[series.id] ?? [];
-        if (current.includes(episode.index)) return true;
-        set({
-          coinBalance: state.coinBalance - cost,
-          unlocked: {
-            ...state.unlocked,
-            [series.id]: [...current, episode.index]
-          }
-        });
-        return true;
+      setSubscribed: (v, durationDays = 30, tier) => {
+        if (v) {
+          const expiry = Date.now() + durationDays * 24 * 60 * 60 * 1000;
+          set({
+            isSubscribed: true,
+            subscriptionExpiryDate: expiry,
+            subscriptionTier: tier ?? "VIP"
+          });
+        } else {
+          set({
+            isSubscribed: false,
+            subscriptionExpiryDate: undefined,
+            subscriptionTier: undefined
+          });
+        }
+      },
+      getDaysRemaining: () => {
+        const expiry = get().subscriptionExpiryDate;
+        if (!expiry) return 0;
+        const days = Math.ceil((expiry - Date.now()) / (24 * 60 * 60 * 1000));
+        return Math.max(0, days);
       },
 
       saveProgress: (seriesId, episodeIndex, seconds) => {
@@ -74,15 +88,11 @@ export const usePlayerStore = create<PlayerState>()(
       getProgress: (seriesId, episodeIndex) => {
         const key: ProgressKey = `${seriesId}::${episodeIndex}`;
         return get().progressSeconds[key] ?? 0;
-      },
-
-      addCoins: (amount) =>
-        set((s) => ({ coinBalance: Math.max(0, s.coinBalance + amount) }))
+      }
     }),
     {
       name: "reelshort-player-store",
-      version: 1
+      version: 2
     }
   )
 );
-

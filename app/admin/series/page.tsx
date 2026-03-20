@@ -57,6 +57,7 @@ export default function AdminSeriesPage() {
                   <th className="px-2 py-1 font-semibold">Title</th>
                   <th className="px-2 py-1 font-semibold">Tags</th>
                   <th className="px-2 py-1 font-semibold">Episodes</th>
+                  <th className="px-2 py-1 font-semibold">Lock From</th>
                   <th className="px-2 py-1 font-semibold">Action</th>
                 </tr>
               </thead>
@@ -95,6 +96,29 @@ export default function AdminSeriesPage() {
                       <p className="text-zinc-100 font-semibold">{s.episodes.length}</p>
                     </td>
                     <td className="px-2">
+                      <select
+                        value={s.lockStartIndex ?? 4}
+                        onChange={(e) => {
+                          const v = Number(e.target.value);
+                          fetch(`/admin/api/series/${s.id}`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ lockStartIndex: v })
+                          })
+                            .then((r) => r.json())
+                            .then(() => load())
+                            .catch(() => load());
+                        }}
+                        className="rounded-lg border border-zinc-700 bg-black/50 px-2 py-1 text-xs text-zinc-200"
+                      >
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                          <option key={n} value={n}>
+                            Ep {n}+
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-2">
                       <button
                         type="button"
                         onClick={() => {
@@ -114,7 +138,7 @@ export default function AdminSeriesPage() {
                 ))}
                 {!sorted.length ? (
                   <tr>
-                    <td colSpan={5} className="px-2 py-6 text-center text-xs text-zinc-500">
+                    <td colSpan={6} className="px-2 py-6 text-center text-xs text-zinc-500">
                       No series yet. Please upload one.
                     </td>
                   </tr>

@@ -49,7 +49,7 @@ export function TopNavV2() {
   const { t, i18n } = useTranslation();
   const { lang, setLanguage, languageOptions } = useAppLanguage();
 
-  const { coinBalance } = usePlayerStore();
+  const { isSubscribed, getDaysRemaining } = usePlayerStore();
   const { isLoggedIn, userId } = useUserStore();
 
   const hidden = useMemo(() => pathname.startsWith("/admin"), [pathname]);
@@ -83,11 +83,6 @@ export function TopNavV2() {
         active: pathname.startsWith("/explore")
       },
       {
-        href: "/library",
-        label: t("nav.library"),
-        active: pathname.startsWith("/library")
-      },
-      {
         href: "/profile",
         label: t("nav.profile"),
         active: pathname.startsWith("/profile")
@@ -118,17 +113,17 @@ export function TopNavV2() {
   return (
     <>
       <header className="sticky top-0 z-50 border-b border-zinc-800/70 bg-black/70 backdrop-blur-md">
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-6 px-8 py-4">
+        <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-3 sm:gap-6 sm:px-6 sm:py-4 lg:px-8">
           {/* 左侧：Logo + 品牌名 + 中部菜单 */}
           <div className="flex flex-1 items-center gap-8">
-            <Link href="/" className="flex items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-brand via-red-600 to-brand ring-2 ring-zinc-600">
-                <span className="text-4xl font-extrabold leading-none text-white">
+            <Link href="/" className="flex items-center gap-2 sm:gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand via-red-600 to-brand ring-2 ring-zinc-600 sm:h-12 sm:w-12 lg:h-14 lg:w-14">
+                <span className="text-2xl font-extrabold leading-none text-white sm:text-3xl lg:text-4xl">
                   Rs
                 </span>
               </div>
-              <div className="leading-tight">
-                <p className="text-3xl font-bold text-white truncate max-w-[260px]">
+              <div className="min-w-0 leading-tight">
+                <p className="truncate text-lg font-bold text-white sm:text-2xl lg:max-w-[260px] lg:text-3xl">
                   {brandName}
                 </p>
               </div>
@@ -227,17 +222,17 @@ export function TopNavV2() {
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     <div className="rounded-2xl bg-black/40 p-3">
                       <p className="text-[11px] font-semibold text-zinc-500">
-                        {t("profile.coinBalance")}
+                        {t("subscription.status", "VIP Status")}
                       </p>
                       <p className="mt-2 text-xl font-extrabold text-white">
-                        {coinBalance}
+                        {isSubscribed ? t("subscription.active", "Active") : t("subscription.inactive", "Inactive")}
                       </p>
                     </div>
                     <div className="rounded-2xl bg-black/40 p-3">
                       <p className="text-[11px] font-semibold text-zinc-500">
-                        {t("profile.bonus")}
+                        {t("subscription.daysRemaining", "Days Remaining")}
                       </p>
-                      <p className="mt-2 text-xl font-extrabold text-white">0</p>
+                      <p className="mt-2 text-xl font-extrabold text-white">{getDaysRemaining()}</p>
                     </div>
                   </div>
 

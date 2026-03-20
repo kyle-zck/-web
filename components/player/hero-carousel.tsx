@@ -74,7 +74,7 @@ export function HeroCarousel({ items }: HeroCarouselProps) {
             <div
               key={item.id}
               data-index={index}
-              className={`relative w-[210px] shrink-0 snap-center md:w-[240px] transition-transform duration-300 ${scaleClass}`}
+              className={`relative w-[160px] shrink-0 snap-center sm:w-[200px] md:w-[240px] transition-transform duration-300 ${scaleClass}`}
             >
               <Link
                 href={`/series/${item.id}`}

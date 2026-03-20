@@ -116,7 +116,18 @@ export const resources: Record<AppLanguage, any> = {
           "This is the UI demo entry for “Watch Ad to Earn Coins”. Next we will connect real ads & billing.",
         watchedAt: "Watched {{time}}",
         earnAdHint: "UI demo button - it will not actually add coins.",
-        emptyHistory: "Watch any episode to see your history."
+        emptyHistory: "Watch any episode to see your history.",
+        wallet: "Wallet",
+        myList: "My list",
+        history: "History",
+        transactionHistory: "Transaction History",
+        episodesUnlocked: "Episodes Unlocked",
+        amount: "Amount",
+        date: "Date",
+        tier: "Tier",
+        tradingHours: "Time",
+        nothingInside: "Nothing inside...",
+        likedShows: "Collected shows"
       },
       store: {
         title: "Coin Store",
@@ -135,7 +146,15 @@ export const resources: Record<AppLanguage, any> = {
         close: "Close",
         selectedProvider: "Selected: {{provider}}. Here we should call the payment SDK and handle callbacks. (Demo: no real transaction.)",
         selectProviderCta: "Please select Stripe or PayPal to continue (Demo).",
-        noPackageSelected: "No package selected."
+        noPackageSelected: "No package selected.",
+        demoHint: "Demo: Select a plan and click Pay Now to unlock.",
+        paymentMethods: "Payment Methods",
+        tips: "Tips:",
+        tip1: "Free and paid content available. You decide which to unlock.",
+        tip2: "VIP subscription unlocks all paid content.",
+        tip3: "Refill and countdown days are equal value. Recharge does not support refund.",
+        tip4: "Contact us if you have other problems.",
+        payNow: "Pay Now"
       },
       seriesDetail: {
         selectEpisodes: "Select Episodes",
@@ -152,15 +171,28 @@ export const resources: Record<AppLanguage, any> = {
         addCoins: "+ Coins",
         likes: "Likes",
         favorites: "Favorites",
+        collection: "Collection",
         share: "Share"
       },
       locked: {
         title: "This episode is locked",
         hintFree: "FREE",
-        hintLocked: "LOCKED · Need {{cost}} Coins",
-        unlock: "Use {{cost}} Coins to unlock",
+        hintLocked: "Subscribe to unlock",
+        paidMessage: "This is a paid episode. Please unlock to watch.",
+        unlockNow: "Unlock Now",
         next: "Next episode",
-        body: "Episode {{index}} is paid content. Episodes 1-3 are free preview."
+        body: "Episode {{index}} is paid content. Subscribe to unlock."
+      },
+      subscription: {
+        title: "VIP Unlock all series for free",
+        subtitle: "Auto renew. Cancel anytime.",
+        status: "VIP Status",
+        active: "Active",
+        inactive: "Inactive",
+        daysRemaining: "Days Remaining",
+        autoRenew: "Auto-renew. Cancel anytime.",
+        unlimited: "Unlimited Viewing",
+        hd: "1080p High Quality"
       },
     }
   },
@@ -278,7 +310,18 @@ export const resources: Record<AppLanguage, any> = {
           "这里是“看广告得金币”的 UI 演示入口（下一步接入真实广告与计费）。",
         watchedAt: "已看 {{time}}",
         earnAdHint: "UI 演示按钮，不会真实增加金币。",
-        emptyHistory: "观看任意一集后会显示你的历史记录。"
+        emptyHistory: "观看任意一集后会显示你的历史记录。",
+        wallet: "我的钱包",
+        myList: "我的收藏",
+        history: "观看历史",
+        transactionHistory: "充值记录",
+        episodesUnlocked: "已解锁剧集",
+        amount: "金额",
+        date: "日期",
+        tier: "档位",
+        tradingHours: "时间",
+        nothingInside: "暂无内容...",
+        likedShows: "收藏的剧目"
       },
       store: {
         title: "金币商店",
@@ -298,7 +341,15 @@ export const resources: Record<AppLanguage, any> = {
         selectedProvider:
           "已选择：{{provider}}。此处应调用对应支付 SDK 并处理回调。（Demo 占位，不会产生真实交易）",
         selectProviderCta: "请选择 Stripe 或 PayPal 继续（占位）。",
-        noPackageSelected: "没有选择套餐。"
+        noPackageSelected: "没有选择套餐。",
+        demoHint: "演示：选择套餐并点击立即支付即可解锁。",
+        paymentMethods: "支付方式",
+        tips: "提示：",
+        tip1: "免费与付费内容均有，由您选择解锁。",
+        tip2: "VIP 订阅可解锁全部付费内容。",
+        tip3: "充值与倒数天数等值。充值不支持退款。",
+        tip4: "如有其他问题请联系我们。",
+        payNow: "立即支付"
       },
       seriesDetail: {
         selectEpisodes: "选集",
@@ -313,18 +364,31 @@ export const resources: Record<AppLanguage, any> = {
         allEpisodes: "全部剧集",
         coinBalance: "金币余额",
         addCoins: "+ 充值",
-        likes: "点赞",
+        likes: "喜欢",
         favorites: "收藏",
+        collection: "收藏",
         share: "分享"
       },
       locked: {
         title: "该集已锁定",
         hintFree: "免费",
-        hintLocked: "已锁定 · 需要 {{cost}} Coins 解锁",
-        unlock: "使用 {{cost}} Coins 解锁",
+        hintLocked: "订阅解锁",
+        paidMessage: "付费剧集，请解锁后观看。",
+        unlockNow: "立即解锁",
         next: "下一集",
-        body: "第 {{index}} 集为付费内容。前 1-3 集免费试看。"
-      }
+        body: "第 {{index}} 集为付费内容。订阅后解锁。"
+      },
+      subscription: {
+        title: "VIP 解锁全部剧集",
+        subtitle: "自动续订，随时取消。",
+        status: "VIP 状态",
+        active: "已生效",
+        inactive: "未订阅",
+        daysRemaining: "倒数天数",
+        autoRenew: "自动续订，随时取消。",
+        unlimited: "无限观看",
+        hd: "1080p 高清"
+      },
     }
   }
 };

@@ -18,6 +18,15 @@ export interface SeriesI18nText {
   description?: string;
 }
 
+/** 订阅套餐：管理后台可配置 */
+export interface SubscriptionPlan {
+  id: string;
+  label: string;
+  priceUsd: number;
+  durationDays: number;
+  paymentUrl?: string;
+}
+
 export interface Series {
   id: string;
   title: string;
@@ -31,6 +40,8 @@ export interface Series {
   episodes: Episode[];
   description?: string;
   i18n?: Partial<Record<AppLanguage, SeriesI18nText>>;
+  /** 从第几集开始锁定，默认 4。仅订阅会员可解锁 */
+  lockStartIndex?: number;
 }
 
 function svgDataUri(svg: string) {

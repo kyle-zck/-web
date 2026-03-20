@@ -116,3 +116,20 @@ export async function deleteSeries(id: string): Promise<void> {
   writeStore(store);
 }
 
+export async function updateSeries(
+  id: string,
+  patch: { lockStartIndex?: number }
+): Promise<Series | null> {
+  const store = readStore();
+  const idx = store.series.findIndex((s) => s.id === id);
+  if (idx < 0) return null;
+  const prev = store.series[idx];
+  const next: Series = {
+    ...prev,
+    ...(patch.lockStartIndex !== undefined && { lockStartIndex: patch.lockStartIndex })
+  };
+  store.series[idx] = next;
+  writeStore(store);
+  return next;
+}
+

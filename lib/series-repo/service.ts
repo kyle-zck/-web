@@ -3,7 +3,8 @@ import {
   getAllSeries as getAllLocal,
   getSeriesById as getSeriesByIdLocal,
   createSeries as createSeriesLocal,
-  deleteSeries as deleteSeriesLocal
+  deleteSeries as deleteSeriesLocal,
+  updateSeries as updateSeriesLocal
 } from "./storage-local";
 import {
   getAllSeries as getAllSqlite,
@@ -23,13 +24,21 @@ type StorageMode = "local" | "sqlite" | "pg";
 
 const mode = (process.env.SERIES_STORAGE as StorageMode | undefined) ?? "local";
 
+async function updateSeriesStub(
+  _id: string,
+  _patch: { lockStartIndex?: number }
+): Promise<Series | null> {
+  return null;
+}
+
 const provider = (() => {
   if (mode === "sqlite") {
     return {
       getAllSeries: getAllSqlite,
       getSeriesById: getSeriesByIdSqlite,
       createSeries: createSeriesSqlite,
-      deleteSeries: deleteSeriesSqlite
+      deleteSeries: deleteSeriesSqlite,
+      updateSeries: updateSeriesStub
     };
   }
   if (mode === "pg") {
@@ -37,7 +46,8 @@ const provider = (() => {
       getAllSeries: getAllPg,
       getSeriesById: getSeriesByIdPg,
       createSeries: createSeriesPg,
-      deleteSeries: deleteSeriesPg
+      deleteSeries: deleteSeriesPg,
+      updateSeries: updateSeriesStub
     };
   }
 
@@ -45,7 +55,8 @@ const provider = (() => {
     getAllSeries: getAllLocal,
     getSeriesById: getSeriesByIdLocal,
     createSeries: createSeriesLocal,
-    deleteSeries: deleteSeriesLocal
+    deleteSeries: deleteSeriesLocal,
+    updateSeries: updateSeriesLocal
   };
 })();
 
@@ -69,5 +80,12 @@ export async function createSeries(data: {
 
 export async function deleteSeries(id: string): Promise<void> {
   return provider.deleteSeries(id);
+}
+
+export async function updateSeries(
+  id: string,
+  patch: { lockStartIndex?: number }
+): Promise<Series | null> {
+  return provider.updateSeries(id, patch);
 }
 

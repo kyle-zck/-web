@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 const ITEMS = [
   { href: "/", label: "首页", icon: "home" },
   { href: "/explore", label: "探索", icon: "search" },
-  { href: "/library", label: "片单", icon: "library" },
   { href: "/profile", label: "我的", icon: "user" }
 ];
 
@@ -21,8 +20,6 @@ function Icon({ name, active }: { name: string; active: boolean }) {
       );
     case "search":
       return <span className={cn(base, common)}>⌕</span>;
-    case "library":
-      return <span className={cn(base, common)}>☰</span>;
     case "user":
       return <span className={cn(base, common)}>☺</span>;
     default:
@@ -34,7 +31,7 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="sticky bottom-0 z-40 border-t border-zinc-800/80 bg-black/95 backdrop-blur md:hidden">
+    <nav className="sticky bottom-0 z-40 border-t border-zinc-800/80 bg-black/95 backdrop-blur md:hidden pb-[env(safe-area-inset-bottom)]">
       <div className="mx-auto flex max-w-md items-center justify-between px-4 py-2.5">
         {ITEMS.map((item) => {
           const active =

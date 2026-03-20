@@ -1,251 +1,201 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import { AuthModal } from "@/components/ui/auth-modal";
-import { Modal } from "@/components/ui/modal";
-import { Badge } from "@/components/ui/badge";
 import { usePlayerStore } from "@/lib/store/player";
 import { useUserStore } from "@/lib/store/user";
 import { useTranslation } from "react-i18next";
-
-type CoinPackage = {
-  id: string;
-  priceUsd: number;
-  coins: number;
-  bestValue?: boolean;
-};
-
-const PACKAGES: CoinPackage[] = [
-  { id: "p1", priceUsd: 4.99, coins: 200 },
-  { id: "p2", priceUsd: 9.99, coins: 500, bestValue: true },
-  { id: "p3", priceUsd: 19.99, coins: 1200 },
-  { id: "p4", priceUsd: 49.99, coins: 3500 }
-];
+import type { SubscriptionPlan } from "@/constants/mock-data";
+import { cn } from "@/lib/utils";
 
 function formatUsd(price: number) {
-  return `$${price.toFixed(2)}`;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD"
+  }).format(price);
 }
+
+const PAYMENT_METHODS = [
+  { id: "paypal", label: "PayPal", icon: "PP" },
+  { id: "card", label: "Credit/Debit", icon: "💳" },
+  { id: "generic", label: "Card", icon: "💳" },
+  { id: "gpay", label: "Google Pay", icon: "G" }
+] as const;
 
 export default function StorePage() {
   const { t } = useTranslation();
-  const { coinBalance } = usePlayerStore();
-  const { isLoggedIn } = useUserStore();
+  const { isSubscribed, setSubscribed } = usePlayerStore();
+  const { isLoggedIn, userId } = useUserStore();
 
   const [authOpen, setAuthOpen] = useState(false);
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [activePackage, setActivePackage] = useState<CoinPackage | null>(null);
-  const [provider, setProvider] = useState<"stripe" | "paypal" | null>(null);
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<string>("paypal");
 
-  const bestValue = useMemo(() => PACKAGES.find((p) => p.bestValue) ?? PACKAGES[0], []);
+  useEffect(() => {
+    fetch("/api/app-config")
+      .then((r) => r.json())
+      .then((json) => setPlans(json.subscriptionPlans ?? []))
+      .catch(() => setPlans([]));
+  }, []);
 
-  const providerLabel =
-    provider === "stripe"
-      ? "Stripe"
-      : provider === "paypal"
-        ? "PayPal"
-        : "";
-
-  const openCheckout = (pkg: CoinPackage) => {
+  const handleSubscribe = async (plan: SubscriptionPlan) => {
     if (!isLoggedIn) {
       setAuthOpen(true);
       return;
     }
-    setActivePackage(pkg);
-    setCheckoutOpen(true);
-    setProvider(null);
+    if (plan.paymentUrl && !plan.paymentUrl.startsWith("/store")) {
+      window.location.href = plan.paymentUrl;
+    } else {
+      setSubscribed(true, plan.durationDays, plan.label);
+      if (userId) {
+        try {
+          await fetch("/api/user/recharge", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              clientId: userId,
+              price: plan.priceUsd,
+              tier: plan.label
+            })
+          });
+        } catch {
+          // ignore
+        }
+      }
+    }
+  };
+
+  const handlePayNow = async () => {
+    if (selectedPlan) {
+      await handleSubscribe(selectedPlan);
+    }
   };
 
   return (
     <main className="flex min-h-screen flex-col">
-      <header className="px-4 pt-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="text-base font-semibold text-zinc-100">
-              {t("store.title")}
-            </h1>
-            <p className="mt-1 text-xs text-zinc-400">{t("store.rechargeHint")}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs font-semibold text-zinc-400">
-              {t("store.currentBalance")}
-            </p>
-            <p className="mt-1 text-xl font-extrabold text-white">
-              {coinBalance}
-              <span className="ml-1 text-sm font-bold text-zinc-400">
-                {t("profile.coins")}
-              </span>
-            </p>
-          </div>
+      <header className="px-4 pt-4 sm:px-6 lg:px-10">
+        <div>
+          <h1 className="text-xl font-bold text-zinc-100">
+            {t("subscription.title", "VIP Unlock all series for free")}
+          </h1>
+          <p className="mt-1 text-sm text-zinc-500">
+            {t("subscription.subtitle", "Auto renew. Cancel anytime.")}
+          </p>
         </div>
+        {isSubscribed && (
+          <div className="mt-3 rounded-xl bg-green-500/20 px-4 py-2 text-sm font-semibold text-green-300">
+            {t("subscription.active", "You are a VIP member. All episodes unlocked.")}
+          </div>
+        )}
       </header>
 
-      <div className="flex-1 px-4 pb-24 pt-3">
-        <section className="rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold text-zinc-400">
-                {t("store.bestValue")}
-              </p>
-              <p className="mt-1 text-sm font-semibold text-zinc-100">
-                {formatUsd(bestValue.priceUsd)} · {bestValue.coins}{" "}
-                {t("store.coinsLabel")}
-              </p>
-            </div>
-            <Badge
-              variant="pill"
-              className="bg-brand/15 text-brand ring-1 ring-brand/40"
+      <div className="flex-1 px-4 pb-24 pt-6 sm:px-6 sm:pb-28 lg:px-10">
+        {/* VIP 套餐卡片 */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {plans.map((plan) => (
+            <button
+              key={plan.id}
+              type="button"
+              onClick={() => setSelectedPlan(plan)}
+              disabled={isSubscribed}
+              className={cn(
+                "relative overflow-hidden rounded-2xl p-5 text-left shadow-lg transition-all",
+                "bg-gradient-to-br from-amber-100 to-amber-200/90",
+                selectedPlan?.id === plan.id && "ring-2 ring-brand",
+                isSubscribed && "opacity-60 cursor-not-allowed",
+                !isSubscribed && "hover:scale-[1.02]"
+              )}
             >
-              {t("store.best")}
-            </Badge>
-          </div>
-          <p className="mt-2 text-[11px] leading-5 text-zinc-500">
-            {t("store.demoOnlyHint")}
-          </p>
-        </section>
-
-        <section className="mt-3">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {PACKAGES.map((pkg) => (
-              <button
-                key={pkg.id}
-                type="button"
-                onClick={() => openCheckout(pkg)}
-                className={[
-                  "group relative rounded-3xl border px-4 py-4 text-left transition",
-                  pkg.bestValue
-                    ? "border-brand/50 bg-brand/10"
-                    : "border-zinc-800/80 bg-black/20 hover:border-zinc-700",
-                  "hover:shadow-soft-glow"
-                ].join(" ")}
+              <span
+                className="absolute -right-4 -top-4 text-[120px] font-black leading-none text-amber-300/30"
+                aria-hidden
               >
-                {pkg.bestValue ? (
-                  <div className="absolute -right-2 -top-2">
-                    <Badge variant="pill" className="bg-brand text-white ring-1 ring-brand/40">
-                      {t("store.best")}
-                    </Badge>
-                  </div>
-                ) : null}
-
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] font-semibold text-zinc-400">
-                      {t("store.priceLabel")}
-                    </p>
-                    <p className="mt-1 text-xl font-extrabold text-white">
-                      {formatUsd(pkg.priceUsd)}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[11px] font-semibold text-zinc-400">
-                      {t("store.coinsLabel")}
-                    </p>
-                    <p className="mt-1 text-lg font-extrabold text-brand">
-                      {pkg.coins}
-                    </p>
-                  </div>
+                V
+              </span>
+              <div className="relative">
+                <p className="text-sm font-semibold text-amber-900">{plan.label}</p>
+                <p className="mt-2 text-2xl font-bold text-amber-950">
+                  {formatUsd(plan.priceUsd)}
+                </p>
+                <p className="mt-1 text-xs text-amber-800/80">
+                  {t("subscription.autoRenew", "Auto-renew. Cancel anytime.")}
+                </p>
+                <div className="mt-4 flex flex-wrap gap-3 border-t border-amber-300/50 pt-3">
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-amber-900">
+                    <span aria-hidden>📺</span>
+                    {t("subscription.unlimited", "Unlimited Viewing")}
+                  </span>
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-amber-900">
+                    <span className="rounded bg-amber-900/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">
+                      1080
+                    </span>
+                    {t("subscription.hd", "1080p High Quality")}
+                  </span>
                 </div>
+              </div>
+            </button>
+          ))}
+        </div>
 
-                <div className="mt-3 rounded-2xl bg-black/30 p-3">
-                  <p className="text-[11px] text-zinc-400">
-                    {t("store.unlockHint")}
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-zinc-100 group-hover:text-white">
-                    {t("store.choosePay")}
-                  </p>
-                </div>
+        {/* 支付方式（图2 样式） */}
+        <section className="mt-8 rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-4">
+          <h2 className="text-base font-bold text-zinc-100">
+            {t("store.paymentMethods", "Payment Methods")}
+          </h2>
+          <div className="mt-3 flex flex-wrap gap-3">
+            {PAYMENT_METHODS.map((pm) => (
+              <button
+                key={pm.id}
+                type="button"
+                onClick={() => setPaymentMethod(pm.id)}
+                className={cn(
+                  "flex min-w-[100px] flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition-colors",
+                  paymentMethod === pm.id
+                    ? "border-brand bg-brand/10 text-brand"
+                    : "border-zinc-700/80 bg-zinc-900/50 text-zinc-300 hover:border-zinc-600"
+                )}
+              >
+                <span className="text-lg">{pm.icon}</span>
+                {pm.label}
               </button>
             ))}
           </div>
-        </section>
 
-        <section className="mt-3 rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-4">
-          <h2 className="text-sm font-semibold text-zinc-100">
-            {t("store.paymentMethodTitle")}
-          </h2>
-          <div className="mt-3 flex gap-2">
-            <Link
-              href="#"
-              className="flex-1 rounded-2xl bg-black/30 px-4 py-3 text-sm font-semibold text-zinc-200 ring-1 ring-zinc-800/80"
-            >
-              Stripe
-            </Link>
-            <Link
-              href="#"
-              className="flex-1 rounded-2xl bg-black/30 px-4 py-3 text-sm font-semibold text-zinc-200 ring-1 ring-zinc-800/80"
-            >
-              PayPal
-            </Link>
+          {/* Tips */}
+          <div className="mt-4 rounded-xl bg-black/30 p-4">
+            <p className="text-xs font-semibold text-zinc-400">
+              {t("store.tips", "Tips:")}
+            </p>
+            <ol className="mt-2 space-y-1 text-xs leading-5 text-zinc-500">
+              <li>1. {t("store.tip1", "Free and paid content available. You decide which to unlock.")}</li>
+              <li>2. {t("store.tip2", "VIP subscription unlocks all paid content.")}</li>
+              <li>3. {t("store.tip3", "Refill and countdown days are equal value. Recharge does not support refund.")}</li>
+              <li>4. {t("store.tip4", "Contact us if you have other problems.")}</li>
+            </ol>
           </div>
-          <p className="mt-2 text-[11px] leading-5 text-zinc-500">
-            {t("store.paymentHint")}
-          </p>
-        </section>
-      </div>
 
-
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
-
-      <Modal
-        open={checkoutOpen}
-        onClose={() => setCheckoutOpen(false)}
-        title={t("store.checkoutTitle")}
-        footer={
+          {/* Pay Now */}
           <button
             type="button"
-            onClick={() => setCheckoutOpen(false)}
-            className="w-full rounded-2xl bg-brand px-4 py-3 text-sm font-semibold text-white shadow-soft-glow"
+            onClick={handlePayNow}
+            disabled={!selectedPlan || isSubscribed}
+            className={cn(
+              "mt-4 w-full rounded-xl px-4 py-3.5 text-base font-bold text-white transition-colors",
+              "bg-brand shadow-soft-glow hover:bg-red-600",
+              (!selectedPlan || isSubscribed) && "cursor-not-allowed opacity-60"
+            )}
           >
-            {t("store.close")}
+            {t("store.payNow", "Pay Now")}
           </button>
-        }
-      >
-        {activePackage ? (
-          <div>
-            <p className="text-sm text-zinc-200">
-              {formatUsd(activePackage.priceUsd)} · {activePackage.coins}{" "}
-              {t("store.coinsLabel")}
-            </p>
-            <div className="mt-3 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setProvider("stripe")}
-                className={[
-                  "flex-1 rounded-2xl px-4 py-3 text-sm font-semibold ring-1",
-                  provider === "stripe"
-                    ? "border-brand/50 bg-brand/15 text-brand ring-brand/50"
-                    : "border-zinc-800/80 bg-black/30 text-zinc-200 ring-zinc-800/80"
-                ].join(" ")}
-              >
-                Stripe
-              </button>
-              <button
-                type="button"
-                onClick={() => setProvider("paypal")}
-                className={[
-                  "flex-1 rounded-2xl px-4 py-3 text-sm font-semibold ring-1",
-                  provider === "paypal"
-                    ? "border-brand/50 bg-brand/15 text-brand ring-brand/50"
-                    : "border-zinc-800/80 bg-black/30 text-zinc-200 ring-zinc-800/80"
-                ].join(" ")}
-              >
-                PayPal
-              </button>
-            </div>
+        </section>
 
-            <div className="mt-3 rounded-2xl border border-zinc-800/80 bg-black/30 p-3 text-[11px] leading-5 text-zinc-400">
-              {provider ? (
-                <>{t("store.selectedProvider", { provider: providerLabel })}</>
-              ) : (
-                <>{t("store.selectProviderCta")}</>
-              )}
-            </div>
-          </div>
-        ) : (
-          <p className="text-sm text-zinc-400">{t("store.noPackageSelected")}</p>
-        )}
-      </Modal>
+        <p className="mt-4 text-center text-xs text-zinc-500">
+          {t("store.demoHint", "Demo: Select a plan and click Pay Now to unlock.")}
+        </p>
+      </div>
+
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
     </main>
   );
 }
-

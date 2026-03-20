@@ -30,7 +30,8 @@ export default function AdminDashboardPage() {
     fetch("/admin/api/app-config")
       .then((r) => r.json())
       .then((json) => {
-        if (json?.brandName) setBrandName(json.brandName);
+        const cfg = json?.config ?? json;
+        if (cfg?.brandName) setBrandName(cfg.brandName);
       })
       .catch(() => {});
   }, []);

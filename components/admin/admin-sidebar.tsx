@@ -6,7 +6,13 @@ import { cn } from "@/lib/utils";
 
 const NAV = [
   { href: "/admin", label: "Dashboard" },
-  { href: "/admin/series", label: "Series Management" }
+  { href: "/admin/series", label: "Series Management" },
+  { href: "/admin/config", label: "Subscription Config" },
+  { href: "/admin/users", label: "Users & UID" },
+  { href: "/admin/recharge", label: "Recharge Records" },
+  { href: "/admin/history", label: "Watch History" },
+  { href: "/admin/favorites", label: "User Favorites" },
+  { href: "/admin/likes", label: "User Likes" }
 ];
 
 export function AdminSidebar() {

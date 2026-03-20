@@ -19,7 +19,7 @@ export function SeriesRow({ titleKey, items }: SeriesRowProps) {
   return (
     <section className="mb-6 lg:mb-10">
       <div className="mb-4 flex items-end justify-between px-1">
-        <h2 className="text-3xl font-extrabold tracking-tight text-zinc-50">
+        <h2 className="text-2xl font-extrabold tracking-tight text-zinc-50 sm:text-3xl">
           {t(titleKey)}
         </h2>
         <Link
@@ -29,13 +29,13 @@ export function SeriesRow({ titleKey, items }: SeriesRowProps) {
           {t("home.viewAll")}
         </Link>
       </div>
-      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin md:grid md:grid-cols-6 md:gap-4 md:overflow-visible md:pb-0 lg:gap-6">
+      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin sm:gap-4 md:grid md:grid-cols-4 md:gap-4 md:overflow-visible md:pb-0 lg:grid-cols-6 lg:gap-6">
         {items.map((s) => (
           (() => {
             const { title } = getSeriesI18nText(s, lang);
             const categoryLabel = t(`tags.${getTagKey(s.category)}`);
             return (
-              <div key={s.id} className="w-40 shrink-0 md:w-auto">
+              <div key={s.id} className="w-36 shrink-0 sm:w-40 md:w-auto">
                 <Link
                   href={`/series/${s.id}`}
                   className="group block"
