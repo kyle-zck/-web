@@ -1,0 +1,24 @@
+{
+  "byClient": {
+    "USER-google-E19E367E": [
+      {
+        "seriesId": "alpha-wolf-contract",
+        "episodeIndex": 1,
+        "seconds": 2,
+        "lastWatchedAt": "2026-03-20T08:24:03.175Z"
+      },
+      {
+        "seriesId": "test-upload-series-2773",
+        "episodeIndex": 1,
+        "seconds": 1,
+        "lastWatchedAt": "2026-03-20T08:24:03.175Z"
+      },
+      {
+        "seriesId": "test-upload-series-2773",
+        "episodeIndex": 2,
+        "seconds": 15,
+        "lastWatchedAt": "2026-03-20T08:24:03.175Z"
+      }
+    ]
+  }
+}

@@ -19,9 +19,10 @@ import { Modal } from "@/components/ui/modal";
 const EPISODES_PER_TAB = 50;
 
 function formatCount(n: number): string {
-  if (n === 0) return "0";
-  if (n < 1000) return String(n);
-  return `${(n / 1000).toFixed(1)}k`;
+  const val = Math.max(0, n);
+  if (val === 0) return "0";
+  if (val < 1000) return String(val);
+  return `${(val / 1000).toFixed(1)}k`;
 }
 
 function ShareButton({ title, compact }: { title: string; compact?: boolean }) {
@@ -209,6 +210,7 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
               onClick={() => {
                 const wasCollected = isFavorited(series.id);
                 toggleFavorite(series.id);
+                setCollectionCount((c) => Math.max(0, wasCollected ? c - 1 : c + 1));
                 if (isLoggedIn && userId) {
                   const next = wasCollected
                     ? seriesIds.filter((id) => id !== series.id)
@@ -217,8 +219,6 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ clientId: userId, seriesIds: next })
-                  }).then(() => {
-                    setCollectionCount((c) => (wasCollected ? c - 1 : c + 1));
                   }).catch(() => {});
                 }
               }}
@@ -240,6 +240,7 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
               onClick={() => {
                 const wasLiked = isLiked(series.id);
                 toggleLike(series.id);
+                setLikesCount((c) => Math.max(0, wasLiked ? c - 1 : c + 1));
                 if (isLoggedIn && userId) {
                   fetch("/api/user/likes", {
                     method: "POST",
@@ -249,8 +250,6 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
                       seriesId: series.id,
                       liked: !wasLiked
                     })
-                  }).then(() => {
-                    setLikesCount((c) => (wasLiked ? c - 1 : c + 1));
                   }).catch(() => {});
                 }
               }}
