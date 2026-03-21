@@ -5,6 +5,8 @@ import {
   syncUserFavorites
 } from "@/lib/user-repo";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   const clientId = req.nextUrl.searchParams.get("clientId");
   if (!clientId) {

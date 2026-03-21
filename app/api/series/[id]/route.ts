@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSeriesById } from "@/lib/series-repo";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   _req: Request,
   { params }: { params: { id: string } }

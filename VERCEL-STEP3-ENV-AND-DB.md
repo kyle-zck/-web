@@ -12,12 +12,141 @@
 
 ### A. 用 Supabase 创建数据库（约 5～10 分钟）
 
-1. 打开 [supabase.com](https://supabase.com) → 登录并 **New Project**。
-2. 等待数据库就绪 → **Project Settings → Database**。
-3. **Connection string** 选 **URI**，密码用项目创建时保存的 **Database password**（可在 Database 页 **Reset**）。
-4. **Vercel Serverless** 建议选 **Transaction pooler**（端口 **6543**，主机名常含 `pooler.supabase.com`，参数常含 `pgbouncer=true`），有利于连接数。
-5. 将**整段** `postgresql://...` 保存到本机（勿公开），下一步填到 Vercel。  
-   - 变量名可用 **`DATABASE_URL`** 或 **`SUPABASE_DB_URL`**（二选一即可，见 **`lib/db/url.ts`**）。
+下面按「你第一次操作」来写，可从上到下照着点。
+
+#### A1. 注册 / 登录
+
+1. 浏览器打开 **[https://supabase.com](https://supabase.com)**。
+2. 右上角 **Sign in**（已有账号）或 **Start your project**（新用户按提示注册，可用 GitHub / Google 等）。
+3. 登录后进入 **Dashboard**（项目列表页）。
+
+#### A2. 新建项目（New Project）
+
+1. 点绿色按钮 **New project**（或 **New Project**）。
+2. 若提示选 **Organization**：选个人组织或新建一个即可。
+3. 填写表单（常见几项）：
+   - **Name**：任意英文名，例如 `reelshorts-prod`（仅作标识）。
+   - **Database Password**：**务必自己设一个强密码并立刻复制保存到密码管理器/备忘录**（后面连接串里要用；丢了只能 Reset）。
+   - **Region**：选离用户或 Vercel 区域较近的（如 **Southeast Asia (Singapore)**）。
+4. 点 **Create new project**，等待 **1～3 分钟**（界面会显示 *Setting up project* / *Provisioning*），**不要关页**，直到出现表编辑器或主控制台。
+
+#### A3. 打开「数据库连接串」页面（侧栏没有 Database 时请看方式一、二）
+
+新版 Supabase 控制台里，**不一定**在 **Settings** 左侧显示 **Database** 这一项；连接串常在顶部 **Connect** 里，或用下面**直达链接**打开。
+
+**方式一（推荐）：项目顶部的 Connect**
+
+1. 点左侧 **Home**（房子图标）回到**项目概览**，不要停在 *General* 设置页。
+2. 看页面**上方**是否有 **Connect**（连接）按钮 → 点击。
+3. 在弹窗/抽屉里选 **Connection String** / **ORMs** / **App Frameworks** 等任意入口，直到出现 **Postgres** 连接信息。
+4. 在连接类型里选 **Transaction pooler**（或 **Transaction**），再按 **A4** 核对端口 **6543** 与 `pooler`。
+
+**方式二：用浏览器直达 Database 设置页（侧栏找不到时最省事）**
+
+1. 打开 **Project Settings → General**，记下 **Project ID**（一串字母数字，例如 `iqastxkcyfrwaimqczrj`）。
+2. 在浏览器地址栏输入（把末尾的 `你的PROJECT_REF` 换成上一步的 Project ID）：
+
+   `https://supabase.com/dashboard/project/你的PROJECT_REF/settings/database`
+
+3. 进入后向下滚动，找到 **Connection string** 区域 → 再按 **A4、A5** 复制 URI、替换密码。
+
+**方式三：从 Settings 侧栏进入**
+
+1. 左下角 **齿轮 Project Settings**。
+2. 左侧 **CONFIGURATION** 分组里找 **Database**（有时需要**向下滚动**侧栏才出现）。
+3. 若始终没有 **Database**：请改用 **方式一** 或 **方式二**（界面因账号/版本会略有差异，属正常情况）。
+
+#### A4. 选对「连接方式」（给 Vercel 用：务必用 Pooler）
+
+Supabase 会提供多种 Tab，**部署到 Vercel Serverless 时请用「连接池」**，否则容易连接数爆满或冷启动连不上。
+
+1. 在 **Connection string** 里先选 **URI**（不是仅 JDBC 等其它格式）。
+2. 再在同一区域找 **Method / Type** 一类选项，选中 **Transaction** 或 **Transaction pooler**（名称以你控制台为准）。
+3. 核对特征（满足即可）：
+   - 端口是 **`6543`**（不是 `5432`）。
+   - 主机名里通常有 **`pooler.supabase.com`**。
+   - 连接串查询参数里常有 **`pgbouncer=true`**。
+
+> **不要**把「Direct connection / Session mode / 5432 直连」那条直接贴到 Vercel，除非你非常清楚自己在做长连接；本项目文档默认 **Pooler + 6543**。
+
+#### A5. 复制连接串并替换密码占位符
+
+1. 点连接串旁的 **Copy**（复制）。
+2. 复制出来的字符串形如：  
+   `postgresql://postgres.xxxxx:[YOUR-PASSWORD]@aws-0-xxx.pooler.supabase.com:6543/postgres?pgbouncer=true`  
+   （具体主机名以你项目为准。）
+3. 把其中的 **`[YOUR-PASSWORD]`**（或 `YOUR_PASSWORD`）**整段替换成你在 A2 里保存的「数据库密码」**；若密码里有特殊字符，Supabase 有时会给出「已 URL 编码」的说明，以控制台提示为准。
+4. 最终应得到**一整行**、以 `postgresql://` 开头、**无多余换行、无首尾空格** 的 URI。
+
+#### A6. 先放本地再填 Vercel（推荐顺序）
+
+1. 在项目根目录复制 **`.env.example`** 为 **`.env.local`**（若已有则编辑它）。
+2. 新增一行（二选一变量名即可，不要两行同时填不同库）：
+   - `DATABASE_URL=postgresql://...`  
+   或  
+   - `SUPABASE_DB_URL=postgresql://...`  
+3. 保存后本地可 `npm run dev` 试连；**不要把 `.env.local` 提交到 Git**。
+4. 部署到 Vercel 时：在 **Settings → Environment Variables** 里添加**同名**变量，**Value 贴同一整段 URI**（见下文「阶段二 第 1 条」）。
+
+代码读取顺序见 **`lib/db/url.ts`**：`DATABASE_URL` → `SUPABASE_DB_URL` → `PG_URL`。
+
+#### A7. 忘记数据库密码怎么办
+
+1. 打开 **Settings → Database**；若侧栏没有该项，使用与 **A3 方式二** 相同的直达地址：  
+   `https://supabase.com/dashboard/project/你的PROJECT_REF/settings/database`
+2. 找到 **Database password** 区域 → **Reset database password**。
+3. 设新密码并保存 → **必须重新复制 Connection string 并按 A5 再拼一次 URI**（旧连接串里的密码失效）。
+
+---
+
+### A′. 前台用户登录（Supabase Auth）还要配这些
+
+若你要用网站上的**邮箱/社交登录**（不是后台 `/admin`），除了上面的**数据库 URL**，还需要在 Supabase 取 **Project URL** 和 **anon key**，并配回调地址。
+
+#### A′1. 取 `NEXT_PUBLIC_SUPABASE_URL` 与 `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+**在网页里配置（不是在你电脑项目里改代码）：**
+
+1. 打开 [Supabase Dashboard](https://supabase.com/dashboard) → 点进你的项目。
+2. 左下角 **齿轮 Project Settings** → 左侧点 **API Keys**（新版）；若界面仍是旧版，则点 **API**。
+3. **Project URL**（形如 `https://xxxx.supabase.co`）→ 填到 **`.env.local` / Vercel** 的 **`NEXT_PUBLIC_SUPABASE_URL`**。
+4. **Legacy API keys**（或 **anon public**）→ 复制长串 → 填到 **`NEXT_PUBLIC_SUPABASE_ANON_KEY`**。  
+   - 直达（把 `你的PROJECT_REF` 换成 Settings → General 里的 Project ID）：  
+     `https://supabase.com/dashboard/project/你的PROJECT_REF/settings/api-keys`
+
+#### A′2. 控制台里配「登录成功跳回哪里」
+
+**也在 Supabase 网页里配，路径是左侧主菜单的「Authentication」，不是 Project Settings。**
+
+1. 左侧点 **Authentication**（锁形图标，与 Table Editor、SQL 等并列）。
+2. 在 Authentication 下找 **URL Configuration**（或 **Redirect URLs**）：
+   - **Site URL**：填你网站根地址，例如 `https://xxx.vercel.app` 或自定义域名。
+   - **Redirect URLs**：**逐行**添加（每行一条）：
+     - `http://localhost:3000/auth/callback`
+     - `https://你的线上域名/auth/callback`
+3. 仍在 **Authentication** 下打开 **Sign In Methods** / **Providers**（名称因版本略有不同）：
+   - 打开 **Email**；要用 Google 等再逐个启用并填 Client ID / Secret。
+
+**直达（替换 `你的PROJECT_REF`）：**
+
+- URL 配置：  
+  `https://supabase.com/dashboard/project/你的PROJECT_REF/auth/url-configuration`
+- 登录方式 / Provider：  
+  `https://supabase.com/dashboard/project/你的PROJECT_REF/auth/providers`
+
+**若当前还不是最终域名（例如先用 Vercel 默认 `*.vercel.app`，以后要换自定义域名）：**
+
+| 项 | 怎么填 |
+|----|--------|
+| **Site URL** | 先填你**现在真实在用的**站点根地址即可（例如 `https://项目名.vercel.app`）。上线换正式域名后，再来这里改成最终域名。 |
+| **Redirect URLs** | 可**同时写多条**（每行一个），不必只留一个。建议至少：`http://localhost:3000/auth/callback` + **当前**线上地址的 `/auth/callback`。以后有预览域名、正式域名，**逐条追加**新的 `https://xxx/auth/callback`，保存即可；旧的预览地址可保留或删掉。 |
+| **环境变量** | Vercel 里 `NEXT_PUBLIC_SUPABASE_*` 与 **Site URL / Redirect** 无自动联动；换域名后记得在 Supabase 里更新 URL，并在 Vercel **Redeploy**（若前端硬编码了域名则改代码，本项目回调用相对路径 `/auth/callback`，一般只需改 Supabase 控制台）。 |
+
+#### A′3. 与本项目代码的对应关系
+
+- 浏览器会话、登录弹窗：**`components/supabase/SupabaseProvider.tsx`**、**`components/ui/auth-modal.tsx`**。
+- OAuth / 邮箱确认回调：**`/auth/callback`** → **`app/auth/callback/route.ts`**。
+- 更完整说明见 **`docs/SUPABASE-R2.md`** 第四节。
 
 ### B. 其它托管 Postgres（可选）
 
@@ -125,6 +254,19 @@ Vercel 规定：**Sensitive 开关打开时，不能勾选 Development**。
 常见原因之一：旧版代码在构建时**静态引入** `better-sqlite3`，在 Vercel Linux 上易失败。仓库已在 `lib/series-repo/service.ts` 改为**仅当 `SERIES_STORAGE=sqlite` 时才动态加载** sqlite，并配置 `next.config.mjs` 的 `serverComponentsExternalPackages`。
 
 若仍失败：在 Vercel 点开该条部署 → **Building** 日志，搜索 `error` / `better-sqlite3` / `DATABASE_URL`；确认 **Production / Preview** 已配置 **`SERIES_STORAGE=pg`** 与 **`DATABASE_URL`** 并已 **Redeploy**。
+
+### 构建日志：`password authentication failed for user "postgres"`
+
+含义：Vercel 使用的 **`DATABASE_URL`（或 `SUPABASE_DB_URL`）里密码不对**，或整段 URI 在粘贴时被破坏（多空格、少了字符、多了引号）。
+
+**请逐项检查：**
+
+1. **与 Supabase 一致**：到 **Connect → Transaction pooler → URI**，复制后把 **`[YOUR-PASSWORD]`** 换成**当前**「数据库密码」（建项目时设的；若改过密码，必须用新密码）。
+2. **Vercel 里 Value**：**不要**加英文双引号 `""` 包裹整串；**不要**首尾空格；整段应一行 `postgresql://...`。
+3. **密码含特殊字符**（如 `@ # : / ? * %`）：应用 Supabase 控制台「一键复制」的串；若手拼 URI，需对密码做 **URL 编码**（否则 `@` 后面的内容会被当成主机名）。
+4. **用户名**：连接池串里用户名多为 **`postgres.你的ProjectRef`**，不要用错成单独的 `postgres`（除非控制台明确给出直连串且你清楚用途）。
+5. 改完变量后务必 **Redeploy**。  
+   说明：仓库已对 **`/api/series` 等读库 Route** 设置 **`dynamic = "force-dynamic"`**，减少「构建阶段就连库」导致的失败；但**线上访问仍需要正确的 `DATABASE_URL`**，否则页面运行时仍会报错。
 
 ### 构建日志：`SyntaxError: Unexpected token 'W', "Werewolf,..." is not valid JSON`
 

@@ -27,17 +27,29 @@
 - **无需** Neon 控制台；表结构仍由 **`lib/series-repo/storage-pg.ts`** 在首次连接时 `CREATE TABLE IF NOT EXISTS` 自动创建。
 - 后台账号密码哈希表 **`admin_credentials`**、剧目表 **`series` / `episodes`** 均写在**同一 Supabase PostgreSQL** 中。
 
-### 4. 可选：Supabase JS 客户端（后续接 Auth / Dashboard）
+### 4. 前台 Supabase Auth（邮箱密码 + OAuth）
 
-环境变量（按需）：
+环境变量（前台登录**必填**）：
 
 | 变量 | 说明 |
 |------|------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | 浏览器端（anon，勿存敏感逻辑） |
-| `SUPABASE_SERVICE_ROLE_KEY` | 仅服务端，**保密** |
+| `SUPABASE_SERVICE_ROLE_KEY` | 仅服务端，**保密**（可选，用于 Admin API 等） |
 
-封装见 **`lib/supabase/server.ts`**、**`lib/supabase/browser.ts`**。当前后台登录仍为本项目 **ADMIN_KEY + JWT**，与 Supabase Auth 可并存渐进迁移。
+代码入口：
+
+- **`lib/supabase/browser.ts`**：`createBrowserClient`（`@supabase/ssr`），Cookie 会话。
+- **`middleware.ts`**：非 `/admin` 路由刷新 Supabase 会话；**`/admin`** 仍走 **ADMIN_KEY + JWT**，与前台 Cookie **隔离**。
+- **`components/supabase/SupabaseProvider.tsx`**：监听 `onAuthStateChange`，同步到 Zustand `useUserStore`。
+- **`app/auth/callback/route.ts`**：OAuth / 邮箱确认链接回调（`code` → `exchangeCodeForSession`）。
+
+**Supabase 控制台**：Authentication → **URL Configuration** 中把 **Site URL** 设为生产域名（如 `https://你的域名`），**Redirect URLs** 增加：
+
+- `http://localhost:3000/auth/callback`（本地）
+- `https://你的域名/auth/callback`（生产）
+
+并在 **Providers** 中启用 Email（及可选 Google / Apple 等）。OAuth 需在对应 Provider 控制台配置 Client ID/Secret。
 
 ---
 

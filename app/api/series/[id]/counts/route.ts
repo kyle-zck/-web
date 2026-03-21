@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCollectionCount, getLikesCount } from "@/lib/user-repo";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } }

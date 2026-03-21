@@ -1,3 +1,4 @@
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createSessionToken, SESSION_COOKIE, verifySessionToken } from "@/lib/admin/session";
@@ -13,7 +14,8 @@ function cookieOpts() {
   };
 }
 
-export async function middleware(req: NextRequest) {
+/** 后台 /admin：ADMIN_KEY + JWT Cookie，与前台 Supabase 会话隔离 */
+async function adminMiddleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const isLoginPage = pathname === "/admin/login";
@@ -41,6 +43,53 @@ export async function middleware(req: NextRequest) {
   return res;
 }
 
+/** 前台：刷新 Supabase Auth Cookie（PKCE） */
+async function supabaseMiddleware(request: NextRequest) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  if (!url || !anon) {
+    return NextResponse.next();
+  }
+
+  let supabaseResponse = NextResponse.next({
+    request
+  });
+
+  const supabase = createServerClient(url, anon, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        supabaseResponse = NextResponse.next({
+          request
+        });
+        cookiesToSet.forEach(({ name, value, options }) =>
+          supabaseResponse.cookies.set(name, value, options)
+        );
+      }
+    }
+  });
+
+  await supabase.auth.getUser();
+  return supabaseResponse;
+}
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  if (pathname.startsWith("/admin")) {
+    return adminMiddleware(request);
+  }
+
+  return supabaseMiddleware(request);
+}
+
 export const config = {
-  matcher: ["/admin/:path*"]
+  matcher: [
+    /*
+     * 匹配除静态资源外的所有路径；/admin 走后台 JWT，其余走 Supabase 会话刷新。
+     */
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"
+  ]
 };

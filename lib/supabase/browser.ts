@@ -1,9 +1,10 @@
 "use client";
 
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
 
 /**
- * 浏览器端 Supabase（Anon Key），供后续接入 Supabase Auth 等使用。
+ * 浏览器端 Supabase（Anon Key + Cookie 会话），用于 Supabase Auth。
  */
 let browserClient: SupabaseClient | null = null;
 
@@ -12,6 +13,6 @@ export function getSupabaseBrowserClient(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
   if (!url || !anon) return null;
-  browserClient = createClient(url, anon);
+  browserClient = createBrowserClient(url, anon);
   return browserClient;
 }
