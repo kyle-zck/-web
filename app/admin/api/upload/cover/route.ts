@@ -14,7 +14,7 @@ function sanitizeFilename(name: string) {
 }
 
 export async function POST(req: Request) {
-  const unauth = requireAdminSession();
+  const unauth = await requireAdminSession();
   if (unauth) return unauth;
 
   const form = await req.formData();

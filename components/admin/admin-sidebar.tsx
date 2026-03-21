@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppLanguage } from "@/components/i18n/I18nProvider";
@@ -27,6 +27,7 @@ const OTHER_NAV = [
 
 export function AdminSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { t } = useTranslation();
   const { lang, setLanguage, languageOptions } = useAppLanguage();
   const [dramaOpen, setDramaOpen] = useState(
@@ -36,6 +37,16 @@ export function AdminSidebar() {
   const isDramaActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
   const isOtherActive = (href: string) =>
     href === "/admin" ? pathname === href : pathname.startsWith(href);
+
+  const onLogout = async () => {
+    try {
+      await fetch("/admin/api/logout", { method: "POST", credentials: "include" });
+    } catch {
+      /* ignore */
+    }
+    router.replace("/admin/login");
+    router.refresh();
+  };
 
   return (
     <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-zinc-800/80 bg-zinc-950/80 p-4 backdrop-blur md:flex">
@@ -110,6 +121,13 @@ export function AdminSidebar() {
       </nav>
 
       <div className="mt-auto space-y-3 border-t border-zinc-800/60 px-2 pt-5">
+        <button
+          type="button"
+          onClick={onLogout}
+          className="w-full rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-300 hover:bg-red-500/20"
+        >
+          {t("admin.logout")}
+        </button>
         <select
           value={lang}
           onChange={(e) => setLanguage(e.target.value as "en" | "zh-CN")}

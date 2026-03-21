@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import * as fs from "fs";
 import * as path from "path";
+import { requireAdminSession } from "@/lib/admin/auth";
 
 const DATA_PATH = path.join(process.cwd(), "data", "storage-paths.json");
 
@@ -14,11 +15,15 @@ function readPaths() {
 }
 
 export async function GET() {
+  const unauth = await requireAdminSession();
+  if (unauth) return unauth;
   const data = readPaths();
   return NextResponse.json({ ok: true, ...data });
 }
 
 export async function PUT(req: Request) {
+  const unauth = await requireAdminSession();
+  if (unauth) return unauth;
   const { paths } = await req.json();
   if (!Array.isArray(paths)) {
     return NextResponse.json({ ok: false, error: "Invalid data" }, { status: 400 });

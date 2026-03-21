@@ -3,7 +3,7 @@ import { requireAdminSession } from "@/lib/admin/auth";
 import { getAllWatchHistory } from "@/lib/user-repo";
 
 export async function GET() {
-  const unauth = requireAdminSession();
+  const unauth = await requireAdminSession();
   if (unauth) return unauth;
 
   const byClient = getAllWatchHistory();

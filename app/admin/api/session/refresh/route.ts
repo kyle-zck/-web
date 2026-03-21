@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin/auth";
-import { getAllUsers } from "@/lib/user-repo";
 
-export async function GET() {
+/** 前端保活：无导航时仍刷新 JWT（middleware 已续期 Cookie，此处仅 200） */
+export async function POST() {
   const unauth = await requireAdminSession();
   if (unauth) return unauth;
-
-  const users = getAllUsers();
-  return NextResponse.json({ ok: true, users });
+  return NextResponse.json({ ok: true });
 }

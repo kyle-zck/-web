@@ -7,7 +7,7 @@ export async function DELETE(
   _req: Request,
   { params }: { params: { id: string } }
 ) {
-  const unauth = requireAdminSession();
+  const unauth = await requireAdminSession();
   if (unauth) return unauth;
   await deleteSeries(params.id);
   return NextResponse.json({ ok: true });
@@ -17,7 +17,7 @@ export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const unauth = requireAdminSession();
+  const unauth = await requireAdminSession();
   if (unauth) return unauth;
   const body = (await req.json()) as {
     lockStartIndex?: number;

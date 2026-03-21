@@ -7,7 +7,7 @@ import type { AppConfig } from "@/app/api/app-config/route";
 const CONFIG_PATH = path.join(process.cwd(), "data", "app-config.json");
 
 export async function GET() {
-  const unauth = requireAdminSession();
+  const unauth = await requireAdminSession();
   if (unauth) return unauth;
   try {
     const raw = await fs.readFile(CONFIG_PATH, "utf8");
@@ -34,7 +34,7 @@ async function saveConfig(body: Partial<AppConfig>) {
 }
 
 export async function POST(req: Request) {
-  const unauth = requireAdminSession();
+  const unauth = await requireAdminSession();
   if (unauth) return unauth;
   const body = (await req.json()) as Partial<AppConfig>;
   const next = await saveConfig(body);
@@ -42,7 +42,7 @@ export async function POST(req: Request) {
 }
 
 export async function PUT(req: Request) {
-  const unauth = requireAdminSession();
+  const unauth = await requireAdminSession();
   if (unauth) return unauth;
   const body = (await req.json()) as Partial<AppConfig>;
   const next = await saveConfig(body);

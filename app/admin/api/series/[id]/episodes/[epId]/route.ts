@@ -6,7 +6,7 @@ export async function DELETE(
   _req: Request,
   { params }: { params: { id: string; epId: string } }
 ) {
-  const unauth = requireAdminSession();
+  const unauth = await requireAdminSession();
   if (unauth) return unauth;
 
   const series = await deleteEpisodeFromSeries(params.id, params.epId);

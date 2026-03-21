@@ -3,14 +3,14 @@ import { requireAdminSession } from "@/lib/admin/auth";
 import { createSeries, getAllSeries } from "@/lib/series-repo";
 
 export async function GET() {
-  const unauth = requireAdminSession();
+  const unauth = await requireAdminSession();
   if (unauth) return unauth;
   const series = await getAllSeries();
   return NextResponse.json({ ok: true, series });
 }
 
 export async function POST(req: Request) {
-  const unauth = requireAdminSession();
+  const unauth = await requireAdminSession();
   if (unauth) return unauth;
 
   const body = (await req.json()) as {

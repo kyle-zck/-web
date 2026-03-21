@@ -3,7 +3,7 @@ import { requireAdminSession } from "@/lib/admin/auth";
 import { getAllSeries } from "@/lib/series-repo";
 
 export async function POST(req: Request) {
-  const unauth = requireAdminSession();
+  const unauth = await requireAdminSession();
   if (unauth) return unauth;
 
   const { title } = (await req.json()) as { title?: string };

@@ -7,7 +7,7 @@ import {
 } from "@/lib/user-repo";
 
 export async function GET(req: NextRequest) {
-  const unauth = requireAdminSession();
+  const unauth = await requireAdminSession();
   if (unauth) return unauth;
 
   const uid = req.nextUrl.searchParams.get("uid");
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const unauth = requireAdminSession();
+  const unauth = await requireAdminSession();
   if (unauth) return unauth;
 
   const body = await req.json().catch(() => ({}));

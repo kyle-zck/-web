@@ -24,14 +24,14 @@ function writeCatalog(data: { items: CatalogItem[] }) {
 }
 
 export async function GET() {
-  const unauth = requireAdminSession();
+  const unauth = await requireAdminSession();
   if (unauth) return unauth;
   const data = readCatalog();
   return NextResponse.json({ ok: true, items: data.items });
 }
 
 export async function POST(req: Request) {
-  const unauth = requireAdminSession();
+  const unauth = await requireAdminSession();
   if (unauth) return unauth;
 
   const body = (await req.json()) as {
