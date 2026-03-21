@@ -111,6 +111,12 @@
 Vercel 规定：**Sensitive 开关打开时，不能勾选 Development**。  
 **处理**：在 **Environments** 里改为**只勾选 Production 与 Preview**；或关掉 **Sensitive**（不推荐用于数据库密码、ADMIN_KEY）。
 
+### 部署状态 Error（约 30s）/ Build Failed
+
+常见原因之一：旧版代码在构建时**静态引入** `better-sqlite3`，在 Vercel Linux 上易失败。仓库已在 `lib/series-repo/service.ts` 改为**仅当 `SERIES_STORAGE=sqlite` 时才动态加载** sqlite，并配置 `next.config.mjs` 的 `serverComponentsExternalPackages`。
+
+若仍失败：在 Vercel 点开该条部署 → **Building** 日志，搜索 `error` / `better-sqlite3` / `DATABASE_URL`；确认 **Production / Preview** 已配置 **`SERIES_STORAGE=pg`** 与 **`DATABASE_URL`** 并已 **Redeploy**。
+
 ---
 
 ## 和根目录文件的对应关系
