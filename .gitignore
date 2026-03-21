@@ -13,3 +13,6 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+
+# 运行时 JSON（业务/用户数据，勿提交；本地首次运行由接口或 storage-local 按需生成）
+/data/*.json

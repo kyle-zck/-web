@@ -21,5 +21,11 @@ npm run dev
 
 然后打开 `http://localhost:3000`
 
+## 部署（Vercel）
+
+- 分支约定与构建检查：见根目录 [`DEPLOY.md`](./DEPLOY.md)。
+- **在 Vercel 控制台中的具体操作**（导入项目、环境变量、`main`/`dev`、无持久磁盘说明）：见 [`VERCEL.md`](./VERCEL.md)。
+- 环境变量模板：[`.env.example`](./.env.example)。
+
 ## 图片占位
 当前 Mock 数据引用了 `public/images/series/` 下的图片文件名，见 `public/images/series/README.txt`。

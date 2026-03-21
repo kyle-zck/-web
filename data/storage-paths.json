@@ -1,6 +1,0 @@
-{
-  "paths": [
-    { "id": "default", "name": "默认", "baseUrl": "https://cdn.example.com/video/", "enabled": true },
-    { "id": "s3", "name": "S3", "baseUrl": "https://bucket.s3.amazonaws.com/", "enabled": true }
-  ]
-}

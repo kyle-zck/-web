@@ -24,6 +24,8 @@ export async function PUT(req: Request) {
     return NextResponse.json({ ok: false, error: "Invalid data" }, { status: 400 });
   }
   try {
+    const dir = path.dirname(DATA_PATH);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(DATA_PATH, JSON.stringify({ paths }, null, 2), "utf-8");
     return NextResponse.json({ ok: true });
   } catch (e) {

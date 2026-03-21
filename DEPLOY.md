@@ -1,18 +1,27 @@
-# 部署说明（Vercel / 分支）
+# 部署说明（分支 / 数据 / 构建）
 
 ## 分支建议
 
 | 分支 | 用途 |
 |------|------|
-| `dev` | 首次联调、Preview 部署 |
-| `main` | 生产环境（Production） |
+| `dev` | 联调、Vercel **Preview** |
+| `main` | **Production**（生产） |
+
+在 Vercel：**Settings → Git → Production Branch** 设为 `main`；推送 `dev` 会自动生成预览部署。
+
+## Vercel 逐步操作
+
+**完整图文式清单见 [`VERCEL.md`](./VERCEL.md)**（导入仓库、环境变量、无持久盘注意事项）。
 
 ## 部署前检查
 
-1. 本地执行 `npm run build`，必须通过。
-2. 在 Vercel 项目 **Settings → Environment Variables** 中，为 **Preview** / **Production** 配置变量（名称见仓库根目录 `.env.example`）。
-3. **不要**在代码中硬编码密钥；`.env.local` 已在 `.gitignore` 中，勿提交。
+1. 本地 `npm run build` 必须通过。
+2. Vercel 中为 **Preview** 与 **Production** 分别配置环境变量（变量名见 [`.env.example`](./.env.example)）。
+3. 勿提交 `.env.local`；勿在代码中硬编码密钥。
+4. **Vercel 上请使用 `SERIES_STORAGE=pg` + `DATABASE_URL`**，勿依赖 `data/*.json` 持久化（见 `VERCEL.md`）。
 
-## `data/*.json`
+## `data/*.json` 与 Git
 
-仓库内 `data/` 下 JSON 为示例/本地数据。若生产环境由数据库或外部存储管理剧目，请在 Vercel 上评估是否改为忽略该目录或改用初始化脚本。
+- 根目录 **`data/*.json` 已加入 `.gitignore`**，不再进入版本库（避免误提交业务/用户数据）。
+- 保留 **`data/.gitkeep`** 保证 `data/` 目录存在。
+- 新克隆后本地缺少 JSON 时：开发环境下多数接口会返回默认值或在首次写入时创建文件（仅本机有效）。
