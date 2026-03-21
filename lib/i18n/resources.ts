@@ -222,8 +222,9 @@ export const resources: Record<AppLanguage, any> = {
         basedOnLocal: "Based on local series list",
         score: "Score",
         adminLogin: "Admin Login",
+        sessionChecking: "Verifying session…",
         loginHint:
-          "Password is checked on the server. Session lasts ~10 minutes without activity (rolling refresh on use).",
+          "Password is checked on the server. ~10 min idle expires JWT. Each browser tab must log in separately; closing the tab or browser clears this tab’s session.",
         adminKey: "Password",
         enterKey: "Enter password",
         login: "Login",
@@ -803,8 +804,9 @@ export const resources: Record<AppLanguage, any> = {
         basedOnLocal: "基于本地剧集列表",
         score: "评分",
         adminLogin: "管理后台登录",
+        sessionChecking: "正在校验会话…",
         loginHint:
-          "密码在服务端校验。约 10 分钟无操作需重新登录（使用中会自动续期）。",
+          "密码在服务端校验；约 10 分钟无操作 JWT 过期。每个浏览器标签页需单独登录；关闭标签页或浏览器后须重新登录。",
         adminKey: "登录密码",
         enterKey: "输入密码",
         login: "登录",

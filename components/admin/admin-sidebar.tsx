@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppLanguage } from "@/components/i18n/I18nProvider";
 import { cn } from "@/lib/utils";
+import { ADMIN_TAB_SESSION_KEY } from "@/lib/admin/tab-session";
 
 const DRAMA_MENU = [
   { href: "/admin/series/upload", key: "dramaUpload" },
@@ -39,6 +40,11 @@ export function AdminSidebar() {
     href === "/admin" ? pathname === href : pathname.startsWith(href);
 
   const onLogout = async () => {
+    try {
+      sessionStorage.removeItem(ADMIN_TAB_SESSION_KEY);
+    } catch {
+      /* ignore */
+    }
     try {
       await fetch("/admin/api/logout", { method: "POST", credentials: "include" });
     } catch {

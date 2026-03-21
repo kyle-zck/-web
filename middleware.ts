@@ -9,7 +9,6 @@ function cookieOpts() {
     httpOnly: true,
     sameSite: "lax" as const,
     path: "/",
-    maxAge: 600,
     secure
   };
 }

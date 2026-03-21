@@ -39,11 +39,11 @@ export async function verifySessionToken(token: string): Promise<boolean> {
   }
 }
 
+/** 不设 maxAge = 浏览器会话 Cookie，关闭浏览器后清除（与 JWT 10 分钟内过期配合） */
 export function sessionCookieOptions(): {
   httpOnly: boolean;
   sameSite: "lax";
   path: string;
-  maxAge: number;
   secure: boolean;
 } {
   const secure =
@@ -52,7 +52,6 @@ export function sessionCookieOptions(): {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
-    maxAge: Math.floor(SESSION_TTL_MS / 1000),
     secure
   };
 }

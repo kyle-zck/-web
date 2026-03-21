@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import { showToast } from "@/components/ui/toast";
+import { ADMIN_TAB_SESSION_KEY } from "@/lib/admin/tab-session";
 
 export default function AdminLoginPage() {
   const { t } = useTranslation();
@@ -33,6 +34,11 @@ export default function AdminLoginPage() {
       if (!res.ok) {
         setError(t("admin.invalidKey"));
         return;
+      }
+      try {
+        sessionStorage.setItem(ADMIN_TAB_SESSION_KEY, "1");
+      } catch {
+        /* private mode 等 */
       }
       router.replace("/admin");
       router.refresh();
