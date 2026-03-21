@@ -11,7 +11,7 @@
 
 ## Vercel 逐步操作
 
-**完整图文式清单见 [`VERCEL.md`](./VERCEL.md)**（导入仓库、环境变量、无持久盘注意事项）。
+**分步点击路径、Production 分支、`dev` 预览、Deploy Hooks 说明、环境变量勾选与 Redeploy** 见 **[`VERCEL.md`](./VERCEL.md)**（已按控制台界面细化）。
 
 ## 部署前检查
 
