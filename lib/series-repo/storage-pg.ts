@@ -7,12 +7,28 @@ import {
   slugify
 } from "@/lib/admin/placeholders";
 
+/** node-pg 对 JSONB 常返回已解析的数组，勿 String(arr) 再 JSON.parse（会得到 "A,B" 而报错） */
+function tagsFromPgJsonb(raw: unknown): Series["tags"] {
+  if (raw == null) return [] as Series["tags"];
+  if (Array.isArray(raw)) return raw as Series["tags"];
+  if (typeof raw === "string") {
+    const t = raw.trim();
+    if (!t) return [] as Series["tags"];
+    try {
+      return JSON.parse(t) as Series["tags"];
+    } catch {
+      return [] as Series["tags"];
+    }
+  }
+  return [] as Series["tags"];
+}
+
 type StoredSeriesRow = {
   id: string;
   title: string;
   description: string;
   category: CategoryTag;
-  tags_json: string;
+  tags_json: unknown;
   cover: string;
   poster: string;
   tagline: string;
@@ -187,7 +203,7 @@ export async function getAllSeries(): Promise<Series[]> {
     title: s.title,
     description: s.description,
     category: s.category,
-    tags: JSON.parse(String(s.tags_json ?? "[]")) as Series["tags"],
+    tags: tagsFromPgJsonb(s.tags_json),
     cover: s.cover,
     poster: s.poster,
     tagline: s.tagline,
@@ -225,7 +241,7 @@ export async function getSeriesById(id: string): Promise<Series | null> {
     title: s.title,
     description: s.description,
     category: s.category,
-    tags: JSON.parse(String(s.tags_json ?? "[]")) as Series["tags"],
+    tags: tagsFromPgJsonb(s.tags_json),
     cover: s.cover,
     poster: s.poster,
     tagline: s.tagline,

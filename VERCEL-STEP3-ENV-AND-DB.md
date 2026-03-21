@@ -132,6 +132,11 @@ Vercel 规定：**Sensitive 开关打开时，不能勾选 Development**。
 
 若仍失败：在 Vercel 点开该条部署 → **Building** 日志，搜索 `error` / `better-sqlite3` / `DATABASE_URL`；确认 **Production / Preview** 已配置 **`SERIES_STORAGE=pg`** 与 **`DATABASE_URL`** 并已 **Redeploy**。
 
+### 构建日志：`SyntaxError: Unexpected token 'W', "Werewolf,..." is not valid JSON`
+
+原因：PostgreSQL **JSONB** 经 **node-pg** 读出来常常是**已解析的数组**，旧代码用 `String(tags_json)` 会变成 `Werewolf,Romance` 再 `JSON.parse` 即报错。  
+处理：已改为兼容「字符串 / 数组」两种形态（见 `storage-pg.ts` 的 `tagsFromPgJsonb`）。拉最新代码后重新部署即可。
+
 ### 构建日志：`value "17..." is out of range for type integer`
 
 原因：`created_at` 存的是 **JavaScript 毫秒时间戳**（13 位），超过 PostgreSQL **`INTEGER`（INT4）** 上限（约 21 亿）。  
