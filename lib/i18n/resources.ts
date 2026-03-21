@@ -207,6 +207,7 @@ export const resources: Record<AppLanguage, any> = {
         dashboard: "Dashboard",
         seriesManagement: "Series Management",
         subscriptionConfig: "Subscription Config",
+        securityPassword: "Password & Security",
         usersAndUid: "Users & UID",
         rechargeRecords: "Recharge Records",
         watchHistory: "Watch History",
@@ -241,7 +242,7 @@ export const resources: Record<AppLanguage, any> = {
         invalidKey: "Invalid password.",
         networkError: "Network error.",
         keyHint:
-          "Use ADMIN_KEY from env on first deploy (default `admin` if unset). You can change the password below in Account management.",
+          "Use ADMIN_KEY from env on first deploy (default `admin` if unset). After login, change password under Password & Security in the sidebar.",
         logout: "Log out",
         accountManagement: "Account management",
         accountMgmtHint:
@@ -797,6 +798,7 @@ export const resources: Record<AppLanguage, any> = {
         dashboard: "仪表盘",
         seriesManagement: "剧集管理",
         subscriptionConfig: "订阅配置",
+        securityPassword: "密码与安全",
         usersAndUid: "用户与 UID",
         rechargeRecords: "充值记录",
         watchHistory: "观看历史",
@@ -831,7 +833,7 @@ export const resources: Record<AppLanguage, any> = {
         invalidKey: "密码错误。",
         networkError: "网络错误。",
         keyHint:
-          "首次部署使用环境变量 ADMIN_KEY（未设置时默认为 `admin`）。可在下方「账号管理」修改密码。",
+          "首次部署使用环境变量 ADMIN_KEY（未设置时默认为 `admin`）。登录后在侧栏「密码与安全」中修改密码。",
         logout: "退出登录",
         accountManagement: "账号管理",
         accountMgmtHint:

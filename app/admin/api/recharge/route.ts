@@ -12,11 +12,11 @@ export async function GET(req: NextRequest) {
 
   const uid = req.nextUrl.searchParams.get("uid");
   if (uid) {
-    const records = getRechargeByUid(uid);
+    const records = await getRechargeByUid(uid);
     return NextResponse.json({ ok: true, records });
   }
 
-  const records = getAllRechargeRecords();
+  const records = await getAllRechargeRecords();
   return NextResponse.json({ ok: true, records });
 }
 
@@ -33,6 +33,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const record = addRechargeRecord({ uid, date, price, tier });
+  const record = await addRechargeRecord({ uid, date, price, tier });
   return NextResponse.json({ ok: true, record });
 }

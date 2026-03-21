@@ -12,8 +12,8 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "seriesId required" }, { status: 400 });
   }
 
-  const collectionCount = getCollectionCount(seriesId);
-  const likesCount = getLikesCount(seriesId);
+  const collectionCount = await getCollectionCount(seriesId);
+  const likesCount = await getLikesCount(seriesId);
 
   return NextResponse.json({
     ok: true,

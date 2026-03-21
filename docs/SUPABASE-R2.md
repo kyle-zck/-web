@@ -27,6 +27,12 @@
 - **无需** Neon 控制台；表结构仍由 **`lib/series-repo/storage-pg.ts`** 在首次连接时 `CREATE TABLE IF NOT EXISTS` 自动创建。
 - 后台账号密码哈希表 **`admin_credentials`**、剧目表 **`series` / `episodes`** 均写在**同一 Supabase PostgreSQL** 中。
 
+#### 用户侧数据（UID、充值、观看、收藏、点赞）
+
+- **`SERIES_STORAGE=pg`** 且已配置 **`DATABASE_URL` / `SUPABASE_DB_URL`** 时：前台 **`/api/user/*`** 与后台管理里用户相关接口走 **PostgreSQL**，实现见 **`lib/user-repo/storage-pg.ts`**（首次连接时自动建表）。
+- 表名概览：**`app_user_profiles`**（`clientId` ↔ 展示用 `uid`）、**`recharge_records`**、**`watch_history_entries`**、**`user_favorites`**、**`user_likes`**。
+- 若 `SERIES_STORAGE=local` 或未配置数据库 URL：仍使用项目根目录 **`data/*.json`**（仅适合本机；**Vercel 上请用 `pg`**）。
+
 ### 4. 前台 Supabase Auth（邮箱密码 + OAuth）
 
 环境变量（前台登录**必填**）：

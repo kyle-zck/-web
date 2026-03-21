@@ -13,8 +13,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "clientId required" }, { status: 400 });
   }
 
-  getOrCreateUid(clientId);
-  const entries = getWatchHistory(clientId);
+  await getOrCreateUid(clientId);
+  const entries = await getWatchHistory(clientId);
   return NextResponse.json({ ok: true, entries });
 }
 
@@ -28,8 +28,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  getOrCreateUid(clientId);
-  syncWatchHistory(
+  await getOrCreateUid(clientId);
+  await syncWatchHistory(
     clientId,
     entries.map((e: { seriesId: string; episodeIndex: number; seconds: number }) => ({
       seriesId: e.seriesId,

@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import type { RechargeRecord, StoredUser, WatchHistoryEntry } from "./types";
 
 const DATA_DIR = path.resolve(process.cwd(), "data");
 const USERS_PATH = path.join(DATA_DIR, "users.json");
@@ -7,21 +8,6 @@ const RECHARGE_PATH = path.join(DATA_DIR, "recharge-records.json");
 const WATCH_HISTORY_PATH = path.join(DATA_DIR, "watch-history.json");
 const USER_FAVORITES_PATH = path.join(DATA_DIR, "user-favorites.json");
 const USER_LIKES_PATH = path.join(DATA_DIR, "user-likes.json");
-
-export interface StoredUser {
-  clientId: string;
-  uid: string;
-  createdAt: string;
-}
-
-export interface RechargeRecord {
-  id: string;
-  uid: string;
-  date: string; // YYYY-MM-DD
-  price: number;
-  tier: string;
-  createdAt: string;
-}
 
 type UsersStore = { users: Record<string, StoredUser> };
 type RechargeStore = { records: RechargeRecord[] };
@@ -66,7 +52,6 @@ function writeRecharge(store: RechargeStore) {
   fs.writeFileSync(RECHARGE_PATH, JSON.stringify(store, null, 2), "utf-8");
 }
 
-/** 获取或创建用户 UID，管理后台自动分配 */
 export function getOrCreateUid(clientId: string): StoredUser {
   const store = readUsers();
   const existing = store.users[clientId];
@@ -83,18 +68,17 @@ export function getOrCreateUid(clientId: string): StoredUser {
   return user;
 }
 
-/** 根据 clientId 获取 UID */
 export function getUidByClientId(clientId: string): string | null {
   return readUsers().users[clientId]?.uid ?? null;
 }
 
-/** 获取所有用户列表 */
 export function getAllUsers(): StoredUser[] {
   return Object.values(readUsers().users);
 }
 
-/** 添加充值记录 */
-export function addRechargeRecord(record: Omit<RechargeRecord, "id" | "createdAt">): RechargeRecord {
+export function addRechargeRecord(
+  record: Omit<RechargeRecord, "id" | "createdAt">
+): RechargeRecord {
   const store = readRecharge();
   const id = `rec-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
   const full: RechargeRecord = {
@@ -107,7 +91,6 @@ export function addRechargeRecord(record: Omit<RechargeRecord, "id" | "createdAt
   return full;
 }
 
-/** 根据 UID 获取充值记录 */
 export function getRechargeByUid(uid: string): RechargeRecord[] {
   const store = readRecharge();
   return store.records
@@ -115,18 +98,9 @@ export function getRechargeByUid(uid: string): RechargeRecord[] {
     .sort((a, b) => (b.date > a.date ? 1 : -1));
 }
 
-/** 获取所有充值记录（管理后台用） */
 export function getAllRechargeRecords(): RechargeRecord[] {
   const store = readRecharge();
   return [...store.records].sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1));
-}
-
-// --- 观看历史 ---
-export interface WatchHistoryEntry {
-  seriesId: string;
-  episodeIndex: number;
-  seconds: number;
-  lastWatchedAt: string;
 }
 
 type WatchHistoryStore = { byClient: Record<string, WatchHistoryEntry[]> };
@@ -161,7 +135,6 @@ export function getAllWatchHistory(): Record<string, WatchHistoryEntry[]> {
   return readWatchHistory().byClient;
 }
 
-// --- 用户收藏（点赞剧目）---
 type UserFavoritesStore = { byClient: Record<string, string[]> };
 
 function readUserFavorites(): UserFavoritesStore {
@@ -194,19 +167,16 @@ export function getAllUserFavorites(): Record<string, string[]> {
   return readUserFavorites().byClient;
 }
 
-/** 统计某剧集的收藏人数 */
 export function getCollectionCount(seriesId: string): number {
   const byClient = readUserFavorites().byClient;
   return Object.values(byClient).filter((ids) => ids.includes(seriesId)).length;
 }
 
-/** 统计某剧集的喜欢人数 */
 export function getLikesCount(seriesId: string): number {
   const byClient = readUserLikes().byClient;
   return Object.values(byClient).filter((ids) => ids.includes(seriesId)).length;
 }
 
-// --- 用户喜欢（点赞）---
 type UserLikesStore = { byClient: Record<string, string[]> };
 
 function readUserLikes(): UserLikesStore {

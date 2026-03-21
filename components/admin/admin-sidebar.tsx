@@ -19,6 +19,7 @@ const DRAMA_MENU = [
 const OTHER_NAV = [
   { href: "/admin", key: "dashboard" },
   { href: "/admin/config", key: "subscriptionConfig" },
+  { href: "/admin/security", key: "securityPassword" },
   { href: "/admin/users", key: "usersAndUid" },
   { href: "/admin/recharge", key: "rechargeRecords" },
   { href: "/admin/history", key: "watchHistory" },

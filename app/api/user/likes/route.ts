@@ -13,8 +13,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "clientId required" }, { status: 400 });
   }
 
-  getOrCreateUid(clientId);
-  const seriesIds = getUserLikes(clientId);
+  await getOrCreateUid(clientId);
+  const seriesIds = await getUserLikes(clientId);
   return NextResponse.json({ ok: true, seriesIds });
 }
 
@@ -28,12 +28,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  getOrCreateUid(clientId);
-  const current = getUserLikes(clientId);
+  await getOrCreateUid(clientId);
+  const current = await getUserLikes(clientId);
   const has = current.includes(seriesId);
   const shouldBeLiked = liked === true;
   if (has !== shouldBeLiked) {
-    toggleUserLike(clientId, seriesId);
+    await toggleUserLike(clientId, seriesId);
   }
   return NextResponse.json({ ok: true, liked: shouldBeLiked });
 }

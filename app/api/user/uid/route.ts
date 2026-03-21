@@ -11,10 +11,10 @@ export async function GET(req: NextRequest) {
 
   const create = req.nextUrl.searchParams.get("create") !== "false";
   if (create) {
-    const user = getOrCreateUid(clientId);
+    const user = await getOrCreateUid(clientId);
     return NextResponse.json({ ok: true, uid: user.uid, clientId: user.clientId });
   }
 
-  const uid = getUidByClientId(clientId);
+  const uid = await getUidByClientId(clientId);
   return NextResponse.json({ ok: true, uid, clientId });
 }

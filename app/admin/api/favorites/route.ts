@@ -6,6 +6,6 @@ export async function GET() {
   const unauth = await requireAdminSession();
   if (unauth) return unauth;
 
-  const byClient = getAllUserFavorites();
+  const byClient = await getAllUserFavorites();
   return NextResponse.json({ ok: true, byClient });
 }

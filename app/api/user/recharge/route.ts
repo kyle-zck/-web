@@ -13,8 +13,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "clientId required" }, { status: 400 });
   }
 
-  const user = getOrCreateUid(clientId);
-  const records = getRechargeByUid(user.uid);
+  const user = await getOrCreateUid(clientId);
+  const records = await getRechargeByUid(user.uid);
   return NextResponse.json({ ok: true, uid: user.uid, records });
 }
 
@@ -28,9 +28,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const user = getOrCreateUid(clientId);
+  const user = await getOrCreateUid(clientId);
   const date = new Date().toISOString().slice(0, 10);
-  const record = addRechargeRecord({
+  const record = await addRechargeRecord({
     uid: user.uid,
     date,
     price,

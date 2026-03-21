@@ -6,6 +6,6 @@ export async function GET() {
   const unauth = await requireAdminSession();
   if (unauth) return unauth;
 
-  const byClient = getAllUserLikes();
+  const byClient = await getAllUserLikes();
   return NextResponse.json({ ok: true, byClient });
 }

@@ -13,8 +13,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "clientId required" }, { status: 400 });
   }
 
-  getOrCreateUid(clientId);
-  const seriesIds = getUserFavorites(clientId);
+  await getOrCreateUid(clientId);
+  const seriesIds = await getUserFavorites(clientId);
   return NextResponse.json({ ok: true, seriesIds });
 }
 
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  getOrCreateUid(clientId);
-  syncUserFavorites(clientId, seriesIds);
+  await getOrCreateUid(clientId);
+  await syncUserFavorites(clientId, seriesIds);
   return NextResponse.json({ ok: true });
 }

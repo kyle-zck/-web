@@ -21,8 +21,7 @@ async function adminMiddleware(req: NextRequest) {
   const isLoginPage = pathname === "/admin/login";
   const isPublicApi =
     (pathname === "/admin/api/login" && req.method === "POST") ||
-    (pathname === "/admin/api/logout" && req.method === "POST") ||
-    (pathname === "/admin/api/auth/change-password" && req.method === "POST");
+    (pathname === "/admin/api/logout" && req.method === "POST");
 
   if (isLoginPage || isPublicApi) {
     return NextResponse.next();
@@ -88,8 +87,10 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * 匹配除静态资源外的所有路径；/admin 走后台 JWT，其余走 Supabase 会话刷新。
+     * 排除整个 /_next/*（含 dev 下 webpack.js、主 chunk 等，不仅限于 _next/static），
+     * 否则中间件会拦截 Next 内部资源导致控制台 500。
+     * /admin 走后台 JWT，其余走 Supabase 会话刷新。
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"
+    "/((?!_next/|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"
   ]
 };

@@ -6,6 +6,6 @@ export async function GET() {
   const unauth = await requireAdminSession();
   if (unauth) return unauth;
 
-  const users = getAllUsers();
+  const users = await getAllUsers();
   return NextResponse.json({ ok: true, users });
 }

@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
+import { requireAdminSession } from "@/lib/admin/auth";
 import { validateNewPassword } from "@/lib/admin/password-policy";
 import { hashPassword, setStoredPasswordHash, verifyAdminPassword } from "@/lib/admin/password-store";
 
 export async function POST(req: Request) {
+  const unauth = await requireAdminSession();
+  if (unauth) return unauth;
+
   try {
     const body = (await req.json()) as {
       oldPassword?: string;
