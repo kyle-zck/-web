@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { showToast } from "@/components/ui/toast";
+import { translateAdminApiError } from "@/lib/admin/api-error";
 import type { CategoryTag } from "@/constants/mock-data";
 import { CATEGORY_TAGS } from "@/constants/mock-data";
 import { Badge } from "@/components/ui/badge";
@@ -44,12 +46,16 @@ export function UploadSeriesForm({
     setSuccess(null);
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      setError(t("admin.coverMustBeImage"));
+      const msg = t("admin.coverMustBeImage");
+      setError(msg);
+      showToast(msg);
       return;
     }
     const maxSize = 4 * 1024 * 1024;
     if (file.size > maxSize) {
-      setError(t("admin.coverTooLarge"));
+      const msg = t("admin.coverTooLarge");
+      setError(msg);
+      showToast(msg);
       return;
     }
 
@@ -67,12 +73,36 @@ export function UploadSeriesForm({
     setSuccess(null);
 
     const cleanTitle = title.trim();
-    if (!cleanTitle) return setError(t("admin.titleRequired"));
-    if (!description.trim()) return setError(t("admin.descriptionRequired"));
-    if (!selectedTags.length) return setError(t("admin.selectAtLeastOneTag"));
-    if (!coverFile) return setError(t("admin.uploadCoverRequired"));
-
-    if (episodes.length === 0) return setError(t("admin.episodeUrlRequired"));
+    if (!cleanTitle) {
+      const msg = t("admin.titleRequired");
+      setError(msg);
+      showToast(msg);
+      return;
+    }
+    if (!description.trim()) {
+      const msg = t("admin.descriptionRequired");
+      setError(msg);
+      showToast(msg);
+      return;
+    }
+    if (!selectedTags.length) {
+      const msg = t("admin.selectAtLeastOneTag");
+      setError(msg);
+      showToast(msg);
+      return;
+    }
+    if (!coverFile) {
+      const msg = t("admin.uploadCoverRequired");
+      setError(msg);
+      showToast(msg);
+      return;
+    }
+    if (episodes.length === 0) {
+      const msg = t("admin.episodeUrlRequired");
+      setError(msg);
+      showToast(msg);
+      return;
+    }
 
     setBusy(true);
     try {
@@ -103,7 +133,17 @@ export function UploadSeriesForm({
           episodeVideoUrls: episodes
         })
       });
-      if (!res.ok) throw new Error("upload failed");
+      const seriesJson = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        errorKey?: string;
+      };
+      if (!seriesJson?.ok) {
+        const msg = translateAdminApiError(seriesJson, t, "admin.uploadFailed");
+        setError(msg);
+        showToast(msg);
+        return;
+      }
 
       setSuccess(t("admin.uploadSuccess"));
       setTitle("");

@@ -4,6 +4,7 @@ import {
   getSeriesById as getSeriesByIdLocal,
   createSeries as createSeriesLocal,
   deleteSeries as deleteSeriesLocal,
+  deleteEpisodeFromSeries as deleteEpisodeFromSeriesLocal,
   updateSeries as updateSeriesLocal
 } from "./storage-local";
 import {
@@ -38,6 +39,7 @@ const provider = (() => {
       getSeriesById: getSeriesByIdSqlite,
       createSeries: createSeriesSqlite,
       deleteSeries: deleteSeriesSqlite,
+      deleteEpisodeFromSeries: async () => null,
       updateSeries: updateSeriesStub
     };
   }
@@ -47,6 +49,7 @@ const provider = (() => {
       getSeriesById: getSeriesByIdPg,
       createSeries: createSeriesPg,
       deleteSeries: deleteSeriesPg,
+      deleteEpisodeFromSeries: async () => null,
       updateSeries: updateSeriesStub
     };
   }
@@ -56,6 +59,7 @@ const provider = (() => {
     getSeriesById: getSeriesByIdLocal,
     createSeries: createSeriesLocal,
     deleteSeries: deleteSeriesLocal,
+    deleteEpisodeFromSeries: deleteEpisodeFromSeriesLocal,
     updateSeries: updateSeriesLocal
   };
 })();
@@ -74,6 +78,11 @@ export async function createSeries(data: {
   tags: Series["tags"];
   coverDataUrl: string;
   episodeVideoUrls: string[];
+  episodeVideoMeta?: import("./storage-local").EpisodeVideoMetaItem[];
+  lockStartIndex?: number;
+  listed?: boolean;
+  originalName?: string;
+  localOrTranslated?: "local" | "translated";
 }): Promise<Series> {
   return provider.createSeries(data);
 }
@@ -82,9 +91,26 @@ export async function deleteSeries(id: string): Promise<void> {
   return provider.deleteSeries(id);
 }
 
+export async function deleteEpisodeFromSeries(
+  seriesId: string,
+  episodeId: string
+): Promise<Series | null> {
+  return provider.deleteEpisodeFromSeries(seriesId, episodeId);
+}
+
 export async function updateSeries(
   id: string,
-  patch: { lockStartIndex?: number }
+  patch: {
+    lockStartIndex?: number;
+    title?: string;
+    originalName?: string;
+    localOrTranslated?: "local" | "translated";
+    description?: string;
+    tags?: Series["tags"];
+    cover?: string;
+    poster?: string;
+    listed?: boolean;
+  }
 ): Promise<Series | null> {
   return provider.updateSeries(id, patch);
 }

@@ -224,6 +224,11 @@ export async function createSeries(data: {
   tags: Series["tags"];
   coverDataUrl: string;
   episodeVideoUrls: string[];
+  episodeVideoMeta?: { fileName: string; localVideoUrl?: string }[];
+  lockStartIndex?: number;
+  listed?: boolean;
+  originalName?: string;
+  localOrTranslated?: "local" | "translated";
 }): Promise<Series> {
   await initIfNeeded();
   const conn = getPool();
@@ -235,6 +240,8 @@ export async function createSeries(data: {
   const seriesId = `${baseId}-${Math.random().toString(16).slice(2, 6)}`;
   const now = Date.now();
 
+  const lockStart = data.lockStartIndex ?? 4;
+
   // cover / poster: 与 local/sqlite 保持一致逻辑（coverDataUrl 作为展示素材）
   const cover = data.coverDataUrl;
   const poster = data.coverDataUrl || posterPlaceholder(cleanTitle, data.description);
@@ -244,7 +251,7 @@ export async function createSeries(data: {
 
   const episodes: Episode[] = Array.from({ length: total }).map((_, i) => {
     const index = i + 1;
-    const isFree = index <= 3;
+    const isFree = index < lockStart;
     const videoUrl = data.episodeVideoUrls[i] ?? "";
     return {
       id: `${seriesId}-ep-${index}`,

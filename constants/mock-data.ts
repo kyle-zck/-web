@@ -5,9 +5,14 @@ export interface Episode {
   title: string;
   duration: string;
   thumbnail: string;
+  /** 前端线上播放地址 */
   videoUrl: string;
   index: number;
   isFree: boolean;
+  /** 上传时的原始视频文件名（集数/排序多从文件名解析） */
+  sourceFileName?: string;
+  /** 管理端「本地」视频资源链接（可与 videoUrl 相同；未配置时可用文件名提示） */
+  localVideoUrl?: string;
 }
 
 export type AppLanguage = "en" | "zh-CN";
@@ -40,8 +45,22 @@ export interface Series {
   episodes: Episode[];
   description?: string;
   i18n?: Partial<Record<AppLanguage, SeriesI18nText>>;
-  /** 从第几集开始锁定，默认 4。仅订阅会员可解锁 */
   lockStartIndex?: number;
+  listed?: boolean;
+  /** 剧ID，从 10000 起递增，唯一 */
+  dramaId?: number;
+  /** 剧目本名 */
+  originalName?: string;
+  /** 本土剧/翻译剧 */
+  localOrTranslated?: "local" | "translated";
+  /** 创建时间（首次上传） */
+  createdAt?: number;
+  /** 任务完成时间（全部上传完毕） */
+  completedAt?: number;
+  /** 上架时间（发布到前端） */
+  listedAt?: number;
+  /** 任务状态：已完成/未完成 */
+  taskStatus?: "completed" | "incomplete";
 }
 
 function svgDataUri(svg: string) {

@@ -211,6 +211,11 @@ export async function createSeries(data: {
   tags: Series["tags"];
   coverDataUrl: string;
   episodeVideoUrls: string[];
+  episodeVideoMeta?: { fileName: string; localVideoUrl?: string }[];
+  lockStartIndex?: number;
+  listed?: boolean;
+  originalName?: string;
+  localOrTranslated?: "local" | "translated";
 }): Promise<Series> {
   initIfNeeded();
   const conn = getDb();
@@ -227,6 +232,7 @@ export async function createSeries(data: {
 
   const isTrending = 1;
   const isNew = 1;
+  const lockStart = data.lockStartIndex ?? 4;
 
   const insertSeries = conn.prepare(`
     INSERT INTO series (
@@ -242,7 +248,7 @@ export async function createSeries(data: {
   const total = Math.max(1, data.episodeVideoUrls.length);
   const episodes: Episode[] = Array.from({ length: total }).map((_, i) => {
     const index = i + 1;
-    const isFree = index <= 3;
+    const isFree = index < lockStart;
     const videoUrl = data.episodeVideoUrls[i] ?? "";
     return {
       id: `${seriesId}-ep-${index}`,

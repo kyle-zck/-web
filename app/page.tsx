@@ -8,7 +8,8 @@ import { MoreMoviesLink } from "@/components/home/more-movies-link";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const series = await getAllSeries();
+  const all = await getAllSeries();
+  const series = all.filter((s) => s.listed !== false);
   const trending = series.filter((s) => s.isTrending);
   const newArrivals = series.filter((s) => s.isNew);
   const allForFill = [...newArrivals, ...trending, ...series];

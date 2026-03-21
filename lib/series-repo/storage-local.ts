@@ -16,6 +16,7 @@ type Stored = {
 
 const DATA_DIR = path.resolve(process.cwd(), "data");
 const STORE_PATH = path.join(DATA_DIR, "series-store.json");
+const DRAMA_ID_PATH = path.join(DATA_DIR, "drama-id-counter.json");
 
 function ensureDir() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -44,6 +45,25 @@ function writeStore(store: Stored) {
   fs.writeFileSync(STORE_PATH, JSON.stringify(store, null, 2), "utf-8");
 }
 
+function getNextDramaId(): number {
+  ensureDir();
+  const store = readStore();
+  const maxExisting = store.series.reduce(
+    (max, s) => Math.max(max, s.dramaId ?? 0),
+    9999
+  );
+  let next = 10000;
+  if (fs.existsSync(DRAMA_ID_PATH)) {
+    const raw = fs.readFileSync(DRAMA_ID_PATH, "utf-8");
+    const o = JSON.parse(raw) as { nextId?: number };
+    next = Math.max(o.nextId ?? 10000, maxExisting + 1);
+  } else {
+    next = maxExisting + 1;
+  }
+  fs.writeFileSync(DRAMA_ID_PATH, JSON.stringify({ nextId: next + 1 }), "utf-8");
+  return next;
+}
+
 export async function getAllSeries(): Promise<Series[]> {
   return readStore().series;
 }
@@ -52,18 +72,32 @@ export async function getSeriesById(id: string): Promise<Series | null> {
   return readStore().series.find((s) => s.id === id) ?? null;
 }
 
+export type EpisodeVideoMetaItem = {
+  fileName: string;
+  /** 可选：显式本地资源 URL；未传时由文件名生成 file:// 形式占位 */
+  localVideoUrl?: string;
+};
+
 export async function createSeries(data: {
   title: string;
   description: string;
   tags: Series["tags"];
   coverDataUrl: string;
   episodeVideoUrls: string[];
+  /** 与 episodeVideoUrls 下标一一对应（通常为按集数排序后的上传文件） */
+  episodeVideoMeta?: EpisodeVideoMetaItem[];
+  lockStartIndex?: number;
+  listed?: boolean;
+  originalName?: string;
+  localOrTranslated?: "local" | "translated";
 }): Promise<Series> {
   const store = readStore();
+  const now = Date.now();
 
   const cleanTitle = data.title.trim();
   const category = (data.tags[0] ?? ("Romance" as CategoryTag)) as CategoryTag;
 
+  const dramaId = getNextDramaId();
   const baseId = slugify(cleanTitle) || `series-${Date.now()}`;
   const seriesId = `${baseId}-${Math.random().toString(16).slice(2, 6)}`;
 
@@ -72,11 +106,17 @@ export async function createSeries(data: {
     ? data.coverDataUrl
     : posterPlaceholder(cleanTitle, data.description);
 
+  const lockStart = data.lockStartIndex ?? 4;
   const total = Math.max(1, data.episodeVideoUrls.length);
   const episodes: Episode[] = Array.from({ length: total }).map((_, i) => {
     const index = i + 1;
     const videoUrl = data.episodeVideoUrls[i] ?? "";
-    const isFree = index <= 3;
+    const meta = data.episodeVideoMeta?.[i];
+    const fileName = meta?.fileName ?? "";
+    const localVideoUrl =
+      meta?.localVideoUrl?.trim() ||
+      (fileName ? `file:///${fileName.replace(/\\/g, "/")}` : undefined);
+    const isFree = index < lockStart;
     return {
       id: `${seriesId}-ep-${index}`,
       index,
@@ -87,9 +127,13 @@ export async function createSeries(data: {
         isFree ? "FREE" : "LOCKED"
       ),
       videoUrl,
-      isFree
+      isFree,
+      sourceFileName: fileName || undefined,
+      localVideoUrl
     };
   });
+
+  const listed = data.listed !== false;
 
   const next: Series = {
     id: seriesId,
@@ -102,7 +146,16 @@ export async function createSeries(data: {
     isTrending: true,
     isNew: true,
     description: data.description,
-    episodes
+    episodes,
+    lockStartIndex: lockStart,
+    listed,
+    dramaId,
+    originalName: data.originalName,
+    localOrTranslated: data.localOrTranslated,
+    createdAt: now,
+    completedAt: now,
+    taskStatus: "completed",
+    listedAt: listed ? now : undefined
   };
 
   store.series = [next, ...store.series];
@@ -116,18 +169,83 @@ export async function deleteSeries(id: string): Promise<void> {
   writeStore(store);
 }
 
+/** 从剧目中删除某一集并顺延重排集号（仅本地 JSON 存储完整支持） */
+export async function deleteEpisodeFromSeries(
+  seriesId: string,
+  episodeId: string
+): Promise<Series | null> {
+  const store = readStore();
+  const sIdx = store.series.findIndex((s) => s.id === seriesId);
+  if (sIdx < 0) return null;
+  const s = store.series[sIdx];
+  if (!s.episodes?.some((e) => e.id === episodeId)) return null;
+
+  const lockStart = s.lockStartIndex ?? 4;
+  const filtered = s.episodes.filter((e) => e.id !== episodeId);
+  const renumbered: Episode[] = filtered.map((e, i) => {
+    const index = i + 1;
+    return {
+      ...e,
+      id: `${seriesId}-ep-${index}`,
+      index,
+      title: `第 ${index} 集`,
+      isFree: index < lockStart
+    };
+  });
+
+  const next: Series = { ...s, episodes: renumbered };
+  store.series[sIdx] = next;
+  writeStore(store);
+  return next;
+}
+
 export async function updateSeries(
   id: string,
-  patch: { lockStartIndex?: number }
+  patch: {
+    lockStartIndex?: number;
+    title?: string;
+    originalName?: string;
+    localOrTranslated?: "local" | "translated";
+    description?: string;
+    tags?: Series["tags"];
+    cover?: string;
+    poster?: string;
+    listed?: boolean;
+  }
 ): Promise<Series | null> {
   const store = readStore();
   const idx = store.series.findIndex((s) => s.id === id);
   if (idx < 0) return null;
   const prev = store.series[idx];
-  const next: Series = {
-    ...prev,
-    ...(patch.lockStartIndex !== undefined && { lockStartIndex: patch.lockStartIndex })
-  };
+  const next: Series = { ...prev };
+
+  if (patch.lockStartIndex !== undefined) next.lockStartIndex = patch.lockStartIndex;
+  if (patch.title !== undefined) next.title = patch.title;
+  if (patch.originalName !== undefined) next.originalName = patch.originalName;
+  if (patch.localOrTranslated !== undefined) next.localOrTranslated = patch.localOrTranslated;
+  if (patch.description !== undefined) next.description = patch.description;
+  if (patch.tags !== undefined) {
+    next.tags = patch.tags;
+    const first = patch.tags[0];
+    if (first !== undefined) {
+      next.category = first as CategoryTag;
+    }
+  }
+  if (patch.cover !== undefined) next.cover = patch.cover;
+  if (patch.poster !== undefined) next.poster = patch.poster;
+
+  if (patch.listed !== undefined) {
+    next.listed = patch.listed;
+    if (patch.listed && !prev.listed) next.listedAt = Date.now();
+  }
+
+  if (patch.lockStartIndex !== undefined && next.episodes) {
+    next.episodes = next.episodes.map((e) => ({
+      ...e,
+      isFree: e.index < patch.lockStartIndex!
+    }));
+  }
+
   store.series[idx] = next;
   writeStore(store);
   return next;
