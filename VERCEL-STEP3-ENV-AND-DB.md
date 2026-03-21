@@ -98,6 +98,21 @@
 
 ---
 
+## 图 1 类问题：环境变量如何自查
+
+在 Vercel **Settings → Environment Variables** 核对：
+
+| 检查项 | 正确做法 |
+|--------|----------|
+| **Key** | 与 `.env.example` 一致：`SERIES_STORAGE`、`DATABASE_URL`（或 `PG_URL`）等，无空格、大小写一致。 |
+| **Value** | `SERIES_STORAGE` 仅为 **`pg`**；`DATABASE_URL` 为完整 `postgresql://...` 连接串。 |
+| **作用环境** | 至少 **Production + Preview**；若变量为 **Sensitive**，**不要**勾选 **Development**（否则会无法保存）。 |
+| **是否生效** | 改完后必须 **Deployments → 对应环境最新一条 → ⋯ → Redeploy**。 |
+
+本地对照：打开项目根目录 **`.env.local`**（勿提交），与 Vercel 中同名变量**值**应等价（本地可用 `local` 存储，线上应用 `pg`）。
+
+---
+
 ## 阶段四：自测是否成功
 
 1. 打开你的 **Production 或 Preview URL** + **`/admin/login`**。
@@ -116,6 +131,11 @@ Vercel 规定：**Sensitive 开关打开时，不能勾选 Development**。
 常见原因之一：旧版代码在构建时**静态引入** `better-sqlite3`，在 Vercel Linux 上易失败。仓库已在 `lib/series-repo/service.ts` 改为**仅当 `SERIES_STORAGE=sqlite` 时才动态加载** sqlite，并配置 `next.config.mjs` 的 `serverComponentsExternalPackages`。
 
 若仍失败：在 Vercel 点开该条部署 → **Building** 日志，搜索 `error` / `better-sqlite3` / `DATABASE_URL`；确认 **Production / Preview** 已配置 **`SERIES_STORAGE=pg`** 与 **`DATABASE_URL`** 并已 **Redeploy**。
+
+### 构建日志：`value "17..." is out of range for type integer`
+
+原因：`created_at` 存的是 **JavaScript 毫秒时间戳**（13 位），超过 PostgreSQL **`INTEGER`（INT4）** 上限（约 21 亿）。  
+处理：拉取包含 **`storage-pg.ts` 将 `created_at` 改为 `BIGINT`** 的提交；部署时会自动对**旧表**执行 `ALTER COLUMN ... BIGINT`。无需在 Neon 里手工改表（除非你选择自行执行 SQL）。
 
 ---
 

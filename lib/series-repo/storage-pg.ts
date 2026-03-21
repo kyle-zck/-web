@@ -68,7 +68,7 @@ async function initIfNeeded() {
       tagline TEXT NOT NULL,
       is_trending INTEGER NOT NULL DEFAULT 1,
       is_new INTEGER NOT NULL DEFAULT 0,
-      created_at INTEGER NOT NULL
+      created_at BIGINT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS episodes (
@@ -82,6 +82,23 @@ async function initIfNeeded() {
       is_free INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS idx_episodes_series_id ON episodes(series_id);
+  `);
+
+  // 旧库曾用 INTEGER 存 created_at；JS Date.now() 毫秒值超过 INT4 上限，需 BIGINT
+  await conn.query(`
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'series'
+          AND column_name = 'created_at'
+          AND data_type = 'integer'
+      ) THEN
+        ALTER TABLE series
+          ALTER COLUMN created_at TYPE BIGINT USING created_at::bigint;
+      END IF;
+    END $$;
   `);
 
   // seed if empty
