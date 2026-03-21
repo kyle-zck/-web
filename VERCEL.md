@@ -74,7 +74,7 @@
 | Key | 建议值 | 勾选环境 |
 |-----|--------|----------|
 | `SERIES_STORAGE` | `pg` | Production + Preview |
-| `DATABASE_URL` | Postgres 连接串（或 `PG_URL` 二选一） | Production + Preview |
+| `DATABASE_URL` 或 `SUPABASE_DB_URL` | Supabase（推荐）或其它 Postgres 连接串 | Production + Preview |
 
 4. **后台登录密钥**（不要用默认弱密码）：
 
@@ -82,7 +82,7 @@
 |-----|------|
 | `ADMIN_KEY` | 强随机字符串；Production 与 Preview 可相同或分开 |
 
-5. **S3**（若用封面上传）：`S3_ENDPOINT`、`S3_REGION`、`S3_BUCKET`、`S3_ACCESS_KEY_ID`、`S3_SECRET_ACCESS_KEY`、`S3_PUBLIC_BASE_URL` — 按需为 Production / Preview 分别配置。
+5. **S3 兼容（Cloudflare R2 等）**：`S3_*` 六项 — 见 **`docs/SUPABASE-R2.md`**；按需为 Production / Preview 分别配置。
 
 6. 点 **Save**。  
 7. **重要**：已存在的部署**不会**自动拿到新变量。请到 **Deployments** → 选中最新一条 → **⋯** → **Redeploy**（或推送一个空 commit），新环境变量才会生效。

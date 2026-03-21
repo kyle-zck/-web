@@ -1,8 +1,17 @@
 import { S3Client } from "@aws-sdk/client-s3";
 
+/**
+ * S3 兼容存储（AWS S3 / Cloudflare R2 / MinIO 等）。
+ * R2：S3_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+ *      S3_REGION=auto（或未设置时含 r2 域名则默认 auto）
+ *      S3_PUBLIC_BASE_URL=自定义域名或 R2 dev 子域公开 URL
+ */
 export function getS3Client() {
-  const endpoint = process.env.S3_ENDPOINT;
-  const region = process.env.S3_REGION ?? "us-east-1";
+  const endpoint = process.env.S3_ENDPOINT?.trim();
+  const isR2 = Boolean(endpoint?.includes("r2.cloudflarestorage.com"));
+  const region =
+    process.env.S3_REGION?.trim() ||
+    (isR2 ? "auto" : "us-east-1");
   const accessKeyId = process.env.S3_ACCESS_KEY_ID ?? "";
   const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY ?? "";
 
@@ -13,7 +22,9 @@ export function getS3Client() {
   return new S3Client({
     region,
     endpoint: endpoint || undefined,
-    forcePathStyle: Boolean(endpoint && !endpoint.includes(".amazonaws.com")),
+    forcePathStyle: Boolean(
+      endpoint && !endpoint.includes(".amazonaws.com")
+    ),
     credentials: {
       accessKeyId,
       secretAccessKey

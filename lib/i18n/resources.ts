@@ -236,7 +236,7 @@ export const resources: Record<AppLanguage, any> = {
         logout: "Log out",
         accountManagement: "Account management",
         accountMgmtHint:
-          "Enter current password and a new password (9+ chars, letters and numbers). Applies to this deployment (file or Postgres).",
+          "Enter current password and a new password (9+ chars, letters and numbers). Saved to local file or Postgres (e.g. Supabase) when DATABASE_URL is set.",
         currentPassword: "Current password",
         newPassword: "New password",
         confirmPassword: "Confirm password",
@@ -818,7 +818,7 @@ export const resources: Record<AppLanguage, any> = {
         logout: "退出登录",
         accountManagement: "账号管理",
         accountMgmtHint:
-          "填写当前密码与新密码（多于 8 位，且同时含字母与数字）。将写入本地文件或 Postgres（与 DATABASE_URL 一致）。",
+          "填写当前密码与新密码（多于 8 位，且同时含字母与数字）。将写入本地文件或数据库（DATABASE_URL / Supabase）。",
         currentPassword: "当前密码",
         newPassword: "新密码",
         confirmPassword: "确认密码",

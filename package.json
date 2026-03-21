@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1011.0",
+    "@supabase/supabase-js": "^2.99.3",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.8.0",
     "i18next": "^25.8.18",

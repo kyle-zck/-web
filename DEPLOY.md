@@ -12,7 +12,7 @@
 ## Vercel 逐步操作
 
 **分步点击路径、Production 分支、`dev` 预览、Deploy Hooks 说明** 见 **[`VERCEL.md`](./VERCEL.md)**。  
-**第 3 步：没有数据库时如何建 Neon + Vercel 弹窗怎么填** 见 **[`VERCEL-STEP3-ENV-AND-DB.md`](./VERCEL-STEP3-ENV-AND-DB.md)**。
+**第 3 步：Supabase 数据库 + Vercel 弹窗怎么填** 见 **[`VERCEL-STEP3-ENV-AND-DB.md`](./VERCEL-STEP3-ENV-AND-DB.md)**；**Supabase + R2** 总览见 **[`docs/SUPABASE-R2.md`](./docs/SUPABASE-R2.md)**。
 
 ## 部署前检查
 

@@ -1,4 +1,5 @@
 import { Pool } from "pg";
+import { getDatabaseUrl } from "@/lib/db/url";
 import type { CategoryTag, Episode, Series } from "@/constants/mock-data";
 import { SERIES_LIST } from "@/constants/mock-data";
 import {
@@ -53,10 +54,12 @@ let initialized = false;
 
 function getPool() {
   if (pool) return pool;
-  const url = process.env.PG_URL ?? process.env.DATABASE_URL;
+  const url = getDatabaseUrl();
   if (!url) {
     // 构建/类型检查阶段不应失败；运行时才会触发
-    throw new Error("Missing PG_URL/DATABASE_URL for SERIES_STORAGE=pg");
+    throw new Error(
+      "Missing DATABASE_URL / SUPABASE_DB_URL / PG_URL for SERIES_STORAGE=pg"
+    );
   }
   pool = new Pool({
     connectionString: url,
