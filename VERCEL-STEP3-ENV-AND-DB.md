@@ -41,7 +41,7 @@
 |------|------|
 | **Key** | 环境变量**名字**，必须和下面写的**完全一致**（区分大小写）。 |
 | **Value** | **只贴值**，不要加引号、不要多空格。 |
-| **Environments** | 选 **`All Environments`** 最简单：Production + Preview + Development 都能用；若只想生产与预览，可改为只勾选 **Production** 和 **Preview**。 |
+| **Environments** | **若打开 Sensitive**：只能选 **Production** 和 **Preview**，**不要**勾选 **Development**（Vercel 会提示 *Sensitive environment variables cannot be created in the Development environment*）。非敏感变量（如 `SERIES_STORAGE=pg`）可勾选含 Development 或 `All Environments`。 |
 | **Branch / Select a Custom Preview Branch** | **新手不要点**。只有「某条变量只想给某一个预览分支用」时才需要；一般留空/默认即可。 |
 | **Sensitive** | **密钥类**（数据库连接串、`ADMIN_KEY`、S3 Secret）建议 **打开**，保存后界面里不易再看到明文。非密钥如 `SERIES_STORAGE=pg` 可关。 |
 
@@ -51,7 +51,7 @@
 
 1. **Key** 输入：`DATABASE_URL`（不要写成 `database_url`）。
 2. **Value**：粘贴 Neon（或其它平台）复制的**整段** `postgresql://...`。
-3. **Environments**：`All Environments`（或至少 **Production + Preview**）。
+3. **Environments**：**只勾选 Production + Preview**（不要选 Development；不要选 All Environments，否则会含 Development）。
 4. **Sensitive**：**打开**。
 5. 保存。
 
@@ -59,7 +59,7 @@
 
 1. **Key**：`SERIES_STORAGE`
 2. **Value**：`pg`（就两个字母，不要加引号）
-3. **Environments**：与上一条一致（建议 `All Environments`）。
+3. **Environments**：可 **`All Environments`**，或 **Production + Preview + Development**（`SERIES_STORAGE` 非密钥）。
 4. **Sensitive**：可关。
 5. 保存。
 
@@ -69,7 +69,7 @@
 2. **Value**：自己定一个**长随机密码**（不要用 `admin`）。  
    - Mac 终端可生成：`openssl rand -hex 24`  
    - 把输出的一串字符整段粘贴到 Value。
-3. **Environments**：同上。
+3. **Environments**：**只勾选 Production + Preview**（与 `DATABASE_URL` 相同规则；Sensitive 时不能含 Development）。
 4. **Sensitive**：**打开**。
 5. 保存。
 
@@ -105,6 +105,11 @@
 3. 能进后台且剧目列表能加载，说明 **`DATABASE_URL` + `SERIES_STORAGE=pg`** 基本正确。
 
 若构建或运行报错日志里有 **`Missing PG_URL/DATABASE_URL`**：说明 Vercel 里变量名写错或未 Redeploy。
+
+### 提示「Sensitive … cannot be created in the Development environment」
+
+Vercel 规定：**Sensitive 开关打开时，不能勾选 Development**。  
+**处理**：在 **Environments** 里改为**只勾选 Production 与 Preview**；或关掉 **Sensitive**（不推荐用于数据库密码、ADMIN_KEY）。
 
 ---
 
