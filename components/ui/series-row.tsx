@@ -67,7 +67,7 @@ export function SeriesRow({ titleKey, items }: SeriesRowProps) {
                     </div>
                   </div>
                 </Link>
-                <p className="mt-2 line-clamp-2 text-xl font-semibold text-zinc-50">
+                <p className="mt-2 line-clamp-2 text-lg font-semibold text-zinc-50">
                   {title}
                 </p>
               </div>

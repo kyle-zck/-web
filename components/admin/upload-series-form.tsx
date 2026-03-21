@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { CategoryTag } from "@/constants/mock-data";
 import { CATEGORY_TAGS } from "@/constants/mock-data";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +11,7 @@ export function UploadSeriesForm({
 }: {
   onUploaded?: () => void;
 }) {
-
+  const { t } = useTranslation();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [selectedTags, setSelectedTags] = useState<CategoryTag[]>(["Romance"]);
@@ -43,12 +44,12 @@ export function UploadSeriesForm({
     setSuccess(null);
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      setError("Cover 必须是图片文件。");
+      setError(t("admin.coverMustBeImage"));
       return;
     }
     const maxSize = 4 * 1024 * 1024;
     if (file.size > maxSize) {
-      setError("Cover 图片过大（Demo 限制 4MB）。");
+      setError(t("admin.coverTooLarge"));
       return;
     }
 
@@ -66,12 +67,12 @@ export function UploadSeriesForm({
     setSuccess(null);
 
     const cleanTitle = title.trim();
-    if (!cleanTitle) return setError("Title 不能为空。");
-    if (!description.trim()) return setError("Description 不能为空。");
-    if (!selectedTags.length) return setError("至少选择一个 Tag。");
-    if (!coverFile) return setError("请上传 Cover Image。");
+    if (!cleanTitle) return setError(t("admin.titleRequired"));
+    if (!description.trim()) return setError(t("admin.descriptionRequired"));
+    if (!selectedTags.length) return setError(t("admin.selectAtLeastOneTag"));
+    if (!coverFile) return setError(t("admin.uploadCoverRequired"));
 
-    if (episodes.length === 0) return setError("请在 Episode Video URL 中至少输入一条 URL（每行一个）。");
+    if (episodes.length === 0) return setError(t("admin.episodeUrlRequired"));
 
     setBusy(true);
     try {
@@ -104,7 +105,7 @@ export function UploadSeriesForm({
       });
       if (!res.ok) throw new Error("upload failed");
 
-      setSuccess("上传成功（已同步到用户端）。");
+      setSuccess(t("admin.uploadSuccess"));
       setTitle("");
       setDescription("");
       setSelectedTags(["Romance"]);
@@ -117,7 +118,7 @@ export function UploadSeriesForm({
 
       onUploaded?.();
     } catch {
-      setError("添加失败，请稍后重试。");
+      setError(t("admin.uploadFailed"));
     } finally {
       setBusy(false);
     }
@@ -127,17 +128,17 @@ export function UploadSeriesForm({
     <form onSubmit={handleSubmit}>
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-bold text-zinc-100">Add New Series</h2>
-          <p className="mt-1 text-xs text-zinc-400">封面上传 + Episode 视频 URL 批量录入</p>
+          <h2 className="text-base font-bold text-zinc-100">{t("admin.addNewSeries")}</h2>
+          <p className="mt-1 text-xs text-zinc-400">{t("admin.uploadHint")}</p>
         </div>
         <Badge variant="pill" className="bg-brand/15 text-brand ring-1 ring-brand/40">
-          Demo CMS
+          {t("admin.demoCms")}
         </Badge>
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
         <label className="block">
-          <span className="text-xs font-semibold text-zinc-400">Title</span>
+          <span className="text-xs font-semibold text-zinc-400">{t("admin.title")}</span>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -147,7 +148,7 @@ export function UploadSeriesForm({
         </label>
 
         <div className="rounded-2xl border border-zinc-800/80 bg-black/20 p-3">
-          <p className="text-xs font-semibold text-zinc-400">Cover Image Upload</p>
+          <p className="text-xs font-semibold text-zinc-400">{t("admin.coverImageUpload")}</p>
           <input
             type="file"
             accept="image/*"
@@ -166,7 +167,7 @@ export function UploadSeriesForm({
             </div>
           ) : (
             <div className="mt-3 text-xs text-zinc-500">
-              可上传图片文件（Demo：最多 4MB）
+              {t("admin.coverUploadHint")}
             </div>
           )}
         </div>
@@ -176,13 +177,13 @@ export function UploadSeriesForm({
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="短剧简介（会展示在详情页）"
+            placeholder={t("admin.descriptionPlaceholder")}
             className="mt-1 min-h-[110px] w-full rounded-2xl border border-zinc-800/80 bg-black/30 px-4 py-3 text-sm font-semibold text-zinc-100 outline-none ring-0 focus:border-brand/60"
           />
         </label>
 
         <div className="md:col-span-2">
-          <p className="text-xs font-semibold text-zinc-400">Tags（可多选）</p>
+          <p className="text-xs font-semibold text-zinc-400">{t("admin.tagsMultiSelect")}</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {CATEGORY_TAGS.map((tag) => {
               const active = selectedTags.includes(tag);
@@ -207,14 +208,14 @@ export function UploadSeriesForm({
           <div className="flex items-end justify-between gap-2">
             <div>
               <span className="text-xs font-semibold text-zinc-400">
-                Episode Video URL（Bulk）
+                {t("admin.episodeUrlBulk")}
               </span>
               <p className="mt-1 text-[11px] leading-5 text-zinc-500">
-                每行一个 URL。前 3 集将标记为 Free，其余为 Locked（需 Coins）。
+                {t("admin.episodeUrlHint")}
               </p>
             </div>
             <div className="text-right text-[11px] text-zinc-500">
-              预计：{episodes.length} 集（最多 50）
+              {t("admin.estimatedEpisodes", { count: episodes.length })}
             </div>
           </div>
           <textarea
@@ -235,7 +236,7 @@ export function UploadSeriesForm({
           disabled={busy}
           className="w-full rounded-3xl bg-brand px-4 py-3 text-sm font-extrabold text-white shadow-soft-glow disabled:opacity-70"
         >
-          {busy ? "添加中..." : "Upload Series"}
+          {busy ? t("admin.uploading") : t("admin.uploadSeries")}
         </button>
       </div>
     </form>

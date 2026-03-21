@@ -102,7 +102,7 @@ export function HeroCarousel({ items }: HeroCarouselProps) {
                     </div>
                   </div>
                 </div>
-                <p className="mt-2 line-clamp-2 text-lg font-semibold text-zinc-50">
+                <p className="mt-2 line-clamp-2 text-base font-semibold text-zinc-50">
                   {title}
                 </p>
               </Link>

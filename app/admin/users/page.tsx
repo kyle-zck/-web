@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface StoredUser {
   clientId: string;
@@ -9,6 +10,7 @@ interface StoredUser {
 }
 
 export default function AdminUsersPage() {
+  const { t } = useTranslation();
   const [users, setUsers] = useState<StoredUser[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -26,22 +28,22 @@ export default function AdminUsersPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-zinc-100">Users & UID</h1>
+      <h1 className="text-xl font-bold text-zinc-100">{t("admin.usersTitle")}</h1>
       <p className="mt-1 text-sm text-zinc-400">
-        Each user is auto-assigned a unique UID when first seen. UID is used as the user marker for recharge records.
+        {t("admin.usersHint")}
       </p>
       <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-700/80 bg-zinc-900/50">
         {loading ? (
-          <div className="p-8 text-center text-zinc-500">Loading...</div>
+          <div className="p-8 text-center text-zinc-500">{t("admin.loading")}</div>
         ) : users.length === 0 ? (
-          <div className="p-8 text-center text-zinc-500">No users yet.</div>
+          <div className="p-8 text-center text-zinc-500">{t("admin.noUsersYet")}</div>
         ) : (
           <table className="w-full min-w-[500px]">
             <thead>
               <tr className="border-b border-zinc-700/80">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">Client ID</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.clientId")}</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">UID</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">Created</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.created")}</th>
               </tr>
             </thead>
             <tbody>

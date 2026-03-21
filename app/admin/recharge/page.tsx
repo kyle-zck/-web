@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface RechargeRecord {
   id: string;
@@ -12,6 +13,7 @@ interface RechargeRecord {
 }
 
 export default function AdminRechargePage() {
+  const { t } = useTranslation();
   const [records, setRecords] = useState<RechargeRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ uid: "", date: "", price: 29.9, tier: "Monthly VIP" });
@@ -54,9 +56,9 @@ export default function AdminRechargePage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-zinc-100">Recharge Records</h1>
+      <h1 className="text-xl font-bold text-zinc-100">{t("admin.rechargeTitle")}</h1>
       <p className="mt-1 text-sm text-zinc-400">
-        Add recharge records manually. Users see these in My Wallet. UID comes from Users page.
+        {t("admin.rechargeHint")}
       </p>
 
       <form onSubmit={handleAdd} className="mt-6 flex flex-wrap items-end gap-4 rounded-xl border border-zinc-700/80 bg-zinc-900/50 p-4">
@@ -72,7 +74,7 @@ export default function AdminRechargePage() {
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-zinc-400">Date</label>
+          <label className="block text-xs font-semibold text-zinc-400">{t("admin.date")}</label>
           <input
             type="date"
             value={form.date}
@@ -93,7 +95,7 @@ export default function AdminRechargePage() {
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-zinc-400">Tier</label>
+          <label className="block text-xs font-semibold text-zinc-400">{t("admin.tier")}</label>
           <select
             value={form.tier}
             onChange={(e) => setForm({ ...form, tier: e.target.value })}
@@ -108,24 +110,24 @@ export default function AdminRechargePage() {
           type="submit"
           className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-red-600"
         >
-          Add Record
+          {t("admin.addRecord")}
         </button>
       </form>
 
       <div className="mt-6 overflow-x-auto rounded-xl border border-zinc-700/80 bg-zinc-900/50">
         {loading ? (
-          <div className="p-8 text-center text-zinc-500">Loading...</div>
+          <div className="p-8 text-center text-zinc-500">{t("admin.loading")}</div>
         ) : records.length === 0 ? (
-          <div className="p-8 text-center text-zinc-500">No recharge records yet.</div>
+          <div className="p-8 text-center text-zinc-500">{t("admin.noRecordsYet")}</div>
         ) : (
           <table className="w-full min-w-[500px]">
             <thead>
               <tr className="border-b border-zinc-700/80">
                 <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">UID</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">Date</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">Amount</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">Tier</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">Time</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.date")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.amount")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.tier")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.time")}</th>
               </tr>
             </thead>
             <tbody>

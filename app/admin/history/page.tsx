@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface WatchEntry {
   seriesId: string;
@@ -10,6 +11,7 @@ interface WatchEntry {
 }
 
 export default function AdminHistoryPage() {
+  const { t } = useTranslation();
   const [byClient, setByClient] = useState<Record<string, WatchEntry[]>>({});
   const [loading, setLoading] = useState(true);
 
@@ -31,24 +33,24 @@ export default function AdminHistoryPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-zinc-100">Watch History</h1>
+      <h1 className="text-xl font-bold text-zinc-100">{t("admin.historyTitle")}</h1>
       <p className="mt-1 text-sm text-zinc-400">
-        User watch history (synced from profile). History tab shows this data.
+        {t("admin.historyHint")}
       </p>
       <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-700/80 bg-zinc-900/50">
         {loading ? (
-          <div className="p-8 text-center text-zinc-500">Loading...</div>
+          <div className="p-8 text-center text-zinc-500">{t("admin.loading")}</div>
         ) : entries.length === 0 ? (
-          <div className="p-8 text-center text-zinc-500">No watch history yet.</div>
+          <div className="p-8 text-center text-zinc-500">{t("admin.noHistoryYet")}</div>
         ) : (
           <table className="w-full min-w-[500px]">
             <thead>
               <tr className="border-b border-zinc-700/80">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">Client ID</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">Series</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">Episode</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">Progress</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">Last Watched</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.clientId")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.series")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.episode")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.progress")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.lastWatched")}</th>
               </tr>
             </thead>
             <tbody>

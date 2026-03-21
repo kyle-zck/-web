@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { UploadSeriesForm } from "@/components/admin/upload-series-form";
 import type { Series } from "@/constants/mock-data";
@@ -10,6 +11,7 @@ function formatTags(tags: string[]) {
 }
 
 export default function AdminSeriesPage() {
+  const { t } = useTranslation();
   const [series, setSeries] = useState<Series[]>([]);
 
   const load = async () => {
@@ -34,31 +36,31 @@ export default function AdminSeriesPage() {
     <main>
       <div className="flex items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-extrabold text-zinc-100">Series Management</h1>
-          <p className="mt-1 text-xs text-zinc-400">列表 + 上传（写入本地存储 Demo）</p>
+          <h1 className="text-xl font-extrabold text-zinc-100">{t("admin.seriesManagement")}</h1>
+          <p className="mt-1 text-xs text-zinc-400">{t("admin.seriesHint")}</p>
         </div>
         <Badge variant="pill" className="bg-zinc-950 text-zinc-200 ring-1 ring-zinc-800/80">
-          Total: {series.length}
+          {t("admin.total")}: {series.length}
         </Badge>
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <section className="rounded-3xl border border-zinc-800/80 bg-zinc-950/60 p-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-zinc-100">All Series</h2>
-            <p className="text-xs text-zinc-500">Table view</p>
+            <h2 className="text-sm font-semibold text-zinc-100">{t("admin.allSeries")}</h2>
+            <p className="text-xs text-zinc-500">{t("admin.tableView")}</p>
           </div>
 
           <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-[540px] border-separate border-spacing-y-2">
               <thead>
                 <tr className="text-left text-[11px] text-zinc-500">
-                  <th className="px-2 py-1 font-semibold">Cover</th>
-                  <th className="px-2 py-1 font-semibold">Title</th>
-                  <th className="px-2 py-1 font-semibold">Tags</th>
-                  <th className="px-2 py-1 font-semibold">Episodes</th>
-                  <th className="px-2 py-1 font-semibold">Lock From</th>
-                  <th className="px-2 py-1 font-semibold">Action</th>
+                  <th className="px-2 py-1 font-semibold">{t("admin.cover")}</th>
+                  <th className="px-2 py-1 font-semibold">{t("admin.title")}</th>
+                  <th className="px-2 py-1 font-semibold">{t("admin.tags")}</th>
+                  <th className="px-2 py-1 font-semibold">{t("admin.episodes")}</th>
+                  <th className="px-2 py-1 font-semibold">{t("admin.lockFrom")}</th>
+                  <th className="px-2 py-1 font-semibold">{t("admin.action")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -122,7 +124,7 @@ export default function AdminSeriesPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          const ok = confirm(`确定删除：${s.title}？`);
+                          const ok = confirm(t("admin.confirmDelete", { title: s.title }));
                           if (!ok) return;
                           fetch(`/admin/api/series/${s.id}`, { method: "DELETE" })
                             .then((r) => r.json())
@@ -131,7 +133,7 @@ export default function AdminSeriesPage() {
                         }}
                         className="rounded-2xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-[11px] font-semibold text-red-200 hover:border-red-500/50"
                       >
-                        Delete
+                        {t("admin.delete")}
                       </button>
                     </td>
                   </tr>
@@ -139,7 +141,7 @@ export default function AdminSeriesPage() {
                 {!sorted.length ? (
                   <tr>
                     <td colSpan={6} className="px-2 py-6 text-center text-xs text-zinc-500">
-                      No series yet. Please upload one.
+                      {t("admin.noSeriesYet")}
                     </td>
                   </tr>
                 ) : null}

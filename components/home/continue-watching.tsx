@@ -108,7 +108,7 @@ export function ContinueWatching() {
                 </div>
               </div>
             </Link>
-            <p className="mt-2 line-clamp-2 text-xl font-semibold text-zinc-50">
+            <p className="mt-2 line-clamp-2 text-lg font-semibold text-zinc-50">
               {getSeriesI18nText(row.series, lang).title}
             </p>
           </div>

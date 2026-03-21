@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export default function AdminLikesPage() {
+  const { t } = useTranslation();
   const [byClient, setByClient] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
 
@@ -24,21 +26,21 @@ export default function AdminLikesPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-zinc-100">User Likes (喜欢)</h1>
+      <h1 className="text-xl font-bold text-zinc-100">{t("admin.likesTitle")}</h1>
       <p className="mt-1 text-sm text-zinc-400">
-        Liked series per user. Recorded when user clicks heart icon.
+        {t("admin.likesHint")}
       </p>
       <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-700/80 bg-zinc-900/50">
         {loading ? (
-          <div className="p-8 text-center text-zinc-500">Loading...</div>
+          <div className="p-8 text-center text-zinc-500">{t("admin.loading")}</div>
         ) : rows.length === 0 ? (
-          <div className="p-8 text-center text-zinc-500">No likes yet.</div>
+          <div className="p-8 text-center text-zinc-500">{t("admin.noLikesYet")}</div>
         ) : (
           <table className="w-full min-w-[500px]">
             <thead>
               <tr className="border-b border-zinc-700/80">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">Client ID</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">Series ID</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.clientId")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.seriesId")}</th>
               </tr>
             </thead>
             <tbody>
