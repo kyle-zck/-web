@@ -62,6 +62,8 @@
 
 ## ③ 环境变量（Settings → Environment Variables）
 
+**从零建 Postgres + 弹窗「Key / Value / Environments / Sensitive」逐项说明**：见根目录 **[`VERCEL-STEP3-ENV-AND-DB.md`](./VERCEL-STEP3-ENV-AND-DB.md)**。
+
 1. **Settings** → 左侧 **Environment Variables**。
 2. 点击 **Add** / **Add New**：
    - **Key**：变量名（与 `.env.example` 一致，区分大小写）。

@@ -11,7 +11,8 @@
 
 ## Vercel 逐步操作
 
-**分步点击路径、Production 分支、`dev` 预览、Deploy Hooks 说明、环境变量勾选与 Redeploy** 见 **[`VERCEL.md`](./VERCEL.md)**（已按控制台界面细化）。
+**分步点击路径、Production 分支、`dev` 预览、Deploy Hooks 说明** 见 **[`VERCEL.md`](./VERCEL.md)**。  
+**第 3 步：没有数据库时如何建 Neon + Vercel 弹窗怎么填** 见 **[`VERCEL-STEP3-ENV-AND-DB.md`](./VERCEL-STEP3-ENV-AND-DB.md)**。
 
 ## 部署前检查
 

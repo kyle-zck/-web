@@ -25,6 +25,7 @@ npm run dev
 
 - 分支约定与构建检查：见根目录 [`DEPLOY.md`](./DEPLOY.md)。
 - **在 Vercel 控制台中的具体操作**（导入项目、环境变量、`main`/`dev`、无持久磁盘说明）：见 [`VERCEL.md`](./VERCEL.md)。
+- **第 3 步：新建 Postgres（如 Neon）+ 环境变量弹窗逐项填写**：见 [`VERCEL-STEP3-ENV-AND-DB.md`](./VERCEL-STEP3-ENV-AND-DB.md)。
 - 环境变量模板：[`.env.example`](./.env.example)。
 
 ## 图片占位
