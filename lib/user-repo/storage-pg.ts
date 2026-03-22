@@ -100,6 +100,14 @@ async function initIfNeeded() {
       PRIMARY KEY (client_id, series_id)
     );
     CREATE INDEX IF NOT EXISTS idx_likes_series ON user_likes(series_id);
+
+    CREATE TABLE IF NOT EXISTS user_series_views (
+      client_id TEXT NOT NULL,
+      series_id TEXT NOT NULL,
+      viewed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (client_id, series_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_views_series ON user_series_views(series_id);
   `);
   initialized = true;
 }
@@ -331,6 +339,40 @@ export async function getAllUserLikes(): Promise<Record<string, string[]>> {
   await initIfNeeded();
   const r = await getPool().query(
     `SELECT client_id, series_id FROM user_likes ORDER BY client_id, series_id`
+  );
+  const out: Record<string, string[]> = {};
+  for (const row of r.rows as FavoritePairRow[]) {
+    const cid = row.client_id;
+    if (!out[cid]) out[cid] = [];
+    out[cid].push(row.series_id);
+  }
+  return out;
+}
+
+export async function getViewsCount(seriesId: string): Promise<number> {
+  await initIfNeeded();
+  const r = await getPool().query(
+    `SELECT COUNT(*)::int AS c FROM user_series_views WHERE series_id = $1`,
+    [seriesId]
+  );
+  return r.rows[0]?.c ?? 0;
+}
+
+/** 记录一次观看（每用户每剧仅一条）；返回是否为新记录 */
+export async function recordSeriesView(clientId: string, seriesId: string): Promise<boolean> {
+  await initIfNeeded();
+  const r = await getPool().query(
+    `INSERT INTO user_series_views (client_id, series_id) VALUES ($1, $2)
+     ON CONFLICT DO NOTHING RETURNING 1`,
+    [clientId, seriesId]
+  );
+  return (r.rowCount ?? 0) > 0;
+}
+
+export async function getAllUserViews(): Promise<Record<string, string[]>> {
+  await initIfNeeded();
+  const r = await getPool().query(
+    `SELECT client_id, series_id FROM user_series_views ORDER BY client_id, series_id`
   );
   const out: Record<string, string[]> = {};
   for (const row of r.rows as FavoritePairRow[]) {

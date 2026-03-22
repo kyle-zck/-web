@@ -13,16 +13,26 @@ import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import type { AppLanguage } from "@/lib/i18n/languages";
 import { getSeriesI18nText } from "@/lib/i18n/seriesText";
-import { getTagKey } from "@/lib/i18n/tagKey";
+import { tagLabel } from "@/lib/i18n/tagKey";
 import { Modal } from "@/components/ui/modal";
+import { formatEngagementCount } from "@/lib/format-count";
+import { getOrCreateDeviceClientId } from "@/lib/client/device-client-id";
 
 const EPISODES_PER_TAB = 50;
 
-function formatCount(n: number): string {
-  const val = Math.max(0, n);
-  if (val === 0) return "0";
-  if (val < 1000) return String(val);
-  return `${(val / 1000).toFixed(1)}k`;
+function PlayGlyph({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+    >
+      <path d="M8 5v14l11-7L8 5z" />
+    </svg>
+  );
 }
 
 function ShareButton({ title, compact }: { title: string; compact?: boolean }) {
@@ -53,20 +63,31 @@ function ShareButton({ title, compact }: { title: string; compact?: boolean }) {
 
   if (compact) {
     return (
-      <div className="relative flex flex-col items-center gap-1">
+      <div className="relative">
         <button
           type="button"
           aria-label={t("seriesDetail.share")}
           onClick={onShare}
-          className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-800/50 hover:text-zinc-200"
+          className="inline-flex items-center gap-2 rounded-lg py-1 text-zinc-400 transition-colors hover:bg-zinc-800/50 hover:text-zinc-200"
         >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="shrink-0"
+            aria-hidden
+          >
             <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
             <polyline points="16 6 12 2 8 6" />
             <line x1="12" y1="2" x2="12" y2="15" />
           </svg>
+          <span className="text-sm font-medium text-zinc-500">{t("seriesDetail.share")}</span>
         </button>
-        <span className="text-base font-medium text-zinc-500">{t("seriesDetail.share")}</span>
       </div>
     );
   }
@@ -89,9 +110,10 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
   const { setSeries, episodeIndex, setEpisodeIndex, isEpisodeUnlocked } = usePlayerStore();
   const { has: isFavorited, toggle: toggleFavorite, seriesIds } = useFavoritesStore();
   const { has: isLiked, toggle: toggleLike } = useLikesStore();
-  const { isLoggedIn, userId } = useUserStore();
+  const { isLoggedIn, userId, supabaseUserId } = useUserStore();
   const [collectionCount, setCollectionCount] = useState(0);
   const [likesCount, setLikesCount] = useState(0);
+  const [viewsCount, setViewsCount] = useState(0);
 
   const { t, i18n } = useTranslation();
   const lang = i18n.language as AppLanguage;
@@ -112,10 +134,29 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
         if (json?.ok) {
           setCollectionCount(json.collectionCount ?? 0);
           setLikesCount(json.likesCount ?? 0);
+          setViewsCount(json.viewsCount ?? 0);
         }
       })
       .catch(() => {});
   }, [series.id]);
+
+  /** 首次进入播放页记录观看（每用户每剧一条，与收藏/点赞同源 clientId 体系） */
+  useEffect(() => {
+    const clientId = userId ?? supabaseUserId ?? getOrCreateDeviceClientId();
+    if (!clientId) return;
+    fetch("/api/user/views", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId, seriesId: series.id })
+    })
+      .then((r) => r.json())
+      .then((json: { ok?: boolean; viewsCount?: number }) => {
+        if (json?.ok && typeof json.viewsCount === "number") {
+          setViewsCount(json.viewsCount);
+        }
+      })
+      .catch(() => {});
+  }, [series.id, userId, supabaseUserId]);
 
   const episode = useMemo<Episode>(() => {
     return series.episodes.find((e) => e.index === episodeIndex) ?? series.episodes[0];
@@ -177,15 +218,25 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
           </h1>
 
           <section className="mt-5">
-            <h2 className="text-sm font-bold text-white">{t("seriesDetail.plotOfEpisode", { index: episode.index })}</h2>
-            <p className={cn("mt-1.5 text-xs leading-5 text-zinc-500", !plotExpanded && "line-clamp-3")}>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-red-400">
+              {tagLabel(series.category, t)}
+            </p>
+            <h2 className="mt-1.5 text-xs font-bold text-zinc-500">
+              {t("seriesDetail.plotOfEpisode", { index: episode.index })}
+            </h2>
+            <p
+              className={cn(
+                "mt-2 line-clamp-3 text-sm font-semibold leading-relaxed text-zinc-100 [text-shadow:0_1px_2px_rgba(0,0,0,0.25)]",
+                plotExpanded && "line-clamp-none"
+              )}
+            >
               {description}
             </p>
             {description.length > 60 && (
               <button
                 type="button"
                 onClick={() => setPlotExpanded((v) => !v)}
-                className="mt-0.5 text-xs font-medium text-brand hover:underline"
+                className="mt-1 text-xs font-medium text-brand hover:underline"
               >
                 {plotExpanded ? "↑ " + t("seriesDetail.less") : t("seriesDetail.more")}
               </button>
@@ -198,13 +249,25 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
                 key={tag}
                 className="rounded-full bg-[#222222] px-2.5 py-0.5 text-xs font-medium text-white"
               >
-                {t(`tags.${getTagKey(tag)}`)}
+                {tagLabel(tag, t)}
               </span>
             ))}
           </div>
 
-          <div className="mt-5 flex items-center justify-around border-y border-zinc-800/80 py-4">
-            {/* 收藏：星星，显示收藏人数 */}
+          <div className="mt-5 flex flex-nowrap items-center justify-between gap-1 border-y border-zinc-800/80 py-3 sm:gap-3 sm:py-4">
+            {/* 与 Explore 一致：观看 → 收藏 → 点赞；左图标右数字 */}
+            <div
+              className="flex min-w-0 flex-1 items-center justify-center"
+              title={t("seriesDetail.views")}
+            >
+              <div className="inline-flex items-center gap-1.5 text-zinc-400 sm:gap-2">
+                <PlayGlyph className="h-[18px] w-[18px] shrink-0 text-zinc-400 sm:h-[22px] sm:w-[22px]" aria-hidden />
+                <span className="text-sm font-medium tabular-nums text-zinc-500 sm:text-base">
+                  {formatEngagementCount(viewsCount)}
+                </span>
+                <span className="sr-only">{t("seriesDetail.views")}</span>
+              </div>
+            </div>
             <button
               type="button"
               onClick={() => {
@@ -222,19 +285,22 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
                   }).catch(() => {});
                 }
               }}
-              className="flex flex-col items-center gap-1 transition-colors hover:text-brand"
+              className="flex min-w-0 flex-1 items-center justify-center gap-1.5 transition-colors hover:text-brand sm:gap-2"
             >
               <span
-                className={cn("text-3xl", isFavorited(series.id) ? "text-brand" : "text-zinc-400")}
+                className={cn(
+                  "text-xl leading-none sm:text-2xl",
+                  isFavorited(series.id) ? "text-brand" : "text-zinc-400"
+                )}
                 aria-hidden
               >
                 ★
               </span>
-              <span className="text-base font-medium text-zinc-500">
-                {formatCount(collectionCount)}
+              <span className="text-sm font-medium tabular-nums text-zinc-500 sm:text-base">
+                {formatEngagementCount(collectionCount)}
               </span>
+              <span className="sr-only">{t("seriesDetail.favorites")}</span>
             </button>
-            {/* 喜欢：爱心，显示喜欢人数 */}
             <button
               type="button"
               onClick={() => {
@@ -253,19 +319,25 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
                   }).catch(() => {});
                 }
               }}
-              className="flex flex-col items-center gap-1 transition-colors hover:text-brand"
+              className="flex min-w-0 flex-1 items-center justify-center gap-1.5 transition-colors hover:text-brand sm:gap-2"
             >
               <span
-                className={cn("text-3xl", isLiked(series.id) ? "text-brand" : "text-zinc-400")}
+                className={cn(
+                  "text-xl leading-none sm:text-2xl",
+                  isLiked(series.id) ? "text-brand" : "text-zinc-400"
+                )}
                 aria-hidden
               >
                 ♥
               </span>
-              <span className="text-base font-medium text-zinc-500">
-                {formatCount(likesCount)}
+              <span className="text-sm font-medium tabular-nums text-zinc-500 sm:text-base">
+                {formatEngagementCount(likesCount)}
               </span>
+              <span className="sr-only">{t("seriesDetail.likes")}</span>
             </button>
-            <ShareButton title={seriesTitle} compact />
+            <div className="flex min-w-0 flex-1 items-center justify-center">
+              <ShareButton title={seriesTitle} compact />
+            </div>
           </div>
 
           <section className="mt-6">

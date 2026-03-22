@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin/auth";
+import { validateTagsAgainstCatalog } from "@/lib/drama-tag-catalog/validate";
 import { createSeries, getAllSeries } from "@/lib/series-repo";
 
 export async function GET() {
@@ -60,15 +61,22 @@ export async function POST(req: Request) {
     );
   }
 
-  const categoryTags = tags.filter((t): t is import("@/constants/mock-data").CategoryTag =>
-    ["Romance", "Revenge", "Werewolf", "CEO", "Fantasy", "Time Travel"].includes(t)
-  );
-  const finalTags = categoryTags.length ? categoryTags : (["Romance"] as any);
+  const tagCheck = await validateTagsAgainstCatalog(tags);
+  if (!tagCheck.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        errorKey: "apiErrTagsNotInCatalog",
+        error: `Tags must come from Manage tags: ${tagCheck.invalid.join(", ")}`
+      },
+      { status: 400 }
+    );
+  }
 
   const series = await createSeries({
     title,
     description,
-    tags: finalTags,
+    tags,
     coverDataUrl,
     episodeVideoUrls,
     episodeVideoMeta: body.episodeVideoMeta,

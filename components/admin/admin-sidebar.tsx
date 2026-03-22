@@ -18,13 +18,15 @@ const DRAMA_MENU = [
 
 const OTHER_NAV = [
   { href: "/admin", key: "dashboard" },
+  { href: "/admin/site", key: "siteSettings" },
   { href: "/admin/config", key: "subscriptionConfig" },
   { href: "/admin/security", key: "securityPassword" },
   { href: "/admin/users", key: "usersAndUid" },
   { href: "/admin/recharge", key: "rechargeRecords" },
   { href: "/admin/history", key: "watchHistory" },
   { href: "/admin/favorites", key: "userFavorites" },
-  { href: "/admin/likes", key: "userLikes" }
+  { href: "/admin/likes", key: "userLikes" },
+  { href: "/admin/views", key: "userViews" }
 ];
 
 export function AdminSidebar() {

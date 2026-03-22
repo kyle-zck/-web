@@ -8,6 +8,7 @@ const RECHARGE_PATH = path.join(DATA_DIR, "recharge-records.json");
 const WATCH_HISTORY_PATH = path.join(DATA_DIR, "watch-history.json");
 const USER_FAVORITES_PATH = path.join(DATA_DIR, "user-favorites.json");
 const USER_LIKES_PATH = path.join(DATA_DIR, "user-likes.json");
+const USER_VIEWS_PATH = path.join(DATA_DIR, "user-series-views.json");
 
 type UsersStore = { users: Record<string, StoredUser> };
 type RechargeStore = { records: RechargeRecord[] };
@@ -212,4 +213,40 @@ export function toggleUserLike(clientId: string, seriesId: string): boolean {
 
 export function getAllUserLikes(): Record<string, string[]> {
   return readUserLikes().byClient;
+}
+
+type UserViewsStore = { byClient: Record<string, string[]> };
+
+function readUserViews(): UserViewsStore {
+  ensureDir();
+  if (!fs.existsSync(USER_VIEWS_PATH)) {
+    const initial: UserViewsStore = { byClient: {} };
+    fs.writeFileSync(USER_VIEWS_PATH, JSON.stringify(initial, null, 2), "utf-8");
+    return initial;
+  }
+  const raw = fs.readFileSync(USER_VIEWS_PATH, "utf-8");
+  return JSON.parse(raw) as UserViewsStore;
+}
+
+function writeUserViews(store: UserViewsStore) {
+  ensureDir();
+  fs.writeFileSync(USER_VIEWS_PATH, JSON.stringify(store, null, 2), "utf-8");
+}
+
+export function getViewsCount(seriesId: string): number {
+  const byClient = readUserViews().byClient;
+  return Object.values(byClient).filter((ids) => ids.includes(seriesId)).length;
+}
+
+export function recordSeriesView(clientId: string, seriesId: string): boolean {
+  const store = readUserViews();
+  const list = store.byClient[clientId] ?? [];
+  if (list.includes(seriesId)) return false;
+  store.byClient[clientId] = [...list, seriesId];
+  writeUserViews(store);
+  return true;
+}
+
+export function getAllUserViews(): Record<string, string[]> {
+  return readUserViews().byClient;
 }

@@ -12,7 +12,8 @@ import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import type { AppLanguage } from "@/lib/i18n/languages";
 import { getSeriesI18nText } from "@/lib/i18n/seriesText";
-import { getTagKey } from "@/lib/i18n/tagKey";
+import { tagLabel } from "@/lib/i18n/tagKey";
+import { stubEpisodeForProgress } from "@/lib/series/slim-public";
 
 type TabId = "history" | "mylist" | "wallet";
 
@@ -69,7 +70,7 @@ export default function ProfilePage() {
   const [favoriteSeriesIds, setFavoriteSeriesIds] = useState<string[]>([]);
 
   useEffect(() => {
-    fetch("/api/series")
+    fetch("/api/series?lite=1")
       .then((r) => r.json())
       .then((json) => {
         if (json?.ok && Array.isArray(json.series)) {
@@ -158,8 +159,10 @@ export default function ProfilePage() {
     return entries
       .map((e) => {
         const series = seriesList.find((s) => s.id === e.seriesId);
-        const episode = series?.episodes.find((ep) => ep.index === e.episodeIndex);
-        if (!series || !episode) return null;
+        if (!series) return null;
+        const episode =
+          series.episodes.find((ep) => ep.index === e.episodeIndex) ??
+          stubEpisodeForProgress(e.seriesId, e.episodeIndex);
         return { series, episode, seconds: e.seconds };
       })
       .filter(Boolean)
@@ -186,9 +189,9 @@ export default function ProfilePage() {
     : t("subscription.inactive", "Inactive");
 
   return (
-    <main className="flex min-h-screen flex-col bg-black lg:flex-row">
+    <main className="page-gutter-x flex min-h-screen flex-col bg-black lg:flex-row">
       {/* 左侧边栏：移动端顶部紧凑，桌面端 30% */}
-      <aside className="flex shrink-0 flex-col border-b border-zinc-800/80 bg-black/60 p-4 lg:w-[30%] lg:min-w-[240px] lg:max-w-[320px] lg:border-b-0 lg:border-r">
+      <aside className="flex shrink-0 flex-col border-b border-zinc-800/80 bg-black/60 p-4 lg:w-[30%] lg:min-w-[240px] lg:max-w-[320px] lg:border-b-0 lg:border-r lg:py-8">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 shrink-0 rounded-full bg-zinc-700/80 lg:h-12 lg:w-12" />
           <div className="min-w-0 flex-1">
@@ -348,7 +351,7 @@ export default function ProfilePage() {
                           {getSeriesI18nText(series, lang).title}
                         </p>
                         <p className="mt-0.5 text-xs text-zinc-300">
-                          {t(`tags.${getTagKey(series.category)}`)}
+                          {tagLabel(series.category, t)}
                         </p>
                       </div>
                     </div>

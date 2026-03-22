@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { ImmersiveSeriesDetail } from "@/components/player/immersive-series-detail";
 import { getSeriesById } from "@/lib/series-repo";
+import { SeriesDetailClient } from "./series-detail-client";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,7 @@ export default async function SeriesDetailPage({
 
   return (
     <main className="h-full min-h-0 overflow-hidden lg:flex lg:flex-col">
-      <ImmersiveSeriesDetail series={series} />
+      <SeriesDetailClient series={series} />
     </main>
   );
 }

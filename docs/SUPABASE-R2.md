@@ -26,6 +26,7 @@
 
 - **无需** Neon 控制台；表结构仍由 **`lib/series-repo/storage-pg.ts`** 在首次连接时 `CREATE TABLE IF NOT EXISTS` 自动创建。
 - 后台账号密码哈希表 **`admin_credentials`**、剧目表 **`series` / `episodes`** 均写在**同一 Supabase PostgreSQL** 中。
+- **站点配置**（品牌名、SEO、导航、首页模块、法务链接、订阅套餐等）在 **`SERIES_STORAGE=pg`** 且已配置数据库 URL 时写入表 **`site_config_snapshot`**（单条 JSONB），实现见 **`lib/app-config/storage-pg.ts`**；本地开发或未启用 PG 时仍用 **`data/app-config.json`**。`next build` 阶段默认不连远程 PG 读站点配置，避免静态生成超时（见 **`NEXT_SKIP_APP_CONFIG_PG`** / `npm_lifecycle_event`）。
 
 #### 用户侧数据（UID、充值、观看、收藏、点赞）
 
@@ -86,6 +87,8 @@ R2 提供 **S3 兼容 API**，本项目已用 **`@aws-sdk/client-s3`**，无需�
 
 - **`app/admin/api/upload/cover/route.ts`**：上传封面到 `covers/...`。
 - 未配置 R2/S3 时，本地开发仍回退到 **`public/uploads/covers`**。
+
+**生产封面 URL、避免 Base64、以及加大 `/api/series` 缓存**：见 **[`COVER-CDN-AND-API-CACHE.md`](./COVER-CDN-AND-API-CACHE.md)**。
 
 ---
 

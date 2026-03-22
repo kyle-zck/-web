@@ -102,3 +102,18 @@ export async function getAllUserLikes(): Promise<Record<string, string[]>> {
   if (shouldUsePgStorage()) return pg.getAllUserLikes();
   return Promise.resolve(json.getAllUserLikes());
 }
+
+export async function getViewsCount(seriesId: string): Promise<number> {
+  if (shouldUsePgStorage()) return pg.getViewsCount(seriesId);
+  return Promise.resolve(json.getViewsCount(seriesId));
+}
+
+export async function recordSeriesView(clientId: string, seriesId: string): Promise<boolean> {
+  if (shouldUsePgStorage()) return pg.recordSeriesView(clientId, seriesId);
+  return Promise.resolve(json.recordSeriesView(clientId, seriesId));
+}
+
+export async function getAllUserViews(): Promise<Record<string, string[]>> {
+  if (shouldUsePgStorage()) return pg.getAllUserViews();
+  return Promise.resolve(json.getAllUserViews());
+}

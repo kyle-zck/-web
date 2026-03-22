@@ -4,12 +4,12 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { showToast } from "@/components/ui/toast";
 import { translateAdminApiError } from "@/lib/admin/api-error";
+import { fetchAdminJson } from "@/lib/admin/fetch-admin-json";
 
+/** 来自「管理标签」目录 drama-tag-catalog */
 interface TagItem {
   id: string;
-  nameZh: string;
-  nameEn: string;
-  categoryId: string;
+  name: string;
 }
 
 export default function AdminDramaUploadPage() {
@@ -31,10 +31,10 @@ export default function AdminDramaUploadPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    fetch("/admin/api/tags")
-      .then((r) => r.json())
-      .then((json) => {
-        if (json?.ok && Array.isArray(json.tags)) setTags(json.tags);
+    fetchAdminJson<{ ok?: boolean; items?: TagItem[] }>("/admin/api/drama-tag-catalog")
+      .then(({ res, json }) => {
+        if (res.ok && json?.ok && Array.isArray(json.items)) setTags(json.items);
+        else setTags([]);
       })
       .catch(() => setTags([]));
   }, []);
@@ -129,26 +129,31 @@ export default function AdminDramaUploadPage() {
     try {
       // 封面上传已完成，视频需逐个上传到存储 - 简化：使用 URL 占位，实际需对接视频上传 API
       const coverUrl = form.coverUrl;
-      const VALID_TAGS = ["Romance", "Revenge", "Werewolf", "CEO", "Fantasy", "Time Travel"] as const;
-      const tagNamesEn = form.tagIds
-        .map((id) => tags.find((t) => t.id === id)?.nameEn)
+      const finalTags = form.tagIds
+        .map((id) => tags.find((t) => t.id === id)?.name?.trim())
         .filter((e): e is string => Boolean(e));
-      const categoryTags = tagNamesEn.filter((t) =>
-        VALID_TAGS.includes(t as (typeof VALID_TAGS)[number])
-      ) as (typeof VALID_TAGS)[number][];
-      const finalTags = categoryTags.length ? categoryTags : (["Romance"] as const);
+      if (finalTags.length === 0) {
+        showToast(t("admin.valTagsRequired"));
+        setSubmitting(false);
+        return;
+      }
 
       // 视频上传：Demo 使用占位 URL，生产需对接真实上传；元数据保留原始文件名供剧集管理展示
       const sortedVideos = [...form.videoFiles].sort((a, b) => a.index - b.index);
-      const episodeUrls = sortedVideos.map(() => {
-        return "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4";
-      });
+      const sampleMp4 =
+        process.env.NEXT_PUBLIC_SAMPLE_VIDEO_URL?.trim() ||
+        "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4";
+      const episodeUrls = sortedVideos.map(() => sampleMp4);
       const episodeVideoMeta = sortedVideos.map((v) => ({
         fileName: v.file.name,
         localVideoUrl: `file:///${v.file.name.replace(/\\/g, "/")}`
       }));
 
-      const res = await fetch("/admin/api/series", {
+      const { res, json } = await fetchAdminJson<{
+        ok?: boolean;
+        errorKey?: string;
+        error?: string;
+      }>("/admin/api/series", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -164,8 +169,7 @@ export default function AdminDramaUploadPage() {
           listed: form.listed
         })
       });
-      const json = await res.json();
-      if (json?.ok) {
+      if (res.ok && json?.ok) {
         showToast(t("admin.uploadSuccessShort"), "success");
         setForm({
           title: "",
@@ -321,7 +325,7 @@ export default function AdminDramaUploadPage() {
                     : "bg-zinc-800/60 text-zinc-400 ring-zinc-700 hover:text-zinc-200"
                 }`}
               >
-                {tagItem.nameZh}
+                {tagItem.name}
               </button>
             ))}
           </div>

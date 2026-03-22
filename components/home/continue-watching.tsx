@@ -7,14 +7,9 @@ import type { Episode, Series } from "@/constants/mock-data";
 import { usePlayerStore } from "@/lib/store/player";
 import type { AppLanguage } from "@/lib/i18n/languages";
 import { getSeriesI18nText } from "@/lib/i18n/seriesText";
-import { getTagKey } from "@/lib/i18n/tagKey";
-
-function formatSeconds(seconds: number) {
-  const s = Math.max(0, Math.floor(seconds));
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return `${m}:${String(r).padStart(2, "0")}`;
-}
+import { tagLabel } from "@/lib/i18n/tagKey";
+import { stubEpisodeForProgress } from "@/lib/series/slim-public";
+import { cn } from "@/lib/utils";
 
 export function ContinueWatching() {
   const { progressSeconds, setEpisodeIndex, setSeries } = usePlayerStore();
@@ -23,7 +18,7 @@ export function ContinueWatching() {
   const lang = i18n.language as AppLanguage;
 
   useEffect(() => {
-    fetch("/api/series")
+    fetch("/api/series?lite=1")
       .then((r) => r.json())
       .then((json) => {
         if (json?.ok && Array.isArray(json.series)) {
@@ -42,8 +37,10 @@ export function ContinueWatching() {
       const episodeIndex = Number(idx);
       if (!seconds || seconds <= 0) continue;
       const series = seriesList.find((s) => s.id === seriesId);
-      const episode = series?.episodes.find((e) => e.index === episodeIndex);
-      if (!series || !episode) continue;
+      if (!series) continue;
+      const episode =
+        series.episodes.find((e) => e.index === episodeIndex) ??
+        stubEpisodeForProgress(seriesId, episodeIndex);
       rows.push({ series, episode, seconds });
     }
 
@@ -55,8 +52,8 @@ export function ContinueWatching() {
 
   return (
     <section className="mt-4">
-      <div className="flex items-end justify-between">
-        <h2 className="text-3xl font-extrabold tracking-tight text-zinc-50">
+      <div className="flex items-end justify-between px-1">
+        <h2 className="section-title-fluid font-extrabold tracking-tight text-zinc-50">
           {t("home.continueWatching")}
         </h2>
         <p className="text-[11px] text-zinc-500">
@@ -64,11 +61,17 @@ export function ContinueWatching() {
         </p>
       </div>
 
-      <div className="mt-3 flex gap-3 overflow-x-auto pb-2 scrollbar-thin md:grid md:grid-cols-6 md:overflow-visible md:gap-4 md:pb-0">
+      <div className="mt-3 px-1">
+        <div
+          className={cn(
+            "home-poster-rail scrollbar-thin [-webkit-overflow-scrolling:touch]",
+            watched.length <= 7 && "home-poster-rail--fit"
+          )}
+        >
         {watched.map((row) => (
           <div
             key={`${row.series.id}-${row.episode.id}`}
-            className="w-40 shrink-0 md:w-auto"
+            className="home-poster-cell min-w-0"
           >
             <Link
               href={`/series/${row.series.id}`}
@@ -81,38 +84,42 @@ export function ContinueWatching() {
               }}
               className="group block"
             >
-              <div className="relative poster-aspect overflow-hidden rounded-2xl bg-zinc-900 transition-transform duration-200 group-hover:scale-105 group-hover:shadow-[0_0_28px_rgba(0,0,0,0.9)]">
+              <div className="poster-card-drama relative poster-aspect transition-transform duration-200 group-hover:scale-[1.02] group-hover:shadow-[0_0_36px_rgba(229,9,20,0.2)]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={row.series.cover}
+                  src={row.series.poster || row.series.cover}
                   alt={getSeriesI18nText(row.series, lang).title}
-                  className="h-full w-full object-cover"
+                  className="poster-card-drama__img"
+                  loading="lazy"
+                  decoding="async"
                 />
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black" />
+                <div
+                  className="poster-card-drama__overlay absolute inset-0 z-[1]"
+                  aria-hidden
+                />
 
-                <div className="pointer-events-none absolute inset-0 flex flex-col justify-end bg-black/80 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                <div className="pointer-events-none absolute inset-0 z-[2] flex flex-col justify-end bg-gradient-to-t from-black/90 via-black/45 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                   <div className="space-y-2 p-3">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-red-400">
-                      {t(`tags.${getTagKey(row.series.category)}`)}
+                      {tagLabel(row.series.category, t)}
                     </p>
                     <p className="line-clamp-3 text-xs font-medium text-zinc-100">
                       {getSeriesI18nText(row.series, lang).description ??
                         getSeriesI18nText(row.series, lang).title}
                     </p>
-                    <button
-                      type="button"
-                      className="mt-1 inline-flex w-1/2 items-center justify-center rounded-full bg-red-600 px-2 py-1 text-xs font-extrabold text-white shadow-[0_0_18px_rgba(229,9,20,0.7)] group-hover:bg-red-500"
-                    >
+                    <span className="mt-1 inline-flex w-1/2 items-center justify-center rounded-full bg-red-600 px-2 py-1 text-xs font-extrabold text-white shadow-[0_0_18px_rgba(229,9,20,0.7)] group-hover:bg-red-500">
                       Play
-                    </button>
+                    </span>
                   </div>
                 </div>
               </div>
             </Link>
-            <p className="mt-2 line-clamp-2 text-lg font-semibold text-zinc-50">
+            <p className="mt-2 line-clamp-2 text-sm font-bold tracking-tight text-zinc-50 drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)] sm:text-base">
               {getSeriesI18nText(row.series, lang).title}
             </p>
           </div>
         ))}
+        </div>
       </div>
     </section>
   );

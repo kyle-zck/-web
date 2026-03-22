@@ -1,11 +1,14 @@
 import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import I18nAppShell from "@/components/i18n/I18nAppShell";
+import { getCachedAppConfig } from "@/lib/app-config/service";
 
-export const metadata: Metadata = {
-  title: "ReelShort 风格短剧平台",
-  description: "移动优先的海外短剧在线观看平台"
-};
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter"
+});
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -15,14 +18,38 @@ export const viewport: Viewport = {
   viewportFit: "cover"
 };
 
-export default function RootLayout({
+export async function generateMetadata(): Promise<Metadata> {
+  const cfg = await getCachedAppConfig();
+  const title = (cfg.seo?.siteTitle?.trim() || cfg.brandName || "ReelShorts").trim();
+  const description = (
+    cfg.seo?.siteDescription ||
+    "移动优先的海外短剧在线观看平台"
+  ).trim();
+  const og = cfg.seo?.ogImageUrl?.trim();
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      ...(og ? { images: [{ url: og }] } : {})
+    }
+  };
+}
+
+export default async function RootLayout({
   children
 }: {
   children: React.ReactNode;
 }) {
+  const cfg = await getCachedAppConfig();
+  const lang = cfg.seo?.defaultLocale === "en" ? "en" : "zh-CN";
+
   return (
-    <html lang="zh-CN" className="dark">
-      <body className="min-h-screen bg-black text-white antialiased safe-area">
+    <html lang={lang} className={`dark ${inter.variable}`}>
+      <body
+        className={`${inter.className} min-h-screen bg-black text-white antialiased safe-area`}
+      >
         <div className="app-shell mx-auto flex min-h-screen flex-col bg-black">
           <I18nAppShell>{children}</I18nAppShell>
         </div>

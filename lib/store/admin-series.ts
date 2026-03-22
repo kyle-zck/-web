@@ -10,14 +10,13 @@ import {
   posterPlaceholder,
   slugify
 } from "@/lib/admin/placeholders";
-import type { CategoryTag } from "@/constants/mock-data";
 
 type AdminSeriesState = {
   series: Series[];
   addSeries: (data: {
     title: string;
     description: string;
-    tags: CategoryTag[];
+    tags: string[];
     coverDataUrl: string;
     episodeVideoUrls: string[];
   }) => void;
@@ -33,7 +32,7 @@ export const useAdminSeriesStore = create<AdminSeriesState>()(
         const cleanTitle = title.trim();
         const baseId = slugify(cleanTitle) || `series-${Date.now()}`;
         const seriesId = `${baseId}-${Math.random().toString(16).slice(2, 6)}`;
-        const category = tags[0] ?? ("Romance" as CategoryTag);
+        const category = tags[0] ?? "Romance";
 
         const cover = coverDataUrl || coverPlaceholder(cleanTitle, category);
         const poster =

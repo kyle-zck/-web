@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { showToast } from "@/components/ui/toast";
 import { translateAdminApiError } from "@/lib/admin/api-error";
+import { fetchAdminJson } from "@/lib/admin/fetch-admin-json";
 
 export type DramaCatalogItem = { id: string; name: string };
 
@@ -28,9 +29,10 @@ export function DramaTagCatalogModal({ open, onClose, onCatalogChange }: Props) 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/admin/api/drama-tag-catalog");
-      const json = await res.json();
-      if (json?.ok && Array.isArray(json.items)) setItems(json.items);
+      const { res, json } = await fetchAdminJson<{ ok?: boolean; items?: DramaCatalogItem[] }>(
+        "/admin/api/drama-tag-catalog"
+      );
+      if (res.ok && json?.ok && Array.isArray(json.items)) setItems(json.items);
       else setItems([]);
     } catch {
       setItems([]);
@@ -67,12 +69,19 @@ export function DramaTagCatalogModal({ open, onClose, onCatalogChange }: Props) 
       return;
     }
     try {
-      const res = await fetch("/admin/api/drama-tag-catalog", {
+      const { res, json } = await fetchAdminJson<{
+        ok?: boolean;
+        errorKey?: string;
+        error?: string;
+      }>("/admin/api/drama-tag-catalog", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "add", name })
       });
-      const json = await res.json();
+      if (!res.ok) {
+        showToast(translateAdminApiError(json, t, "admin.tagAddFailed"));
+        return;
+      }
       if (!json?.ok) {
         showToast(translateAdminApiError(json, t, "admin.tagAddFailed"));
         return;
@@ -103,12 +112,19 @@ export function DramaTagCatalogModal({ open, onClose, onCatalogChange }: Props) 
       return;
     }
     try {
-      const res = await fetch("/admin/api/drama-tag-catalog", {
+      const { res, json } = await fetchAdminJson<{
+        ok?: boolean;
+        errorKey?: string;
+        error?: string;
+      }>("/admin/api/drama-tag-catalog", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "update", id, name })
       });
-      const json = await res.json();
+      if (!res.ok) {
+        showToast(translateAdminApiError(json, t, "admin.tagSaveFailed"));
+        return;
+      }
       if (!json?.ok) {
         showToast(translateAdminApiError(json, t, "admin.tagSaveFailed"));
         return;
@@ -126,12 +142,19 @@ export function DramaTagCatalogModal({ open, onClose, onCatalogChange }: Props) 
     const ok = confirm(t("admin.confirmDeleteCatalogTag", { name }));
     if (!ok) return;
     try {
-      const res = await fetch("/admin/api/drama-tag-catalog", {
+      const { res, json } = await fetchAdminJson<{
+        ok?: boolean;
+        errorKey?: string;
+        error?: string;
+      }>("/admin/api/drama-tag-catalog", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "delete", id })
       });
-      const json = await res.json();
+      if (!res.ok) {
+        showToast(translateAdminApiError(json, t, "admin.deleteFailed"));
+        return;
+      }
       if (!json?.ok) {
         showToast(translateAdminApiError(json, t, "admin.deleteFailed"));
         return;

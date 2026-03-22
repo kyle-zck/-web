@@ -5,6 +5,7 @@ import {
   createSeries,
   deleteSeries,
   deleteEpisodeFromSeries,
+  appendEpisodeToSeries,
   updateSeries
 } from "./service";
 
@@ -15,6 +16,7 @@ export {
   createSeries,
   deleteSeries,
   deleteEpisodeFromSeries,
+  appendEpisodeToSeries,
   updateSeries
 };
 

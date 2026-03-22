@@ -74,12 +74,12 @@ export default function StorePage() {
 
   return (
     <main className="flex min-h-screen flex-col">
-      <header className="px-4 pt-4 sm:px-6 lg:px-10">
+      <header className="page-gutter-x pt-4">
         <div>
-          <h1 className="text-xl font-bold text-zinc-100">
+          <h1 className="section-title-fluid font-bold text-zinc-100">
             {t("subscription.title", "VIP Unlock all series for free")}
           </h1>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="text-body-fluid mt-1 text-zinc-500">
             {t("subscription.subtitle", "Auto renew. Cancel anytime.")}
           </p>
         </div>
@@ -90,7 +90,7 @@ export default function StorePage() {
         )}
       </header>
 
-      <div className="flex-1 px-4 pb-24 pt-6 sm:px-6 sm:pb-28 lg:px-10">
+      <div className="page-gutter-x flex-1 pb-24 pt-6 sm:pb-28">
         {/* VIP 套餐卡片 */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {plans.map((plan) => (

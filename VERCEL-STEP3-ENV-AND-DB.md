@@ -4,6 +4,8 @@
 
 更完整的 **Supabase + Cloudflare R2** 说明见 **[`docs/SUPABASE-R2.md`](./docs/SUPABASE-R2.md)**。
 
+**封面用 HTTPS（勿存 Base64）+ 前台 API 缓存调优**：见 **[`docs/COVER-CDN-AND-API-CACHE.md`](./docs/COVER-CDN-AND-API-CACHE.md)**。
+
 ---
 
 ## 阶段一：准备 PostgreSQL（推荐 Supabase）

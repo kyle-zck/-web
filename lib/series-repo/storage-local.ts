@@ -1,7 +1,8 @@
 import fs from "fs";
 import path from "path";
-import type { Series, Episode, CategoryTag } from "@/constants/mock-data";
+import type { Series, Episode } from "@/constants/mock-data";
 import { SERIES_LIST } from "@/constants/mock-data";
+import { assignDramaIdForTitle } from "@/lib/drama-id-registry";
 import {
   coverPlaceholder,
   episodeThumbPlaceholder,
@@ -16,7 +17,6 @@ type Stored = {
 
 const DATA_DIR = path.resolve(process.cwd(), "data");
 const STORE_PATH = path.join(DATA_DIR, "series-store.json");
-const DRAMA_ID_PATH = path.join(DATA_DIR, "drama-id-counter.json");
 
 function ensureDir() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -43,25 +43,6 @@ function readStore(): Stored {
 function writeStore(store: Stored) {
   ensureDir();
   fs.writeFileSync(STORE_PATH, JSON.stringify(store, null, 2), "utf-8");
-}
-
-function getNextDramaId(): number {
-  ensureDir();
-  const store = readStore();
-  const maxExisting = store.series.reduce(
-    (max, s) => Math.max(max, s.dramaId ?? 0),
-    9999
-  );
-  let next = 10000;
-  if (fs.existsSync(DRAMA_ID_PATH)) {
-    const raw = fs.readFileSync(DRAMA_ID_PATH, "utf-8");
-    const o = JSON.parse(raw) as { nextId?: number };
-    next = Math.max(o.nextId ?? 10000, maxExisting + 1);
-  } else {
-    next = maxExisting + 1;
-  }
-  fs.writeFileSync(DRAMA_ID_PATH, JSON.stringify({ nextId: next + 1 }), "utf-8");
-  return next;
 }
 
 export async function getAllSeries(): Promise<Series[]> {
@@ -95,9 +76,9 @@ export async function createSeries(data: {
   const now = Date.now();
 
   const cleanTitle = data.title.trim();
-  const category = (data.tags[0] ?? ("Romance" as CategoryTag)) as CategoryTag;
+  const category = data.tags[0] ?? "Romance";
 
-  const dramaId = getNextDramaId();
+  const dramaId = assignDramaIdForTitle(cleanTitle);
   const baseId = slugify(cleanTitle) || `series-${Date.now()}`;
   const seriesId = `${baseId}-${Math.random().toString(16).slice(2, 6)}`;
 
@@ -199,6 +180,44 @@ export async function deleteEpisodeFromSeries(
   return next;
 }
 
+export async function appendEpisodeToSeries(
+  seriesId: string,
+  data: {
+    videoUrl: string;
+    sourceFileName?: string;
+    localVideoUrl?: string;
+  }
+): Promise<Series | null> {
+  const store = readStore();
+  const sIdx = store.series.findIndex((s) => s.id === seriesId);
+  if (sIdx < 0) return null;
+  const s = store.series[sIdx];
+  const lockStart = s.lockStartIndex ?? 4;
+  const nextIndex = (s.episodes?.length ?? 0) + 1;
+  const isFree = nextIndex < lockStart;
+  const newEp: Episode = {
+    id: `${seriesId}-ep-${nextIndex}`,
+    index: nextIndex,
+    title: `第 ${nextIndex} 集`,
+    duration: `${6 + (nextIndex % 3)}:${String((nextIndex * 7) % 60).padStart(2, "0")}`,
+    thumbnail: episodeThumbPlaceholder(
+      `第 ${nextIndex} 集`,
+      isFree ? "FREE" : "LOCKED"
+    ),
+    videoUrl: data.videoUrl,
+    isFree,
+    sourceFileName: data.sourceFileName,
+    localVideoUrl: data.localVideoUrl
+  };
+  const next: Series = {
+    ...s,
+    episodes: [...(s.episodes ?? []), newEp]
+  };
+  store.series[sIdx] = next;
+  writeStore(store);
+  return next;
+}
+
 export async function updateSeries(
   id: string,
   patch: {
@@ -228,7 +247,7 @@ export async function updateSeries(
     next.tags = patch.tags;
     const first = patch.tags[0];
     if (first !== undefined) {
-      next.category = first as CategoryTag;
+      next.category = first;
     }
   }
   if (patch.cover !== undefined) next.cover = patch.cover;

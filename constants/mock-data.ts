@@ -1,4 +1,7 @@
-export type CategoryTag = "Romance" | "Revenge" | "Werewolf" | "CEO" | "Fantasy" | "Time Travel";
+/** 剧目标签文案，与后台「管理标签」目录中的名称一致（任意字符串） */
+export type SeriesTag = string;
+/** @deprecated 使用 SeriesTag */
+export type CategoryTag = SeriesTag;
 
 export interface Episode {
   id: string;
@@ -36,8 +39,8 @@ export interface Series {
   id: string;
   title: string;
   tagline: string;
-  category: CategoryTag;
-  tags: CategoryTag[];
+  category: SeriesTag;
+  tags: SeriesTag[];
   cover: string;
   poster: string;
   isTrending?: boolean;
@@ -127,7 +130,7 @@ function buildEpisodes(seriesId: string, total: number) {
   });
 }
 
-export const CATEGORY_TAGS: CategoryTag[] = [
+export const CATEGORY_TAGS: SeriesTag[] = [
   "Romance",
   "Revenge",
   "Werewolf",

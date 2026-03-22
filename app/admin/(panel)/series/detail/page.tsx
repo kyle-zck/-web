@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import type { Series } from "@/constants/mock-data";
 import { showToast } from "@/components/ui/toast";
 import { DramaEditDrawer } from "@/components/admin/drama-edit-drawer";
+import { fetchAdminJson } from "@/lib/admin/fetch-admin-json";
 
 function formatDate(ts: number | undefined, locale: string) {
   if (!ts) return "—";
@@ -47,9 +48,11 @@ export default function AdminDramaDetailPage() {
 
   const load = async () => {
     try {
-      const res = await fetch("/admin/api/series");
-      const json = await res.json();
-      if (json?.ok && Array.isArray(json.series)) setSeries(json.series);
+      const { res, json } = await fetchAdminJson<{ ok?: boolean; series?: Series[] }>(
+        "/admin/api/series"
+      );
+      if (res.ok && json?.ok && Array.isArray(json.series)) setSeries(json.series);
+      else setSeries([]);
     } catch {
       setSeries([]);
     } finally {
@@ -419,6 +422,10 @@ export default function AdminDramaDetailPage() {
         series={editTarget}
         onClose={() => setEditTarget(null)}
         onSaved={handleEditSaved}
+        onSeriesUpdated={(s) => {
+          setSeries((prev) => prev.map((x) => (x.id === s.id ? s : x)));
+          setEditTarget(s);
+        }}
       />
     </main>
   );

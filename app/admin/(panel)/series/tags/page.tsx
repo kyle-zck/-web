@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DramaTagCatalogModal } from "@/components/admin/drama-tag-catalog-modal";
 import { showToast } from "@/components/ui/toast";
+import { fetchAdminJson } from "@/lib/admin/fetch-admin-json";
 import type { Series } from "@/constants/mock-data";
 
 type Row = { series: Series; tag: string | null };
@@ -19,9 +20,10 @@ export default function AdminSeriesTagsPage() {
 
   const loadSeries = useCallback(async () => {
     try {
-      const res = await fetch("/admin/api/series");
-      const json = await res.json();
-      if (json?.ok && Array.isArray(json.series)) setSeries(json.series as Series[]);
+      const { res, json } = await fetchAdminJson<{ ok?: boolean; series?: Series[] }>(
+        "/admin/api/series"
+      );
+      if (res.ok && json?.ok && Array.isArray(json.series)) setSeries(json.series);
       else setSeries([]);
     } catch {
       setSeries([]);
@@ -30,10 +32,11 @@ export default function AdminSeriesTagsPage() {
 
   const loadCatalog = useCallback(async () => {
     try {
-      const res = await fetch("/admin/api/drama-tag-catalog");
-      const json = await res.json();
-      if (json?.ok && Array.isArray(json.items)) {
-        setCatalogNames(json.items.map((x: { name: string }) => x.name));
+      const { res, json } = await fetchAdminJson<{ ok?: boolean; items?: { name: string }[] }>(
+        "/admin/api/drama-tag-catalog"
+      );
+      if (res.ok && json?.ok && Array.isArray(json.items)) {
+        setCatalogNames(json.items.map((x) => x.name));
       } else setCatalogNames([]);
     } catch {
       setCatalogNames([]);

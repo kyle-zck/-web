@@ -2,15 +2,10 @@
 
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
-import type { CategoryTag } from "@/constants/mock-data";
 import { Badge } from "@/components/ui/badge";
-import { getTagKey } from "@/lib/i18n/tagKey";
+import { tagLabel } from "@/lib/i18n/tagKey";
 
-export function SeriesDetailHeader({
-  tags
-}: {
-  tags: CategoryTag[];
-}) {
+export function SeriesDetailHeader({ tags }: { tags: string[] }) {
   const { t } = useTranslation();
 
   return (
@@ -27,7 +22,7 @@ export function SeriesDetailHeader({
         <div className="flex flex-wrap gap-2">
           {tags.map((tag) => (
             <Badge key={tag} variant="pill" className="bg-black/60">
-              {t(`tags.${getTagKey(tag)}`)}
+              {tagLabel(tag, t)}
             </Badge>
           ))}
         </div>

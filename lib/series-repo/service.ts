@@ -1,10 +1,13 @@
 import type { Series } from "@/constants/mock-data";
+import { cache } from "react";
+import { getDatabaseUrl } from "@/lib/db/url";
 import {
   getAllSeries as getAllLocal,
   getSeriesById as getSeriesByIdLocal,
   createSeries as createSeriesLocal,
   deleteSeries as deleteSeriesLocal,
   deleteEpisodeFromSeries as deleteEpisodeFromSeriesLocal,
+  appendEpisodeToSeries as appendEpisodeToSeriesLocal,
   updateSeries as updateSeriesLocal
 } from "./storage-local";
 
@@ -12,7 +15,10 @@ import {
   getAllSeries as getAllPg,
   getSeriesById as getSeriesByIdPg,
   createSeries as createSeriesPg,
-  deleteSeries as deleteSeriesPg
+  deleteSeries as deleteSeriesPg,
+  updateSeries as updateSeriesPg,
+  deleteEpisodeFromSeries as deleteEpisodeFromSeriesPg,
+  appendEpisodeToSeries as appendEpisodeToSeriesPg
 } from "./storage-pg";
 
 /**
@@ -23,23 +29,6 @@ import {
 type StorageMode = "local" | "sqlite" | "pg";
 
 const mode = (process.env.SERIES_STORAGE as StorageMode | undefined) ?? "local";
-
-async function updateSeriesStub(
-  _id: string,
-  _patch: {
-    lockStartIndex?: number;
-    title?: string;
-    originalName?: string;
-    localOrTranslated?: "local" | "translated";
-    description?: string;
-    tags?: Series["tags"];
-    cover?: string;
-    poster?: string;
-    listed?: boolean;
-  }
-): Promise<Series | null> {
-  return null;
-}
 
 type RepoProvider = {
   getAllSeries: () => Promise<Series[]>;
@@ -60,6 +49,14 @@ type RepoProvider = {
   deleteEpisodeFromSeries: (
     seriesId: string,
     episodeId: string
+  ) => Promise<Series | null>;
+  appendEpisodeToSeries: (
+    seriesId: string,
+    data: {
+      videoUrl: string;
+      sourceFileName?: string;
+      localVideoUrl?: string;
+    }
   ) => Promise<Series | null>;
   updateSeries: (
     id: string,
@@ -83,6 +80,7 @@ const localProvider: RepoProvider = {
   createSeries: createSeriesLocal,
   deleteSeries: deleteSeriesLocal,
   deleteEpisodeFromSeries: deleteEpisodeFromSeriesLocal,
+  appendEpisodeToSeries: appendEpisodeToSeriesLocal,
   updateSeries: updateSeriesLocal
 };
 
@@ -91,8 +89,9 @@ const pgProvider: RepoProvider = {
   getSeriesById: getSeriesByIdPg,
   createSeries: createSeriesPg,
   deleteSeries: deleteSeriesPg,
-  deleteEpisodeFromSeries: async () => null,
-  updateSeries: updateSeriesStub
+  deleteEpisodeFromSeries: deleteEpisodeFromSeriesPg,
+  appendEpisodeToSeries: appendEpisodeToSeriesPg,
+  updateSeries: updateSeriesPg
 };
 
 let sqliteProviderCache: RepoProvider | null = null;
@@ -105,25 +104,57 @@ async function getSqliteProvider(): Promise<RepoProvider> {
     getSeriesById: m.getSeriesById,
     createSeries: m.createSeries,
     deleteSeries: m.deleteSeries,
-    deleteEpisodeFromSeries: async () => null,
-    updateSeries: updateSeriesStub
+    deleteEpisodeFromSeries: m.deleteEpisodeFromSeries,
+    appendEpisodeToSeries: m.appendEpisodeToSeries,
+    updateSeries: m.updateSeries
   };
   return sqliteProviderCache;
 }
 
 async function getProvider(): Promise<RepoProvider> {
   if (mode === "sqlite") return getSqliteProvider();
-  if (mode === "pg") return pgProvider;
+  if (mode === "pg") {
+    if (!getDatabaseUrl()) {
+      console.warn(
+        "[series-repo] SERIES_STORAGE=pg 但未配置 DATABASE_URL / SUPABASE_DB_URL / PG_URL，已回退到本地 data/series-store.json"
+      );
+      return localProvider;
+    }
+    return pgProvider;
+  }
   return localProvider;
 }
 
-export async function getAllSeries(): Promise<Series[]> {
-  return (await getProvider()).getAllSeries();
+async function getAllSeriesOnce(): Promise<Series[]> {
+  const p = await getProvider();
+  try {
+    return await p.getAllSeries();
+  } catch (e) {
+    if (mode === "pg") {
+      console.error("[series-repo] Postgres getAllSeries 失败，回退本地 JSON", e);
+      return getAllLocal();
+    }
+    throw e;
+  }
 }
 
-export async function getSeriesById(id: string): Promise<Series | null> {
-  return (await getProvider()).getSeriesById(id);
+/** 同一请求内多处调用只查一次库/磁盘 */
+export const getAllSeries = cache(getAllSeriesOnce);
+
+async function getSeriesByIdOnce(id: string): Promise<Series | null> {
+  const p = await getProvider();
+  try {
+    return await p.getSeriesById(id);
+  } catch (e) {
+    if (mode === "pg") {
+      console.error("[series-repo] Postgres getSeriesById 失败，回退本地 JSON", e);
+      return getSeriesByIdLocal(id);
+    }
+    throw e;
+  }
 }
+
+export const getSeriesById = cache(getSeriesByIdOnce);
 
 export async function createSeries(data: {
   title: string;
@@ -149,6 +180,17 @@ export async function deleteEpisodeFromSeries(
   episodeId: string
 ): Promise<Series | null> {
   return (await getProvider()).deleteEpisodeFromSeries(seriesId, episodeId);
+}
+
+export async function appendEpisodeToSeries(
+  seriesId: string,
+  data: {
+    videoUrl: string;
+    sourceFileName?: string;
+    localVideoUrl?: string;
+  }
+): Promise<Series | null> {
+  return (await getProvider()).appendEpisodeToSeries(seriesId, data);
 }
 
 export async function updateSeries(

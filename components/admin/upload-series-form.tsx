@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { showToast } from "@/components/ui/toast";
 import { translateAdminApiError } from "@/lib/admin/api-error";
-import type { CategoryTag } from "@/constants/mock-data";
 import { CATEGORY_TAGS } from "@/constants/mock-data";
 import { Badge } from "@/components/ui/badge";
 
@@ -16,7 +15,7 @@ export function UploadSeriesForm({
   const { t } = useTranslation();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [selectedTags, setSelectedTags] = useState<CategoryTag[]>(["Romance"]);
+  const [selectedTags, setSelectedTags] = useState<string[]>(["Romance"]);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreviewUrl, setCoverPreviewUrl] = useState<string>("");
   const [episodesText, setEpisodesText] = useState("");
@@ -32,7 +31,7 @@ export function UploadSeriesForm({
       .slice(0, 50);
   }, [episodesText]);
 
-  const onToggleTag = (tag: CategoryTag) => {
+  const onToggleTag = (tag: string) => {
     setSelectedTags((prev) => {
       if (prev.includes(tag)) return prev.filter((t) => t !== tag);
       // 最少保留 1 个分类，避免 category 为空

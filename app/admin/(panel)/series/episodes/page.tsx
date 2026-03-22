@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { showToast } from "@/components/ui/toast";
 import { translateAdminApiError } from "@/lib/admin/api-error";
+import { fetchAdminJson } from "@/lib/admin/fetch-admin-json";
 import type { Episode, Series } from "@/constants/mock-data";
 
 type Row = { series: Series; episode: Episode };
@@ -18,9 +19,10 @@ export default function AdminEpisodeManagementPage() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/admin/api/series");
-      const json = await res.json();
-      if (json?.ok && Array.isArray(json.series)) setSeries(json.series as Series[]);
+      const { res, json } = await fetchAdminJson<{ ok?: boolean; series?: Series[] }>(
+        "/admin/api/series"
+      );
+      if (res.ok && json?.ok && Array.isArray(json.series)) setSeries(json.series);
       else setSeries([]);
     } catch {
       setSeries([]);
@@ -99,6 +101,15 @@ export default function AdminEpisodeManagementPage() {
 
   const localHref = (e: Episode) =>
     (e.localVideoUrl && e.localVideoUrl.trim()) || e.videoUrl;
+
+  /** 浏览器可直接打开的公网/本机 HTTP(S) 视频地址（非 file://） */
+  const playableStreamUrl = (e: Episode): string | null => {
+    const u = e.videoUrl?.trim();
+    if (!u) return null;
+    if (/^https:\/\//i.test(u)) return u;
+    if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//i.test(u)) return u;
+    return null;
+  };
 
   const siteHref = (s: Series, e: Episode) =>
     `${origin}/series/${encodeURIComponent(s.id)}?episode=${e.index}`;
@@ -253,6 +264,17 @@ export default function AdminEpisodeManagementPage() {
                           >
                             {t("admin.openLocalResource")}
                           </a>
+                          {playableStreamUrl(e) ? (
+                            <a
+                              href={playableStreamUrl(e)!}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-1 block text-xs text-emerald-400/90 hover:underline"
+                              title={t("admin.episodeStreamUrlTitle")}
+                            >
+                              {t("admin.openStreamUrl")}
+                            </a>
+                          ) : null}
                         </td>
                         <td className="px-3 py-2">
                           {origin ? (

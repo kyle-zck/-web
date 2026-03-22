@@ -32,7 +32,7 @@ export function BottomNav() {
 
   return (
     <nav className="sticky bottom-0 z-40 border-t border-zinc-800/80 bg-black/95 backdrop-blur md:hidden pb-[env(safe-area-inset-bottom)]">
-      <div className="mx-auto flex max-w-md items-center justify-between px-4 py-2.5">
+      <div className="page-gutter-x mx-auto flex max-w-md items-center justify-between py-2.5">
         {ITEMS.map((item) => {
           const active =
             item.href === "/"

@@ -15,8 +15,7 @@ export async function DELETE(
       {
         ok: false,
         errorKey: "apiErrEpisodeDeleteNotFound",
-        error:
-          "Could not delete this episode or drama was not found. Deleting a single episode is only supported when using local JSON storage (not SQLite/Postgres)."
+        error: "Could not delete this episode or drama was not found."
       },
       { status: 404 }
     );

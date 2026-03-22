@@ -6,10 +6,34 @@ import { useTranslation } from "react-i18next";
 import type { Series } from "@/constants/mock-data";
 import type { AppLanguage } from "@/lib/i18n/languages";
 import { getSeriesI18nText } from "@/lib/i18n/seriesText";
-import { getTagKey } from "@/lib/i18n/tagKey";
+import { tagLabel } from "@/lib/i18n/tagKey";
+import { formatEngagementCount } from "@/lib/format-count";
+
+export type HeroEngagementCounts = {
+  collectionCount: number;
+  likesCount: number;
+  viewsCount: number;
+};
 
 interface HeroCarouselProps {
   items: Series[];
+  /** 与详情页同源：收藏数 / 点赞数 / 观看数（每用户每剧一条） */
+  countsBySeriesId?: Record<string, HeroEngagementCounts>;
+}
+
+function PlayGlyph({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+    >
+      <path d="M8 5v14l11-7L8 5z" />
+    </svg>
+  );
 }
 
 function ChevronLeft() {
@@ -28,7 +52,7 @@ function ChevronRight() {
   );
 }
 
-export function HeroCarousel({ items }: HeroCarouselProps) {
+export function HeroCarousel({ items, countsBySeriesId }: HeroCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { t, i18n } = useTranslation();
@@ -60,7 +84,7 @@ export function HeroCarousel({ items }: HeroCarouselProps) {
   };
 
   return (
-    <section className="relative mb-6 pt-8 pb-8">
+    <section className="relative mb-6 pt-6 pb-8 sm:pt-8 sm:pb-10 md:pb-12">
       <div
         className="flex items-center justify-center gap-4 overflow-x-visible scrollbar-thin snap-x snap-mandatory scroll-smooth md:gap-6"
         ref={scrollRef}
@@ -69,40 +93,68 @@ export function HeroCarousel({ items }: HeroCarouselProps) {
           const isActive = index === activeIndex;
           const scaleClass = isActive ? "scale-[1.3] z-20" : "scale-100 z-10";
           const { title, description } = getSeriesI18nText(item, lang);
-          const categoryLabel = t(`tags.${getTagKey(item.category)}`);
+          const categoryLabel = tagLabel(item.category, t);
+          const eng = countsBySeriesId?.[item.id];
           return (
             <div
               key={item.id}
               data-index={index}
-              className={`relative w-[160px] shrink-0 snap-center sm:w-[200px] md:w-[240px] transition-transform duration-300 ${scaleClass}`}
+              className={`relative w-[178px] shrink-0 snap-center sm:w-[212px] md:w-[254px] transition-transform duration-300 ${scaleClass}`}
             >
               <Link
                 href={`/series/${item.id}`}
                 className="group block"
               >
-                <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-zinc-900 shadow-lg">
+                <div className="poster-card-drama relative aspect-[3/4] w-full overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={item.poster}
+                    src={item.poster || item.cover}
                     alt={title}
-                    className="h-full w-full object-cover"
+                    className="poster-card-drama__img"
+                    loading={index < 2 ? "eager" : "lazy"}
+                    decoding="async"
+                    fetchPriority={index === 0 ? "high" : "low"}
                   />
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/60" />
-                  {/* 悬停时显示简介、标签、Play 按钮 */}
-                  <div className="pointer-events-none absolute inset-0 flex flex-col justify-end bg-black/70 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                  <div
+                    className="poster-card-drama__overlay poster-card-drama__overlay--hero absolute inset-0 z-[1]"
+                    aria-hidden
+                  />
+                  {/* 悬停：较轻压暗（图4），文案加阴影更易读 */}
+                  <div className="pointer-events-none absolute inset-0 z-[2] flex flex-col justify-end bg-gradient-to-t from-black/50 via-black/15 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100">
                     <div className="space-y-2 p-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-red-400">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-red-300 [text-shadow:0_1px_3px_rgba(0,0,0,0.9)]">
                         {categoryLabel}
                       </p>
-                      <p className="line-clamp-3 text-xs font-medium text-zinc-100">
+                      <p className="line-clamp-3 text-xs font-semibold text-white [text-shadow:0_2px_8px_rgba(0,0,0,0.85)]">
                         {description ?? title}
                       </p>
-                      <span className="mt-1 inline-flex w-1/2 items-center justify-center rounded-full bg-gradient-to-r from-brand to-red-600 px-3 py-1.5 text-sm font-extrabold text-white shadow-[0_0_20px_rgba(229,9,20,0.5)]">
+                      {eng ? (
+                        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] font-semibold tabular-nums text-zinc-200 [text-shadow:0_1px_3px_rgba(0,0,0,0.95)]">
+                          <span className="inline-flex items-center gap-0.5" title={t("seriesDetail.views")}>
+                            <PlayGlyph className="shrink-0 opacity-90" />
+                            {formatEngagementCount(eng.viewsCount)}
+                          </span>
+                          <span className="inline-flex items-center gap-0.5" title={t("seriesDetail.favorites")}>
+                            <span className="text-[11px]" aria-hidden>
+                              ★
+                            </span>
+                            {formatEngagementCount(eng.collectionCount)}
+                          </span>
+                          <span className="inline-flex items-center gap-0.5" title={t("seriesDetail.likes")}>
+                            <span className="text-[11px]" aria-hidden>
+                              ♥
+                            </span>
+                            {formatEngagementCount(eng.likesCount)}
+                          </span>
+                        </div>
+                      ) : null}
+                      <span className="mt-1 inline-flex w-1/2 items-center justify-center rounded-full bg-gradient-to-r from-brand to-red-600 px-3 py-1.5 text-sm font-extrabold text-white shadow-[0_0_20px_rgba(229,9,20,0.55)]">
                         Play
                       </span>
                     </div>
                   </div>
                 </div>
-                <p className="mt-2 line-clamp-2 text-base font-semibold text-zinc-50">
+                <p className="mt-2 line-clamp-2 text-[clamp(0.875rem,0.8rem+0.35vw,1.125rem)] font-bold leading-snug tracking-tight text-zinc-50 drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] sm:mt-2.5 sm:text-[clamp(1rem,0.9rem+0.4vw,1.25rem)]">
                   {title}
                 </p>
               </Link>

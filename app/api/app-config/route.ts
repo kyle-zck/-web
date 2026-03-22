@@ -1,31 +1,29 @@
 import { NextResponse } from "next/server";
-import { promises as fs } from "fs";
-import path from "path";
-import type { SubscriptionPlan } from "@/constants/mock-data";
+import { unstable_cache } from "next/cache";
+import { getAppConfigOrDefault } from "@/lib/app-config/service";
 
-const CONFIG_PATH = path.join(process.cwd(), "data", "app-config.json");
+export { type AppConfig } from "@/lib/app-config/types";
 
-export interface AppConfig {
-  brandName: string;
-  subscriptionPlans?: SubscriptionPlan[];
+function parseRevalidate(envVal: string | undefined, fallback: number) {
+  if (envVal == null || envVal === "") return fallback;
+  const n = Number(envVal);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
 }
 
-const DEFAULT_CONFIG: AppConfig = {
-  brandName: "ReelShorts",
-  subscriptionPlans: [
-    { id: "monthly", label: "Monthly VIP", priceUsd: 29.9, durationDays: 30, paymentUrl: "/store?plan=monthly" },
-    { id: "weekly", label: "Weekly VIP", priceUsd: 19.99, durationDays: 7, paymentUrl: "/store?plan=weekly" },
-    { id: "yearly", label: "Yearly VIP", priceUsd: 199.99, durationDays: 365, paymentUrl: "/store?plan=yearly" }
-  ]
-};
+/** 与 /api/series 一致：服务端跨请求缓存 + 浏览器/CDN 可缓存 JSON */
+const appConfigRevalidate = parseRevalidate(process.env.PUBLIC_APP_CONFIG_REVALIDATE, 120);
+
+const getAppConfigCached = unstable_cache(
+  async () => getAppConfigOrDefault(),
+  ["public-app-config-v1"],
+  { revalidate: Math.max(1, appConfigRevalidate) }
+);
 
 export async function GET() {
-  try {
-    const raw = await fs.readFile(CONFIG_PATH, "utf8");
-    const json = JSON.parse(raw) as AppConfig;
-    return NextResponse.json({ ...DEFAULT_CONFIG, ...json });
-  } catch {
-    return NextResponse.json(DEFAULT_CONFIG);
-  }
+  const config = await getAppConfigCached();
+  return NextResponse.json(config, {
+    headers: {
+      "Cache-Control": `public, s-maxage=${appConfigRevalidate}, stale-while-revalidate=600`
+    }
+  });
 }
-

@@ -3,10 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "WATCHPACK_POLLING=true next dev",
+    "clean": "rm -rf .next",
+    "dev:kill": "bash -c 'for p in 3000 3001 3002 3003 3010; do lsof -ti:$p 2>/dev/null | xargs kill -9 2>/dev/null; done; true'",
+    "dev": "WATCHPACK_POLLING=true PORT=3000 next dev",
+    "dev:clean": "npm run clean && WATCHPACK_POLLING=true PORT=3000 next dev",
+    "dev:reset": "npm run dev:kill && npm run clean && WATCHPACK_POLLING=true PORT=3000 next dev",
+    "dev:turbo": "WATCHPACK_POLLING=true PORT=3000 next dev --turbo",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "check:series-pg": "node --env-file=.env.local scripts/check-series-pg.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1011.0",
@@ -16,7 +22,7 @@
     "better-sqlite3": "^12.8.0",
     "i18next": "^25.8.18",
     "jose": "^6.2.2",
-    "next": "14.2.5",
+    "next": "14.2.35",
     "pg": "^8.20.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -32,7 +38,7 @@
     "@types/react-dom": "^18.3.1",
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.1",
-    "eslint-config-next": "14.2.5",
+    "eslint-config-next": "14.2.35",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3"
