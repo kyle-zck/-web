@@ -1,20 +1,19 @@
 "use client";
 
-import { Suspense } from "react";
-import { ImmersiveSeriesDetail } from "@/components/player/immersive-series-detail";
+import dynamic from "next/dynamic";
 import type { Series } from "@/constants/mock-data";
+import { SeriesDetailSkeleton } from "@/components/player/series-detail-skeleton";
+
+/** 拆 chunk：首包更小，点击 Play 后并行拉取播放页组件 */
+const ImmersiveSeriesDetail = dynamic(
+  () =>
+    import("@/components/player/immersive-series-detail").then((m) => m.ImmersiveSeriesDetail),
+  {
+    loading: () => <SeriesDetailSkeleton />,
+    ssr: false
+  }
+);
 
 export function SeriesDetailClient({ series }: { series: Series }) {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-[50vh] flex-col items-center justify-center gap-2 px-4 text-sm text-zinc-400">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-600 border-t-red-500" />
-          <span>加载中…</span>
-        </div>
-      }
-    >
-      <ImmersiveSeriesDetail series={series} />
-    </Suspense>
-  );
+  return <ImmersiveSeriesDetail series={series} />;
 }

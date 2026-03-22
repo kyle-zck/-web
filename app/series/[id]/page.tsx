@@ -1,15 +1,36 @@
 import { notFound } from "next/navigation";
+import { unstable_cache } from "next/cache";
 import { getSeriesById } from "@/lib/series-repo";
 import { SeriesDetailClient } from "./series-detail-client";
 
 export const dynamic = "force-dynamic";
+
+function parseRevalidate(envVal: string | undefined, fallback: number) {
+  if (envVal == null || envVal === "") return fallback;
+  const n = Number(envVal);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+
+const detailRevalidate = parseRevalidate(process.env.PUBLIC_SERIES_DETAIL_REVALIDATE, 45);
+
+/**
+ * 跨请求缓存剧目详情，减轻 PG/磁盘压力，加快重复进入同一剧播放页
+ * 后台改剧后最多延迟 PUBLIC_SERIES_DETAIL_REVALIDATE 秒（见 .env.example）
+ */
+function getCachedSeriesForDetailPage(id: string) {
+  return unstable_cache(
+    async () => getSeriesById(id),
+    ["series-detail-page", id],
+    { revalidate: Math.max(5, detailRevalidate) }
+  )();
+}
 
 export default async function SeriesDetailPage({
   params
 }: {
   params: { id: string };
 }) {
-  const series = await getSeriesById(params.id);
+  const series = await getCachedSeriesForDetailPage(params.id);
   if (!series) return notFound();
 
   return (

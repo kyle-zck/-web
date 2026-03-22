@@ -34,11 +34,20 @@ export function ImmersivePlayer({
     [series.id, episode.index]
   );
 
+  /** 延后拉订阅套餐，避免与首帧视频抢带宽/主线程 */
   useEffect(() => {
-    fetch("/api/app-config")
-      .then((r) => r.json())
-      .then((json) => setPlans(json.subscriptionPlans ?? []))
-      .catch(() => setPlans([]));
+    const run = () => {
+      fetch("/api/app-config")
+        .then((r) => r.json())
+        .then((json) => setPlans(json.subscriptionPlans ?? []))
+        .catch(() => setPlans([]));
+    };
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      const id = window.requestIdleCallback(run, { timeout: 2000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const t = globalThis.setTimeout(run, 300);
+    return () => globalThis.clearTimeout(t);
   }, []);
 
   useEffect(() => {
@@ -97,6 +106,7 @@ export function ImmersivePlayer({
           playsInline
           muted
           autoPlay={unlocked}
+          preload={unlocked ? "auto" : "metadata"}
           onCanPlay={handleReady}
           onEnded={handleEnded}
           onTimeUpdate={() => {
