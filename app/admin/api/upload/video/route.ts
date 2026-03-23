@@ -31,16 +31,36 @@ export async function POST(req: Request) {
   const unauth = await requireAdminSession();
   if (unauth) return unauth;
 
-  const form = await req.formData();
-  const file = form.get("file");
-  const targetMode = String(form.get("targetMode") ?? "mp4").toLowerCase();
+  const contentType = req.headers.get("content-type") ?? "";
+  const isJson = contentType.includes("application/json");
+  const bodyJson = isJson
+    ? ((await req.json().catch(() => ({}))) as {
+        uploadedKey?: string;
+        uploadedUrl?: string;
+        targetMode?: string;
+      })
+    : null;
+  const form = !isJson ? await req.formData() : null;
+  const file = form?.get("file");
+  const targetMode = String(
+    isJson ? bodyJson?.targetMode ?? "mp4" : form?.get("targetMode") ?? "mp4"
+  ).toLowerCase();
   const preferHls = targetMode === "hls";
-  if (!(file instanceof File)) {
-    return NextResponse.json({ ok: false, error: "Missing file" }, { status: 400 });
+  const uploadedKey = (bodyJson?.uploadedKey ?? "").trim();
+  const uploadedUrl = (bodyJson?.uploadedUrl ?? "").trim();
+  if (!(file instanceof File) && !uploadedKey && !uploadedUrl) {
+    return NextResponse.json(
+      { ok: false, error: "Missing file or uploadedKey/uploadedUrl" },
+      { status: 400 }
+    );
   }
 
-  const type = file.type || "";
-  if (!VIDEO_TYPES.has(type) && !file.name.match(/\.(mp4|webm|mov|mkv)$/i)) {
+  const type = file instanceof File ? file.type || "" : "video/mp4";
+  if (
+    file instanceof File &&
+    !VIDEO_TYPES.has(type) &&
+    !file.name.match(/\.(mp4|webm|mov|mkv)$/i)
+  ) {
     return NextResponse.json(
       { ok: false, error: "Unsupported video type (use mp4, webm, mov, mkv)" },
       { status: 400 }
@@ -48,7 +68,7 @@ export async function POST(req: Request) {
   }
 
   const maxSize = Number(process.env.ADMIN_VIDEO_UPLOAD_MAX_BYTES ?? 120 * 1024 * 1024);
-  if (file.size > maxSize) {
+  if (file instanceof File && file.size > maxSize) {
     console.warn("[admin/upload/video] file too large", {
       name: file.name,
       size: file.size,
@@ -70,11 +90,11 @@ export async function POST(req: Request) {
   const accessKeyId = process.env.S3_ACCESS_KEY_ID ?? "";
   const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY ?? "";
 
-  const arrayBuffer = await file.arrayBuffer();
-  const bodyBuf = Buffer.from(arrayBuffer);
+  const arrayBuffer = file instanceof File ? await file.arrayBuffer() : null;
+  const bodyBuf = arrayBuffer ? Buffer.from(arrayBuffer) : null;
 
   // 手动选择 HLS 时，优先走 Cloudflare Stream 直传：不依赖 R2 公网可读 URL
-  if (preferHls && hasCloudflareStreamConfig()) {
+  if (file instanceof File && preferHls && hasCloudflareStreamConfig()) {
     const stream = await tryUploadFileToStream(file);
     if (stream.streamId && stream.playbackUrl) {
       return NextResponse.json({
@@ -101,8 +121,14 @@ export async function POST(req: Request) {
     }
     const uploadsDir = path.resolve(process.cwd(), "public", "uploads", "videos");
     if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-    const filename = `${Date.now()}-${sanitizeFilename(file.name || "video.mp4")}`;
+    const filename = `${Date.now()}-${sanitizeFilename((file as File)?.name || "video.mp4")}`;
     const filePath = path.join(uploadsDir, filename);
+    if (!bodyBuf) {
+      return NextResponse.json(
+        { ok: false, error: "uploadedKey/uploadedUrl requires object storage in non-local mode" },
+        { status: 400 }
+      );
+    }
     fs.writeFileSync(filePath, bodyBuf);
     const videoUrl = `/uploads/videos/${filename}`;
     return NextResponse.json({
@@ -114,19 +140,25 @@ export async function POST(req: Request) {
   }
 
   const client = getS3Client();
-  const key = `videos/${Date.now()}-${sanitizeFilename(file.name || "video.mp4")}`;
-
-  await client.send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      Body: bodyBuf,
-      ContentType: type || "video/mp4",
-      CacheControl: "public, max-age=31536000, immutable"
-    })
-  );
-
-  const url = buildPublicUrl(key);
+  let key = uploadedKey;
+  let url = uploadedUrl;
+  if (!key && !url) {
+    key = `videos/${Date.now()}-${sanitizeFilename((file as File)?.name || "video.mp4")}`;
+    await client.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: bodyBuf ?? undefined,
+        ContentType: type || "video/mp4",
+        CacheControl: "public, max-age=31536000, immutable"
+      })
+    );
+    url = buildPublicUrl(key);
+  }
+  if (!url && key) url = buildPublicUrl(key);
+  if (!url) {
+    return NextResponse.json({ ok: false, error: "Missing uploaded URL" }, { status: 400 });
+  }
   const stream = preferHls ? await tryCreateStreamByUrl(url) : {};
   return NextResponse.json({
     ok: true,

@@ -24,6 +24,18 @@ export default function AdminEpisodeManagementPage() {
   const [applied, setApplied] = useState({ dramaId: "", originalName: "", title: "" });
   const [refreshingEpisodeId, setRefreshingEpisodeId] = useState<string | null>(null);
   const [batchRefreshing, setBatchRefreshing] = useState(false);
+  const [checkingEpisodeId, setCheckingEpisodeId] = useState<string | null>(null);
+  const [batchChecking, setBatchChecking] = useState(false);
+  const [resourceHealth, setResourceHealth] = useState<
+    Record<
+      string,
+      {
+        cover?: { ok: boolean; status: number };
+        videoUrl?: { ok: boolean; status: number };
+        videoPlaybackUrl?: { ok: boolean; status: number };
+      }
+    >
+  >({});
 
   const load = useCallback(async () => {
     try {
@@ -195,6 +207,117 @@ export default function AdminEpisodeManagementPage() {
     }
   };
 
+  const checkEpisodeResources = async (s: Series, e: Episode) => {
+    setCheckingEpisodeId(e.id);
+    try {
+      const res = await fetch("/admin/api/video/check-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [
+            { kind: "cover", url: s.cover },
+            { kind: "videoUrl", url: e.videoUrl },
+            { kind: "videoPlaybackUrl", url: e.videoPlaybackUrl || e.videoUrl }
+          ]
+        })
+      });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        results?: Array<{
+          kind: "cover" | "videoUrl" | "videoPlaybackUrl";
+          ok: boolean;
+          status: number;
+        }>;
+      };
+      if (!res.ok || !json?.ok || !Array.isArray(json.results)) {
+        showToast(t("admin.videoHealthCheckFailed"));
+        return;
+      }
+      const next = json.results.reduce(
+        (acc, item) => {
+          acc[item.kind] = { ok: item.ok, status: item.status };
+          return acc;
+        },
+        {} as {
+          cover?: { ok: boolean; status: number };
+          videoUrl?: { ok: boolean; status: number };
+          videoPlaybackUrl?: { ok: boolean; status: number };
+        }
+      );
+      setResourceHealth((prev) => ({ ...prev, [e.id]: next }));
+      showToast(t("admin.videoHealthChecked"), "success");
+    } catch {
+      showToast(t("admin.networkErrorShort"));
+    } finally {
+      setCheckingEpisodeId(null);
+    }
+  };
+
+  const checkVisibleResources = async () => {
+    if (rows.length === 0) {
+      showToast(t("admin.noEpisodeRows"), "info");
+      return;
+    }
+    setBatchChecking(true);
+    let okCount = 0;
+    try {
+      const queue = [...rows];
+      const concurrency = 4;
+      const workers = Array.from({ length: Math.min(concurrency, queue.length) }).map(
+        async () => {
+          while (queue.length > 0) {
+            const item = queue.shift();
+            if (!item) break;
+            const { series: s, episode: e } = item;
+            try {
+              const res = await fetch("/admin/api/video/check-url", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  items: [
+                    { kind: "cover", url: s.cover },
+                    { kind: "videoUrl", url: e.videoUrl },
+                    { kind: "videoPlaybackUrl", url: e.videoPlaybackUrl || e.videoUrl }
+                  ]
+                })
+              });
+              const json = (await res.json()) as {
+                ok?: boolean;
+                results?: Array<{
+                  kind: "cover" | "videoUrl" | "videoPlaybackUrl";
+                  ok: boolean;
+                  status: number;
+                }>;
+              };
+              if (!res.ok || !json?.ok || !Array.isArray(json.results)) continue;
+              const next = json.results.reduce(
+                (acc, x) => {
+                  acc[x.kind] = { ok: x.ok, status: x.status };
+                  return acc;
+                },
+                {} as {
+                  cover?: { ok: boolean; status: number };
+                  videoUrl?: { ok: boolean; status: number };
+                  videoPlaybackUrl?: { ok: boolean; status: number };
+                }
+              );
+              setResourceHealth((prev) => ({ ...prev, [e.id]: next }));
+              okCount += 1;
+            } catch {
+              // ignore
+            }
+          }
+        }
+      );
+      await Promise.all(workers);
+      showToast(t("admin.videoHealthBatchChecked", { ok: okCount, total: rows.length }), "success");
+    } catch {
+      showToast(t("admin.videoHealthCheckFailed"));
+    } finally {
+      setBatchChecking(false);
+    }
+  };
+
   const localHref = (e: Episode) =>
     (e.localVideoUrl && e.localVideoUrl.trim()) || e.videoUrl;
 
@@ -262,6 +385,16 @@ export default function AdminEpisodeManagementPage() {
           />
         </div>
         <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={batchRefreshing || batchChecking}
+            onClick={checkVisibleResources}
+            className="rounded-lg border border-cyan-500/50 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-300 hover:bg-cyan-500/20 disabled:opacity-50"
+          >
+            {batchChecking
+              ? t("admin.videoHealthBatchChecking")
+              : t("admin.videoHealthBatchCheck", { count: rows.length })}
+          </button>
           <button
             type="button"
             disabled={batchRefreshing}
@@ -410,6 +543,32 @@ export default function AdminEpisodeManagementPage() {
                               {t("admin.openStreamUrl")}
                             </a>
                           ) : null}
+                          {resourceHealth[e.id]?.videoUrl ? (
+                            <p
+                              className={cn(
+                                "mt-1 text-[10px]",
+                                resourceHealth[e.id]?.videoUrl?.ok ? "text-emerald-400" : "text-red-400"
+                              )}
+                            >
+                              videoUrl:{" "}
+                              {resourceHealth[e.id]?.videoUrl?.ok
+                                ? "OK"
+                                : `ERR(${resourceHealth[e.id]?.videoUrl?.status ?? 0})`}
+                            </p>
+                          ) : null}
+                          {resourceHealth[e.id]?.videoPlaybackUrl ? (
+                            <p
+                              className={cn(
+                                "mt-0.5 text-[10px]",
+                                resourceHealth[e.id]?.videoPlaybackUrl?.ok ? "text-emerald-400" : "text-red-400"
+                              )}
+                            >
+                              playback:{" "}
+                              {resourceHealth[e.id]?.videoPlaybackUrl?.ok
+                                ? "OK"
+                                : `ERR(${resourceHealth[e.id]?.videoPlaybackUrl?.status ?? 0})`}
+                            </p>
+                          ) : null}
                         </td>
                         <td className="px-3 py-2">
                           {origin ? (
@@ -426,13 +585,25 @@ export default function AdminEpisodeManagementPage() {
                           )}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2">
-                          <button
-                            type="button"
-                            onClick={() => deleteEpisode(s, e)}
-                            className="rounded-lg border border-red-500/50 px-3 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/15"
-                          >
-                            {t("admin.delete")}
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              disabled={checkingEpisodeId === e.id}
+                              onClick={() => checkEpisodeResources(s, e)}
+                              className="rounded-lg border border-cyan-500/50 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/15 disabled:opacity-50"
+                            >
+                              {checkingEpisodeId === e.id
+                                ? t("admin.videoHealthChecking")
+                                : t("admin.videoHealthCheck")}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteEpisode(s, e)}
+                              className="rounded-lg border border-red-500/50 px-3 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/15"
+                            >
+                              {t("admin.delete")}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))

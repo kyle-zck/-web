@@ -19,6 +19,7 @@ export function ImmersivePlayer({
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [ready, setReady] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const { t, i18n } = useTranslation();
@@ -53,6 +54,7 @@ export function ImmersivePlayer({
 
   useEffect(() => {
     setReady(false);
+    setLoadFailed(false);
   }, [episode.id]);
 
   useEffect(() => {
@@ -76,6 +78,7 @@ export function ImmersivePlayer({
   };
 
   const handleReady = () => {
+    setLoadFailed(false);
     setReady(true);
     if (!unlocked) return;
     if (initialSeek > 0) {
@@ -85,6 +88,11 @@ export function ImmersivePlayer({
         // ignore
       }
     }
+  };
+
+  const handleLoadError = () => {
+    setLoadFailed(true);
+    setReady(false);
   };
 
   const episodeLabel =
@@ -216,6 +224,7 @@ export function ImmersivePlayer({
           autoPlay={unlocked}
           preload={unlocked ? "auto" : "metadata"}
           onCanPlay={handleReady}
+          onError={handleLoadError}
           onEnded={handleEnded}
           onTimeUpdate={() => {
             if (!unlocked) return;
@@ -242,7 +251,18 @@ export function ImmersivePlayer({
           </div>
         ) : null}
 
-        {!ready && unlocked && runtimeVideoStatus !== "processing" ? (
+        {(runtimeVideoStatus === "failed" || loadFailed) && unlocked ? (
+          <div className="absolute inset-0 grid place-items-center px-6 text-center text-xs text-zinc-300">
+            <div>
+              <p className="font-medium">{t("loading")} failed</p>
+              <p className="mt-1 text-zinc-400">
+                Video source is unavailable. Please refresh status or replace URL.
+              </p>
+            </div>
+          </div>
+        ) : null}
+
+        {!ready && !loadFailed && unlocked && runtimeVideoStatus !== "processing" ? (
           <div className="absolute inset-0 grid place-items-center text-xs text-zinc-400">
             {t("loading")}
           </div>

@@ -155,17 +155,79 @@ export default function AdminDramaUploadPage() {
       for (let i = 0; i < total; i += 1) {
         const v = sortedVideos[i];
         setUploadProgress({ current: i + 1, total, fileName: v.file.name });
-        const fd = new FormData();
-        fd.append("file", v.file);
-        fd.append("targetMode", form.uploadVideoMode);
-        const { res, json } = await fetchAdminJson<{
-          ok?: boolean;
-          videoUrl?: string;
-          videoStreamId?: string;
-          videoPlaybackUrl?: string;
-          videoStatus?: "processing" | "ready" | "failed";
-          errorKey?: string;
-        }>("/admin/api/upload/video", { method: "POST", body: fd });
+        let res: Response;
+        let json:
+          | {
+              ok?: boolean;
+              videoUrl?: string;
+              videoStreamId?: string;
+              videoPlaybackUrl?: string;
+              videoStatus?: "processing" | "ready" | "failed";
+              errorKey?: string;
+            }
+          | undefined;
+        try {
+          const presign = await fetch("/admin/api/upload/video/presign", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              fileName: v.file.name,
+              contentType: v.file.type || "video/mp4"
+            })
+          });
+          const presignJson = (await presign.json()) as {
+            ok?: boolean;
+            uploadUrl?: string;
+            key?: string;
+            publicUrl?: string;
+          };
+
+          if (presign.ok && presignJson?.ok && presignJson.uploadUrl && presignJson.key) {
+            const putRes = await fetch(presignJson.uploadUrl, {
+              method: "PUT",
+              headers: { "Content-Type": v.file.type || "video/mp4" },
+              body: v.file
+            });
+            if (!putRes.ok) {
+              throw new Error("direct upload failed");
+            }
+            const complete = await fetchAdminJson<{
+              ok?: boolean;
+              videoUrl?: string;
+              videoStreamId?: string;
+              videoPlaybackUrl?: string;
+              videoStatus?: "processing" | "ready" | "failed";
+              errorKey?: string;
+            }>("/admin/api/upload/video", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                uploadedKey: presignJson.key,
+                uploadedUrl: presignJson.publicUrl,
+                targetMode: form.uploadVideoMode
+              })
+            });
+            res = complete.res;
+            json = complete.json;
+          } else {
+            throw new Error("presign unavailable");
+          }
+        } catch {
+          // 回退旧路径（本地开发/无对象存储）
+          const fd = new FormData();
+          fd.append("file", v.file);
+          fd.append("targetMode", form.uploadVideoMode);
+          const fallback = await fetchAdminJson<{
+            ok?: boolean;
+            videoUrl?: string;
+            videoStreamId?: string;
+            videoPlaybackUrl?: string;
+            videoStatus?: "processing" | "ready" | "failed";
+            errorKey?: string;
+          }>("/admin/api/upload/video", { method: "POST", body: fd });
+          res = fallback.res;
+          json = fallback.json;
+        }
         if (!res.ok || !json?.ok || !json.videoUrl) {
           showToast(translateAdminApiError(json, t, "admin.submitFailed"));
           setSubmitting(false);
