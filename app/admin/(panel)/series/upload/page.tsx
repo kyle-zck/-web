@@ -165,6 +165,7 @@ export default function AdminDramaUploadPage() {
               videoStatus?: "processing" | "ready" | "failed";
               errorKey?: string;
             }
+          | null
           | undefined;
         try {
           const presign = await fetch("/admin/api/upload/video/presign", {
