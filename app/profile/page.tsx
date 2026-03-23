@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { AuthModal } from "@/components/ui/auth-modal";
 import { usePlayerStore } from "@/lib/store/player";
@@ -290,10 +291,12 @@ export default function ProfilePage() {
                     className="group w-full text-left"
                   >
                     <div className="relative poster-aspect overflow-hidden rounded-xl bg-zinc-900 transition-transform duration-200 group-hover:scale-[1.02] group-hover:shadow-[0_0_24px_rgba(229,9,20,0.25)]">
-                      <img
+                      <Image
                         src={row.series.poster || row.series.cover}
                         alt={getSeriesI18nText(row.series, lang).title}
-                        className="h-full w-full object-cover"
+                        fill
+                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                        className="object-cover"
                       />
                       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent" />
                       <div className="pointer-events-none absolute bottom-0 left-0 right-0 p-3">
@@ -340,10 +343,12 @@ export default function ProfilePage() {
                     className="group w-full text-left"
                   >
                     <div className="relative poster-aspect overflow-hidden rounded-xl bg-zinc-900 transition-transform duration-200 group-hover:scale-[1.02] group-hover:shadow-[0_0_24px_rgba(229,9,20,0.25)]">
-                      <img
+                      <Image
                         src={series.poster || series.cover}
                         alt={getSeriesI18nText(series, lang).title}
-                        className="h-full w-full object-cover"
+                        fill
+                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                        className="object-cover"
                       />
                       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent" />
                       <div className="pointer-events-none absolute bottom-0 left-0 right-0 p-3">

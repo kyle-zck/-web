@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import type { Episode, Series } from "@/constants/mock-data";
 import { usePlayerStore } from "@/lib/store/player";
@@ -12,6 +13,7 @@ import { stubEpisodeForProgress } from "@/lib/series/slim-public";
 import { cn } from "@/lib/utils";
 
 export function ContinueWatching() {
+  const router = useRouter();
   const { progressSeconds, setEpisodeIndex, setSeries } = usePlayerStore();
   const [seriesList, setSeriesList] = useState<Series[]>([]);
   const { t, i18n } = useTranslation();
@@ -75,12 +77,12 @@ export function ContinueWatching() {
           >
             <Link
               href={`/series/${row.series.id}`}
-              onClick={(e) => {
+              prefetch={false}
+              onMouseEnter={() => router.prefetch(`/series/${row.series.id}`)}
+              onClick={() => {
                 // Keep client state in sync for the player component
-                e.preventDefault();
                 setSeries(row.series.id);
                 setEpisodeIndex(row.episode.index);
-                window.location.href = `/series/${row.series.id}`;
               }}
               className="group block"
             >

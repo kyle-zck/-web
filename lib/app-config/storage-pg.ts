@@ -18,6 +18,9 @@ function getPool(): Pool {
   }
   pool = new Pool({
     connectionString: url,
+    connectionTimeoutMillis: 5000,
+    statement_timeout: 5000,
+    query_timeout: 5000,
     ssl:
       url.includes("localhost") || url.includes("127.0.0.1")
         ? undefined
@@ -49,6 +52,9 @@ async function runInitDdlWithAdvisoryLock(): Promise<void> {
   const Client = (pg as unknown as { Client: new (config: object) => PgClient }).Client;
   const client = new Client({
     connectionString: url,
+    connectionTimeoutMillis: 5000,
+    statement_timeout: 5000,
+    query_timeout: 5000,
     ssl: sslForUrl(url)
   });
   await client.connect();

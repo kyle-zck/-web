@@ -8,6 +8,7 @@ import {
   deleteSeries as deleteSeriesLocal,
   deleteEpisodeFromSeries as deleteEpisodeFromSeriesLocal,
   appendEpisodeToSeries as appendEpisodeToSeriesLocal,
+  updateEpisodeStreamState as updateEpisodeStreamStateLocal,
   updateSeries as updateSeriesLocal
 } from "./storage-local";
 
@@ -18,7 +19,8 @@ import {
   deleteSeries as deleteSeriesPg,
   updateSeries as updateSeriesPg,
   deleteEpisodeFromSeries as deleteEpisodeFromSeriesPg,
-  appendEpisodeToSeries as appendEpisodeToSeriesPg
+  appendEpisodeToSeries as appendEpisodeToSeriesPg,
+  updateEpisodeStreamState as updateEpisodeStreamStatePg
 } from "./storage-pg";
 
 /**
@@ -56,6 +58,18 @@ type RepoProvider = {
       videoUrl: string;
       sourceFileName?: string;
       localVideoUrl?: string;
+      videoStreamId?: string;
+      videoPlaybackUrl?: string;
+      videoStatus?: "processing" | "ready" | "failed";
+    }
+  ) => Promise<Series | null>;
+  updateEpisodeStreamState: (
+    seriesId: string,
+    episodeId: string,
+    patch: {
+      videoStreamId?: string;
+      videoPlaybackUrl?: string;
+      videoStatus?: "processing" | "ready" | "failed";
     }
   ) => Promise<Series | null>;
   updateSeries: (
@@ -81,6 +95,7 @@ const localProvider: RepoProvider = {
   deleteSeries: deleteSeriesLocal,
   deleteEpisodeFromSeries: deleteEpisodeFromSeriesLocal,
   appendEpisodeToSeries: appendEpisodeToSeriesLocal,
+  updateEpisodeStreamState: updateEpisodeStreamStateLocal,
   updateSeries: updateSeriesLocal
 };
 
@@ -91,6 +106,7 @@ const pgProvider: RepoProvider = {
   deleteSeries: deleteSeriesPg,
   deleteEpisodeFromSeries: deleteEpisodeFromSeriesPg,
   appendEpisodeToSeries: appendEpisodeToSeriesPg,
+  updateEpisodeStreamState: updateEpisodeStreamStatePg,
   updateSeries: updateSeriesPg
 };
 
@@ -106,6 +122,7 @@ async function getSqliteProvider(): Promise<RepoProvider> {
     deleteSeries: m.deleteSeries,
     deleteEpisodeFromSeries: m.deleteEpisodeFromSeries,
     appendEpisodeToSeries: m.appendEpisodeToSeries,
+    updateEpisodeStreamState: m.updateEpisodeStreamState,
     updateSeries: m.updateSeries
   };
   return sqliteProviderCache;
@@ -188,9 +205,24 @@ export async function appendEpisodeToSeries(
     videoUrl: string;
     sourceFileName?: string;
     localVideoUrl?: string;
+    videoStreamId?: string;
+    videoPlaybackUrl?: string;
+    videoStatus?: "processing" | "ready" | "failed";
   }
 ): Promise<Series | null> {
   return (await getProvider()).appendEpisodeToSeries(seriesId, data);
+}
+
+export async function updateEpisodeStreamState(
+  seriesId: string,
+  episodeId: string,
+  patch: {
+    videoStreamId?: string;
+    videoPlaybackUrl?: string;
+    videoStatus?: "processing" | "ready" | "failed";
+  }
+): Promise<Series | null> {
+  return (await getProvider()).updateEpisodeStreamState(seriesId, episodeId, patch);
 }
 
 export async function updateSeries(

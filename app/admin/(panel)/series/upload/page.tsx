@@ -25,10 +25,16 @@ export default function AdminDramaUploadPage() {
     lockStartIndex: 1,
     coverUrl: "",
     videoFiles: [] as { file: File; index: number }[],
+    uploadVideoMode: "mp4" as "mp4" | "hls",
     listed: true
   });
   const [checking, setChecking] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{
+    current: number;
+    total: number;
+    fileName: string;
+  } | null>(null);
 
   useEffect(() => {
     fetchAdminJson<{ ok?: boolean; items?: TagItem[] }>("/admin/api/drama-tag-catalog")
@@ -127,7 +133,6 @@ export default function AdminDramaUploadPage() {
 
     setSubmitting(true);
     try {
-      // 封面上传已完成，视频需逐个上传到存储 - 简化：使用 URL 占位，实际需对接视频上传 API
       const coverUrl = form.coverUrl;
       const finalTags = form.tagIds
         .map((id) => tags.find((t) => t.id === id)?.name?.trim())
@@ -138,15 +143,50 @@ export default function AdminDramaUploadPage() {
         return;
       }
 
-      // 视频上传：Demo 使用占位 URL，生产需对接真实上传；元数据保留原始文件名供剧集管理展示
       const sortedVideos = [...form.videoFiles].sort((a, b) => a.index - b.index);
-      const sampleMp4 =
-        process.env.NEXT_PUBLIC_SAMPLE_VIDEO_URL?.trim() ||
-        "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4";
-      const episodeUrls = sortedVideos.map(() => sampleMp4);
-      const episodeVideoMeta = sortedVideos.map((v) => ({
-        fileName: v.file.name,
-        localVideoUrl: `file:///${v.file.name.replace(/\\/g, "/")}`
+      const uploaded: Array<{
+        videoUrl: string;
+        videoStreamId?: string;
+        videoPlaybackUrl?: string;
+        videoStatus?: "processing" | "ready" | "failed";
+        fileName: string;
+      }> = [];
+      const total = sortedVideos.length;
+      for (let i = 0; i < total; i += 1) {
+        const v = sortedVideos[i];
+        setUploadProgress({ current: i + 1, total, fileName: v.file.name });
+        const fd = new FormData();
+        fd.append("file", v.file);
+        fd.append("targetMode", form.uploadVideoMode);
+        const { res, json } = await fetchAdminJson<{
+          ok?: boolean;
+          videoUrl?: string;
+          videoStreamId?: string;
+          videoPlaybackUrl?: string;
+          videoStatus?: "processing" | "ready" | "failed";
+          errorKey?: string;
+        }>("/admin/api/upload/video", { method: "POST", body: fd });
+        if (!res.ok || !json?.ok || !json.videoUrl) {
+          showToast(translateAdminApiError(json, t, "admin.submitFailed"));
+          setSubmitting(false);
+          return;
+        }
+        uploaded.push({
+          videoUrl: json.videoUrl,
+          videoStreamId: json.videoStreamId,
+          videoPlaybackUrl: json.videoPlaybackUrl,
+          videoStatus: json.videoStatus,
+          fileName: v.file.name
+        });
+      }
+      setUploadProgress(null);
+      const episodeUrls = uploaded.map((x) => x.videoUrl);
+      const episodeVideoMeta = uploaded.map((x) => ({
+        fileName: x.fileName,
+        localVideoUrl: `file:///${x.fileName.replace(/\\/g, "/")}`,
+        videoStreamId: x.videoStreamId,
+        videoPlaybackUrl: x.videoPlaybackUrl,
+        videoStatus: x.videoStatus
       }));
 
       const { res, json } = await fetchAdminJson<{
@@ -181,6 +221,7 @@ export default function AdminDramaUploadPage() {
           lockStartIndex: 1,
           coverUrl: "",
           videoFiles: [],
+          uploadVideoMode: "mp4",
           listed: true
         });
       } else {
@@ -189,6 +230,7 @@ export default function AdminDramaUploadPage() {
     } catch {
       showToast(t("admin.networkErrorShort"));
     } finally {
+      setUploadProgress(null);
       setSubmitting(false);
     }
   };
@@ -204,6 +246,7 @@ export default function AdminDramaUploadPage() {
       lockStartIndex: 1,
       coverUrl: "",
       videoFiles: [],
+      uploadVideoMode: "mp4",
       listed: true
     });
     showToast(t("admin.toastCancelled"), "info");
@@ -409,6 +452,23 @@ export default function AdminDramaUploadPage() {
 
         <div>
           <label className="block text-sm font-semibold text-zinc-300">
+            {t("admin.fieldVideoMode")}
+          </label>
+          <p className="mt-1 text-xs text-zinc-500">{t("admin.videoModeUploadHint")}</p>
+          <select
+            value={form.uploadVideoMode}
+            onChange={(e) =>
+              setForm({ ...form, uploadVideoMode: e.target.value as "mp4" | "hls" })
+            }
+            className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-zinc-100"
+          >
+            <option value="mp4">{t("admin.videoModeMp4Default")}</option>
+            <option value="hls">{t("admin.videoModeHlsPreferred")}</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-zinc-300">
             {t("admin.fieldListed")} <span className="text-red-400">*</span>
           </label>
           <select
@@ -434,9 +494,23 @@ export default function AdminDramaUploadPage() {
             disabled={submitting || checking}
             className="rounded-lg bg-brand px-6 py-3 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-60"
           >
-            {submitting || checking ? t("admin.submitting") : t("admin.submit")}
+            {submitting
+              ? uploadProgress
+                ? t("admin.videoUploadingProgress", {
+                    current: uploadProgress.current,
+                    total: uploadProgress.total
+                  })
+                : t("admin.submitting")
+              : checking
+                ? t("admin.submitting")
+                : t("admin.submit")}
           </button>
         </div>
+        {uploadProgress ? (
+          <p className="text-xs text-amber-300">
+            {t("admin.videoUploadingFile", { name: uploadProgress.fileName })}
+          </p>
+        ) : null}
       </form>
     </main>
   );

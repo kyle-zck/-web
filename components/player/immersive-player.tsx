@@ -8,6 +8,7 @@ import { SubscriptionModal } from "@/components/player/subscription-modal";
 import { useTranslation } from "react-i18next";
 import type { AppLanguage } from "@/lib/i18n/languages";
 import type { SubscriptionPlan } from "@/constants/mock-data";
+import { getEpisodePlaybackUrl, isHlsUrl } from "@/lib/video/playback";
 
 export function ImmersivePlayer({
   series,
@@ -94,6 +95,113 @@ export function ImmersivePlayer({
   const hint = unlocked
     ? t("locked.hintFree", "FREE")
     : t("locked.hintLocked", "Subscribe to unlock");
+  const [runtimePlaybackUrl, setRuntimePlaybackUrl] = useState<string>(() =>
+    getEpisodePlaybackUrl(episode)
+  );
+  const [runtimeVideoStatus, setRuntimeVideoStatus] = useState<
+    "processing" | "ready" | "failed"
+  >(episode.videoStatus ?? "ready");
+  const playbackUrl = runtimePlaybackUrl;
+  const hls = isHlsUrl(playbackUrl);
+
+  useEffect(() => {
+    setRuntimePlaybackUrl(getEpisodePlaybackUrl(episode));
+    setRuntimeVideoStatus(episode.videoStatus ?? "ready");
+  }, [episode]);
+
+  useEffect(() => {
+    if (!unlocked) return;
+    if (runtimeVideoStatus !== "processing") return;
+    if (!episode.videoStreamId) return;
+
+    let cancelled = false;
+    let tries = 0;
+    const maxTries = 40;
+    const timer = window.setInterval(async () => {
+      if (cancelled) return;
+      tries += 1;
+      if (tries > maxTries) {
+        window.clearInterval(timer);
+        return;
+      }
+      try {
+        const res = await fetch("/api/video/stream-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            seriesId: series.id,
+            episodeId: episode.id,
+            streamId: episode.videoStreamId
+          })
+        });
+        if (!res.ok) return;
+        const json = (await res.json()) as {
+          ok?: boolean;
+          videoPlaybackUrl?: string;
+          videoStatus?: "processing" | "ready" | "failed";
+        };
+        if (!json.ok) return;
+        if (json.videoPlaybackUrl) setRuntimePlaybackUrl(json.videoPlaybackUrl);
+        if (json.videoStatus) setRuntimeVideoStatus(json.videoStatus);
+        if (json.videoStatus === "ready" || json.videoStatus === "failed") {
+          window.clearInterval(timer);
+        }
+      } catch {
+        // ignore transient poll errors
+      }
+    }, 4000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [episode.id, episode.videoStreamId, runtimeVideoStatus, series.id, unlocked]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !unlocked) return;
+
+    if (!hls) {
+      video.src = playbackUrl;
+      return;
+    }
+
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = playbackUrl;
+      return;
+    }
+
+    let disposed = false;
+    let hlsInstance: {
+      loadSource: (src: string) => void;
+      attachMedia: (el: HTMLMediaElement) => void;
+      destroy: () => void;
+    } | null = null;
+
+    import("hls.js")
+      .then((m) => {
+        if (disposed) return;
+        const HlsCtor = m.default;
+        if (!HlsCtor?.isSupported?.()) {
+          video.src = playbackUrl;
+          return;
+        }
+        hlsInstance = new HlsCtor({
+          enableWorker: true,
+          lowLatencyMode: false
+        });
+        hlsInstance.loadSource(playbackUrl);
+        hlsInstance.attachMedia(video);
+      })
+      .catch(() => {
+        video.src = playbackUrl;
+      });
+
+    return () => {
+      disposed = true;
+      if (hlsInstance) hlsInstance.destroy();
+    };
+  }, [hls, playbackUrl, unlocked, episode.id]);
 
   return (
     <section className="relative h-full w-full min-h-0">
@@ -101,7 +209,7 @@ export function ImmersivePlayer({
         <video
           ref={videoRef}
           className="h-full w-full object-cover"
-          src={episode.videoUrl}
+          src={hls ? undefined : playbackUrl}
           controls={unlocked}
           playsInline
           muted
@@ -128,7 +236,13 @@ export function ImmersivePlayer({
           {episodeLabel} · {hint}
         </div>
 
-        {!ready && unlocked ? (
+        {runtimeVideoStatus === "processing" && unlocked ? (
+          <div className="absolute inset-0 grid place-items-center text-xs text-zinc-400">
+            {t("loading")} · Transcoding...
+          </div>
+        ) : null}
+
+        {!ready && unlocked && runtimeVideoStatus !== "processing" ? (
           <div className="absolute inset-0 grid place-items-center text-xs text-zinc-400">
             {t("loading")}
           </div>

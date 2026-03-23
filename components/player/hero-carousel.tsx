@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import type { Series } from "@/constants/mock-data";
 import type { AppLanguage } from "@/lib/i18n/languages";
@@ -53,6 +54,7 @@ function ChevronRight() {
 }
 
 export function HeroCarousel({ items, countsBySeriesId }: HeroCarouselProps) {
+  const router = useRouter();
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { t, i18n } = useTranslation();
@@ -103,6 +105,8 @@ export function HeroCarousel({ items, countsBySeriesId }: HeroCarouselProps) {
             >
               <Link
                 href={`/series/${item.id}`}
+                prefetch={false}
+                onMouseEnter={() => router.prefetch(`/series/${item.id}`)}
                 className="group block"
               >
                 <div className="poster-card-drama relative aspect-[3/4] w-full overflow-hidden">

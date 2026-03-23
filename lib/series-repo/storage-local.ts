@@ -57,6 +57,9 @@ export type EpisodeVideoMetaItem = {
   fileName: string;
   /** 可选：显式本地资源 URL；未传时由文件名生成 file:// 形式占位 */
   localVideoUrl?: string;
+  videoStreamId?: string;
+  videoPlaybackUrl?: string;
+  videoStatus?: "processing" | "ready" | "failed";
 };
 
 export async function createSeries(data: {
@@ -97,6 +100,8 @@ export async function createSeries(data: {
     const localVideoUrl =
       meta?.localVideoUrl?.trim() ||
       (fileName ? `file:///${fileName.replace(/\\/g, "/")}` : undefined);
+    const videoPlaybackUrl = meta?.videoPlaybackUrl?.trim() || videoUrl;
+    const videoStatus = meta?.videoStatus ?? "ready";
     const isFree = index < lockStart;
     return {
       id: `${seriesId}-ep-${index}`,
@@ -110,7 +115,10 @@ export async function createSeries(data: {
       videoUrl,
       isFree,
       sourceFileName: fileName || undefined,
-      localVideoUrl
+      localVideoUrl,
+      videoStreamId: meta?.videoStreamId,
+      videoPlaybackUrl,
+      videoStatus
     };
   });
 
@@ -186,6 +194,9 @@ export async function appendEpisodeToSeries(
     videoUrl: string;
     sourceFileName?: string;
     localVideoUrl?: string;
+    videoStreamId?: string;
+    videoPlaybackUrl?: string;
+    videoStatus?: "processing" | "ready" | "failed";
   }
 ): Promise<Series | null> {
   const store = readStore();
@@ -207,7 +218,10 @@ export async function appendEpisodeToSeries(
     videoUrl: data.videoUrl,
     isFree,
     sourceFileName: data.sourceFileName,
-    localVideoUrl: data.localVideoUrl
+    localVideoUrl: data.localVideoUrl,
+    videoStreamId: data.videoStreamId,
+    videoPlaybackUrl: data.videoPlaybackUrl ?? data.videoUrl,
+    videoStatus: data.videoStatus ?? "ready"
   };
   const next: Series = {
     ...s,
@@ -216,6 +230,37 @@ export async function appendEpisodeToSeries(
   store.series[sIdx] = next;
   writeStore(store);
   return next;
+}
+
+export async function updateEpisodeStreamState(
+  seriesId: string,
+  episodeId: string,
+  patch: {
+    videoStreamId?: string;
+    videoPlaybackUrl?: string;
+    videoStatus?: "processing" | "ready" | "failed";
+  }
+): Promise<Series | null> {
+  const store = readStore();
+  const sIdx = store.series.findIndex((s) => s.id === seriesId);
+  if (sIdx < 0) return null;
+  const series = store.series[sIdx];
+  const epIdx = (series.episodes ?? []).findIndex((e) => e.id === episodeId);
+  if (epIdx < 0) return null;
+
+  const nextEpisodes = [...(series.episodes ?? [])];
+  const ep = nextEpisodes[epIdx];
+  nextEpisodes[epIdx] = {
+    ...ep,
+    videoStreamId: patch.videoStreamId ?? ep.videoStreamId,
+    videoPlaybackUrl: patch.videoPlaybackUrl ?? ep.videoPlaybackUrl,
+    videoStatus: patch.videoStatus ?? ep.videoStatus
+  };
+
+  const nextSeries = { ...series, episodes: nextEpisodes };
+  store.series[sIdx] = nextSeries;
+  writeStore(store);
+  return nextSeries;
 }
 
 export async function updateSeries(

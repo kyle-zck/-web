@@ -8,6 +8,7 @@ import {
   slugify
 } from "@/lib/admin/placeholders";
 import { assignDramaIdForTitle } from "@/lib/drama-id-registry";
+import type { EpisodeVideoMetaItem } from "./storage-local";
 
 /** node-pg 对 JSONB 常返回已解析的数组，勿 String(arr) 再 JSON.parse（会得到 "A,B" 而报错） */
 function tagsFromPgJsonb(raw: unknown): Series["tags"] {
@@ -36,6 +37,9 @@ type StoredEpisodeRow = {
   is_free: number;
   source_file_name?: string | null;
   local_video_url?: string | null;
+  video_stream_id?: string | null;
+  video_playback_url?: string | null;
+  video_status?: string | null;
 };
 
 function mapEpisodeRow(er: StoredEpisodeRow): Episode {
@@ -48,7 +52,11 @@ function mapEpisodeRow(er: StoredEpisodeRow): Episode {
     videoUrl: er.video_url,
     isFree: er.is_free === 1,
     sourceFileName: er.source_file_name ?? undefined,
-    localVideoUrl: er.local_video_url ?? undefined
+    localVideoUrl: er.local_video_url ?? undefined,
+    videoStreamId: er.video_stream_id ?? undefined,
+    videoPlaybackUrl: er.video_playback_url ?? undefined,
+    videoStatus:
+      (er.video_status as "processing" | "ready" | "failed" | undefined) ?? undefined
   };
 }
 
@@ -147,6 +155,9 @@ async function initIfNeeded() {
     ALTER TABLE series ADD COLUMN IF NOT EXISTS task_status TEXT;
     ALTER TABLE episodes ADD COLUMN IF NOT EXISTS source_file_name TEXT;
     ALTER TABLE episodes ADD COLUMN IF NOT EXISTS local_video_url TEXT;
+    ALTER TABLE episodes ADD COLUMN IF NOT EXISTS video_stream_id TEXT;
+    ALTER TABLE episodes ADD COLUMN IF NOT EXISTS video_playback_url TEXT;
+    ALTER TABLE episodes ADD COLUMN IF NOT EXISTS video_status TEXT;
   `);
 
   await conn.query(`
@@ -202,8 +213,9 @@ async function initIfNeeded() {
         await conn.query(
           `
           INSERT INTO episodes (
-            id, series_id, ep_index, title, duration, thumbnail, video_url, is_free
-          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+            id, series_id, ep_index, title, duration, thumbnail, video_url, is_free,
+            source_file_name, local_video_url, video_stream_id, video_playback_url, video_status
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
           ON CONFLICT (id) DO NOTHING
         `,
           [
@@ -214,7 +226,12 @@ async function initIfNeeded() {
             e.duration,
             e.thumbnail,
             e.videoUrl,
-            e.isFree ? 1 : 0
+            e.isFree ? 1 : 0,
+            e.sourceFileName ?? null,
+            e.localVideoUrl ?? null,
+            e.videoStreamId ?? null,
+            e.videoPlaybackUrl ?? e.videoUrl,
+            e.videoStatus ?? "ready"
           ]
         );
       }
@@ -283,7 +300,7 @@ export async function createSeries(data: {
   tags: Series["tags"];
   coverDataUrl: string;
   episodeVideoUrls: string[];
-  episodeVideoMeta?: { fileName: string; localVideoUrl?: string }[];
+  episodeVideoMeta?: EpisodeVideoMetaItem[];
   lockStartIndex?: number;
   listed?: boolean;
   originalName?: string;
@@ -318,6 +335,8 @@ export async function createSeries(data: {
     const localVideoUrl =
       meta?.localVideoUrl?.trim() ||
       (fileName ? `file:///${fileName.replace(/\\/g, "/")}` : undefined);
+    const videoPlaybackUrl = meta?.videoPlaybackUrl?.trim() || videoUrl;
+    const videoStatus = meta?.videoStatus ?? "ready";
     return {
       id: `${seriesId}-ep-${index}`,
       index,
@@ -330,7 +349,10 @@ export async function createSeries(data: {
       videoUrl,
       isFree,
       sourceFileName: fileName || undefined,
-      localVideoUrl
+      localVideoUrl,
+      videoStreamId: meta?.videoStreamId,
+      videoPlaybackUrl,
+      videoStatus
     };
   });
 
@@ -370,8 +392,9 @@ export async function createSeries(data: {
       await conn.query(
         `
           INSERT INTO episodes (
-            id, series_id, ep_index, title, duration, thumbnail, video_url, is_free, source_file_name, local_video_url
-          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+            id, series_id, ep_index, title, duration, thumbnail, video_url, is_free, source_file_name, local_video_url,
+            video_stream_id, video_playback_url, video_status
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
         `,
         [
           e.id,
@@ -383,7 +406,10 @@ export async function createSeries(data: {
           e.videoUrl,
           e.isFree ? 1 : 0,
           e.sourceFileName ?? null,
-          e.localVideoUrl ?? null
+          e.localVideoUrl ?? null,
+          e.videoStreamId ?? null,
+          e.videoPlaybackUrl ?? e.videoUrl,
+          e.videoStatus ?? "ready"
         ]
       );
     }
@@ -535,8 +561,9 @@ export async function deleteEpisodeFromSeries(
       await conn.query(
         `
         INSERT INTO episodes (
-          id, series_id, ep_index, title, duration, thumbnail, video_url, is_free, source_file_name, local_video_url
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+          id, series_id, ep_index, title, duration, thumbnail, video_url, is_free, source_file_name, local_video_url,
+          video_stream_id, video_playback_url, video_status
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
       `,
         [
           e.id,
@@ -548,7 +575,10 @@ export async function deleteEpisodeFromSeries(
           e.videoUrl,
           e.isFree ? 1 : 0,
           e.sourceFileName ?? null,
-          e.localVideoUrl ?? null
+          e.localVideoUrl ?? null,
+          e.videoStreamId ?? null,
+          e.videoPlaybackUrl ?? e.videoUrl,
+          e.videoStatus ?? "ready"
         ]
       );
     }
@@ -567,6 +597,9 @@ export async function appendEpisodeToSeries(
     videoUrl: string;
     sourceFileName?: string;
     localVideoUrl?: string;
+    videoStreamId?: string;
+    videoPlaybackUrl?: string;
+    videoStatus?: "processing" | "ready" | "failed";
   }
 ): Promise<Series | null> {
   await initIfNeeded();
@@ -589,14 +622,18 @@ export async function appendEpisodeToSeries(
     videoUrl: data.videoUrl,
     isFree,
     sourceFileName: data.sourceFileName,
-    localVideoUrl: data.localVideoUrl
+    localVideoUrl: data.localVideoUrl,
+    videoStreamId: data.videoStreamId,
+    videoPlaybackUrl: data.videoPlaybackUrl ?? data.videoUrl,
+    videoStatus: data.videoStatus ?? "ready"
   };
 
   await conn.query(
     `
     INSERT INTO episodes (
-      id, series_id, ep_index, title, duration, thumbnail, video_url, is_free, source_file_name, local_video_url
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      id, series_id, ep_index, title, duration, thumbnail, video_url, is_free, source_file_name, local_video_url,
+      video_stream_id, video_playback_url, video_status
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
   `,
     [
       ep.id,
@@ -608,10 +645,44 @@ export async function appendEpisodeToSeries(
       ep.videoUrl,
       ep.isFree ? 1 : 0,
       ep.sourceFileName ?? null,
-      ep.localVideoUrl ?? null
+      ep.localVideoUrl ?? null,
+      ep.videoStreamId ?? null,
+      ep.videoPlaybackUrl ?? ep.videoUrl,
+      ep.videoStatus ?? "ready"
     ]
   );
 
+  return getSeriesById(seriesId);
+}
+
+export async function updateEpisodeStreamState(
+  seriesId: string,
+  episodeId: string,
+  patch: {
+    videoStreamId?: string;
+    videoPlaybackUrl?: string;
+    videoStatus?: "processing" | "ready" | "failed";
+  }
+): Promise<Series | null> {
+  await initIfNeeded();
+  const conn = getPool();
+  await conn.query(
+    `
+    UPDATE episodes
+    SET
+      video_stream_id = COALESCE($1, video_stream_id),
+      video_playback_url = COALESCE($2, video_playback_url),
+      video_status = COALESCE($3, video_status)
+    WHERE series_id = $4 AND id = $5
+  `,
+    [
+      patch.videoStreamId ?? null,
+      patch.videoPlaybackUrl ?? null,
+      patch.videoStatus ?? null,
+      seriesId,
+      episodeId
+    ]
+  );
   return getSeriesById(seriesId);
 }
 

@@ -13,6 +13,9 @@ export async function POST(
     videoUrl?: string;
     sourceFileName?: string;
     localVideoUrl?: string;
+    videoStreamId?: string;
+    videoPlaybackUrl?: string;
+    videoStatus?: "processing" | "ready" | "failed";
   };
 
   const videoUrl = (body.videoUrl ?? "").trim();
@@ -26,7 +29,10 @@ export async function POST(
   const series = await appendEpisodeToSeries(params.id, {
     videoUrl,
     sourceFileName: body.sourceFileName?.trim() || undefined,
-    localVideoUrl: body.localVideoUrl?.trim() || undefined
+    localVideoUrl: body.localVideoUrl?.trim() || undefined,
+    videoStreamId: body.videoStreamId?.trim() || undefined,
+    videoPlaybackUrl: body.videoPlaybackUrl?.trim() || undefined,
+    videoStatus: body.videoStatus
   });
 
   if (!series) {

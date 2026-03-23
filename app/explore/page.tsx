@@ -239,6 +239,8 @@ function ExploreContent() {
                   <Link
                     key={s.id}
                     href={`/series/${s.id}`}
+                    prefetch={false}
+                    onMouseEnter={() => router.prefetch(`/series/${s.id}`)}
                     aria-label={`${localized.title} — ${t("series.play")}`}
                     className="group flex gap-4 rounded-2xl bg-zinc-950/80 p-4 shadow-[0_0_18px_rgba(0,0,0,0.7)] transition-colors duration-200 hover:bg-zinc-900"
                   >

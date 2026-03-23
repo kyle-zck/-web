@@ -16,6 +16,12 @@ export interface Episode {
   sourceFileName?: string;
   /** 管理端「本地」视频资源链接（可与 videoUrl 相同；未配置时可用文件名提示） */
   localVideoUrl?: string;
+  /** 托管转码平台（如 Cloudflare Stream）的视频唯一 ID */
+  videoStreamId?: string;
+  /** 托管转码平台返回的可播放地址（通常为 HLS m3u8） */
+  videoPlaybackUrl?: string;
+  /** 转码状态：ready 时优先使用 videoPlaybackUrl 播放 */
+  videoStatus?: "processing" | "ready" | "failed";
 }
 
 export type AppLanguage = "en" | "zh-CN";

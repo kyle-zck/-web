@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin/auth";
 import { getS3Client, buildPublicUrl } from "@/lib/admin/s3";
+import {
+  hasCloudflareStreamConfig,
+  tryCreateStreamByUrl,
+  tryUploadFileToStream
+} from "@/lib/video/cloudflare-stream";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import fs from "fs";
 import path from "path";
@@ -28,6 +33,8 @@ export async function POST(req: Request) {
 
   const form = await req.formData();
   const file = form.get("file");
+  const targetMode = String(form.get("targetMode") ?? "mp4").toLowerCase();
+  const preferHls = targetMode === "hls";
   if (!(file instanceof File)) {
     return NextResponse.json({ ok: false, error: "Missing file" }, { status: 400 });
   }
@@ -42,8 +49,19 @@ export async function POST(req: Request) {
 
   const maxSize = Number(process.env.ADMIN_VIDEO_UPLOAD_MAX_BYTES ?? 120 * 1024 * 1024);
   if (file.size > maxSize) {
+    console.warn("[admin/upload/video] file too large", {
+      name: file.name,
+      size: file.size,
+      maxSize
+    });
     return NextResponse.json(
-      { ok: false, errorKey: "apiErrVideoTooLarge", error: "Video file too large" },
+      {
+        ok: false,
+        errorKey: "apiErrVideoTooLarge",
+        error: "Video file too large",
+        maxSize,
+        fileSize: file.size
+      },
       { status: 400 }
     );
   }
@@ -55,13 +73,33 @@ export async function POST(req: Request) {
   const arrayBuffer = await file.arrayBuffer();
   const bodyBuf = Buffer.from(arrayBuffer);
 
+  // 手动选择 HLS 时，优先走 Cloudflare Stream 直传：不依赖 R2 公网可读 URL
+  if (preferHls && hasCloudflareStreamConfig()) {
+    const stream = await tryUploadFileToStream(file);
+    if (stream.streamId && stream.playbackUrl) {
+      return NextResponse.json({
+        ok: true,
+        videoUrl: stream.playbackUrl,
+        videoStreamId: stream.streamId,
+        videoPlaybackUrl: stream.playbackUrl,
+        videoStatus: stream.status ?? "processing"
+      });
+    }
+  }
+
   if (!bucket || !accessKeyId || !secretAccessKey) {
     const uploadsDir = path.resolve(process.cwd(), "public", "uploads", "videos");
     if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
     const filename = `${Date.now()}-${sanitizeFilename(file.name || "video.mp4")}`;
     const filePath = path.join(uploadsDir, filename);
     fs.writeFileSync(filePath, bodyBuf);
-    return NextResponse.json({ ok: true, videoUrl: `/uploads/videos/${filename}` });
+    const videoUrl = `/uploads/videos/${filename}`;
+    return NextResponse.json({
+      ok: true,
+      videoUrl,
+      videoPlaybackUrl: videoUrl,
+      videoStatus: "ready"
+    });
   }
 
   const client = getS3Client();
@@ -78,5 +116,12 @@ export async function POST(req: Request) {
   );
 
   const url = buildPublicUrl(key);
-  return NextResponse.json({ ok: true, videoUrl: url });
+  const stream = preferHls ? await tryCreateStreamByUrl(url) : {};
+  return NextResponse.json({
+    ok: true,
+    videoUrl: stream.playbackUrl ?? url,
+    videoStreamId: stream.streamId,
+    videoPlaybackUrl: stream.playbackUrl ?? url,
+    videoStatus: stream.status ?? "ready"
+  });
 }

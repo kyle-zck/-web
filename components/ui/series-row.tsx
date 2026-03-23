@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import type { Series } from "@/constants/mock-data";
@@ -14,6 +15,7 @@ interface SeriesRowProps {
 }
 
 export function SeriesRow({ titleKey, items }: SeriesRowProps) {
+  const router = useRouter();
   const { t, i18n } = useTranslation();
   const lang = i18n.language as AppLanguage;
 
@@ -42,7 +44,12 @@ export function SeriesRow({ titleKey, items }: SeriesRowProps) {
             const categoryLabel = tagLabel(s.category, t);
             return (
               <div key={s.id} className="home-poster-cell min-w-0">
-                <Link href={`/series/${s.id}`} className="group block">
+                <Link
+                  href={`/series/${s.id}`}
+                  prefetch={false}
+                  onMouseEnter={() => router.prefetch(`/series/${s.id}`)}
+                  className="group block"
+                >
                   <div className="poster-card-drama relative poster-aspect transition-transform duration-200 group-hover:scale-[1.02] group-hover:shadow-[0_0_36px_rgba(229,9,20,0.22)]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img

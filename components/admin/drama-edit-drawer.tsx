@@ -44,8 +44,25 @@ export function DramaEditDrawer({
   const [tags, setTags] = useState<CatalogTag[]>([]);
   const [saving, setSaving] = useState(false);
   const [newVideoUrl, setNewVideoUrl] = useState("");
+  const [bulkVideoUrls, setBulkVideoUrls] = useState("");
   const [deletingEpId, setDeletingEpId] = useState<string | null>(null);
   const [addingEpisode, setAddingEpisode] = useState(false);
+  const [bulkAdding, setBulkAdding] = useState(false);
+  const [refreshingEpId, setRefreshingEpId] = useState<string | null>(null);
+  const [seriesHlsRunning, setSeriesHlsRunning] = useState(false);
+  const [seriesHlsFirstN, setSeriesHlsFirstN] = useState(0);
+
+  const statusLabel = (status?: Episode["videoStatus"]) => {
+    if (status === "ready") return t("admin.videoStatusReady");
+    if (status === "failed") return t("admin.videoStatusFailed");
+    return t("admin.videoStatusProcessing");
+  };
+
+  const statusTone = (status?: Episode["videoStatus"]) => {
+    if (status === "ready") return "bg-emerald-500/15 text-emerald-300 ring-emerald-500/40";
+    if (status === "failed") return "bg-red-500/15 text-red-300 ring-red-500/40";
+    return "bg-amber-500/15 text-amber-300 ring-amber-500/40";
+  };
 
   useEffect(() => {
     fetchAdminJson<{ ok?: boolean; items?: CatalogTag[] }>("/admin/api/drama-tag-catalog")
@@ -87,18 +104,26 @@ export function DramaEditDrawer({
 
   useEffect(() => {
     setNewVideoUrl("");
+    setBulkVideoUrls("");
+    setSeriesHlsFirstN(0);
   }, [series?.id]);
 
   const sampleVideoUrl = () =>
     process.env.NEXT_PUBLIC_SAMPLE_VIDEO_URL?.trim() ||
     "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4";
 
-  const postAppendEpisode = async (payload: {
-    videoUrl: string;
-    sourceFileName?: string;
-    localVideoUrl?: string;
-  }) => {
-    if (!series) return;
+  const postAppendEpisode = async (
+    payload: {
+      videoUrl: string;
+      sourceFileName?: string;
+      localVideoUrl?: string;
+      videoStreamId?: string;
+      videoPlaybackUrl?: string;
+      videoStatus?: "processing" | "ready" | "failed";
+    },
+    opts?: { silent?: boolean }
+  ): Promise<boolean> => {
+    if (!series) return false;
     const { res, json } = await fetchAdminJson<{
       ok?: boolean;
       series?: Series;
@@ -110,12 +135,13 @@ export function DramaEditDrawer({
       body: JSON.stringify(payload)
     });
     if (res.ok && json?.ok && json.series) {
-      showToast(t("admin.episodeAddedToast"), "success");
+      if (!opts?.silent) showToast(t("admin.episodeAddedToast"), "success");
       onSeriesUpdated?.(json.series);
       setNewVideoUrl("");
-      return;
+      return true;
     }
-    showToast(translateAdminApiError(json, t, "admin.saveFailed"));
+    if (!opts?.silent) showToast(translateAdminApiError(json, t, "admin.saveFailed"));
+    return false;
   };
 
   const handleDeleteEpisode = async (ep: Episode) => {
@@ -160,6 +186,118 @@ export function DramaEditDrawer({
     }
   };
 
+  const handleBulkAddEpisodesByUrl = async () => {
+    if (!series) return;
+    const lines = bulkVideoUrls
+      .split(/\r?\n/)
+      .map((x) => x.trim())
+      .filter(Boolean);
+    if (lines.length === 0) {
+      showToast(t("admin.bulkUrlEmpty"), "info");
+      return;
+    }
+    const invalid = lines.find((x) => !/^https:\/\//i.test(x));
+    if (invalid) {
+      showToast(t("admin.bulkUrlInvalidHttps"));
+      return;
+    }
+
+    setBulkAdding(true);
+    let okCount = 0;
+    try {
+      for (const url of lines) {
+        const ok = await postAppendEpisode({ videoUrl: url }, { silent: true });
+        if (ok) okCount += 1;
+      }
+      showToast(
+        t("admin.bulkUrlAdded", {
+          ok: okCount,
+          total: lines.length
+        }),
+        okCount > 0 ? "success" : "error"
+      );
+      if (okCount > 0) setBulkVideoUrls("");
+    } finally {
+      setBulkAdding(false);
+    }
+  };
+
+  const runSeriesHls = async () => {
+    if (!series) return;
+    setSeriesHlsRunning(true);
+    try {
+      const res = await fetch("/admin/api/video/transcode-hls", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "manual",
+          seriesIds: [series.id],
+          firstNEpisodesPerSeries: seriesHlsFirstN
+        })
+      });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        okCount?: number;
+        totalJobs?: number;
+      };
+      if (!res.ok || !json?.ok) {
+        showToast(t("admin.hlsBatchRunFailed"));
+        return;
+      }
+      showToast(
+        t("admin.hlsBatchRunDone", {
+          ok: json.okCount ?? 0,
+          total: json.totalJobs ?? 0
+        }),
+        "success"
+      );
+      const all = await fetchAdminJson<{ ok?: boolean; series?: Series[] }>("/admin/api/series");
+      if (all.res.ok && all.json?.ok && Array.isArray(all.json.series)) {
+        const latest = all.json.series.find((x) => x.id === series.id);
+        if (latest) onSeriesUpdated?.(latest);
+      }
+    } catch {
+      showToast(t("admin.networkErrorShort"));
+    } finally {
+      setSeriesHlsRunning(false);
+    }
+  };
+
+  const refreshEpisodeStatus = async (ep: Episode) => {
+    if (!series) return;
+    if (!ep.videoStreamId) {
+      showToast(t("admin.videoStatusNoStreamId"), "info");
+      return;
+    }
+    setRefreshingEpId(ep.id);
+    try {
+      const res = await fetch("/api/video/stream-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          seriesId: series.id,
+          episodeId: ep.id,
+          streamId: ep.videoStreamId
+        })
+      });
+      const json = (await res.json()) as { ok?: boolean };
+      if (!res.ok || !json?.ok) {
+        showToast(t("admin.videoStatusRefreshFailed"));
+        return;
+      }
+      const all = await fetchAdminJson<{ ok?: boolean; series?: Series[] }>("/admin/api/series");
+      if (all.res.ok && all.json?.ok && Array.isArray(all.json.series)) {
+        const latest = all.json.series.find((x) => x.id === series.id);
+        if (latest) onSeriesUpdated?.(latest);
+      }
+      showToast(t("admin.videoStatusRefreshed"), "success");
+    } catch {
+      showToast(t("admin.networkErrorShort"));
+    } finally {
+      setRefreshingEpId(null);
+    }
+  };
+
   const handleVideoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -168,7 +306,14 @@ export function DramaEditDrawer({
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const { res, json } = await fetchAdminJson<{ ok?: boolean; videoUrl?: string; errorKey?: string }>(
+      const { res, json } = await fetchAdminJson<{
+        ok?: boolean;
+        videoUrl?: string;
+        videoStreamId?: string;
+        videoPlaybackUrl?: string;
+        videoStatus?: "processing" | "ready" | "failed";
+        errorKey?: string;
+      }>(
         "/admin/api/upload/video",
         { method: "POST", body: fd }
       );
@@ -177,7 +322,10 @@ export function DramaEditDrawer({
         await postAppendEpisode({
           videoUrl: json.videoUrl,
           sourceFileName: file.name,
-          localVideoUrl: localVu
+          localVideoUrl: localVu,
+          videoStreamId: json.videoStreamId,
+          videoPlaybackUrl: json.videoPlaybackUrl,
+          videoStatus: json.videoStatus
         });
         return;
       }
@@ -393,6 +541,26 @@ export function DramaEditDrawer({
                         <div className="text-xs font-medium text-zinc-200">
                           {t("admin.episodeRowLabel", { n: ep.index })}
                         </div>
+                        <div className="mt-1">
+                          <span
+                            className={[
+                              "inline-flex rounded-full px-2 py-1 text-[10px] font-semibold ring-1",
+                              statusTone(ep.videoStatus)
+                            ].join(" ")}
+                          >
+                            {statusLabel(ep.videoStatus)}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={refreshingEpId === ep.id}
+                            onClick={() => refreshEpisodeStatus(ep)}
+                            className="ml-2 rounded-md border border-zinc-600 px-2 py-1 text-[10px] font-semibold text-zinc-200 hover:bg-zinc-700/60 disabled:opacity-50"
+                          >
+                            {refreshingEpId === ep.id
+                              ? t("admin.videoStatusRefreshing")
+                              : t("admin.videoStatusRefresh")}
+                          </button>
+                        </div>
                         {ep.sourceFileName ? (
                           <div className="truncate text-[11px] text-zinc-500" title={ep.sourceFileName}>
                             {ep.sourceFileName}
@@ -426,7 +594,7 @@ export function DramaEditDrawer({
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    disabled={addingEpisode || !series}
+                    disabled={addingEpisode || bulkAdding || !series}
                     onClick={handleAddEpisodeByUrl}
                     className="rounded-lg bg-zinc-700 px-3 py-2 text-xs font-semibold text-zinc-100 hover:bg-zinc-600 disabled:opacity-50"
                   >
@@ -437,11 +605,50 @@ export function DramaEditDrawer({
                       type="file"
                       accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.mkv"
                       className="hidden"
-                      disabled={addingEpisode || !series}
+                      disabled={addingEpisode || bulkAdding || !series}
                       onChange={handleVideoFile}
                     />
                     {t("admin.episodePickVideoFile")}
                   </label>
+                </div>
+                <div className="rounded-lg border border-zinc-800/80 bg-zinc-950/60 p-2">
+                  <p className="mb-1 text-[11px] text-zinc-500">{t("admin.bulkUrlHint")}</p>
+                  <textarea
+                    rows={4}
+                    value={bulkVideoUrls}
+                    onChange={(e) => setBulkVideoUrls(e.target.value)}
+                    placeholder={t("admin.bulkUrlPlaceholder")}
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-xs text-zinc-100 placeholder-zinc-600"
+                  />
+                  <div className="mt-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={addingEpisode || bulkAdding || !series}
+                      onClick={handleBulkAddEpisodesByUrl}
+                      className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50"
+                    >
+                      {bulkAdding ? t("admin.bulkUrlAdding") : t("admin.bulkUrlAddAction")}
+                    </button>
+                    <span className="text-[11px] text-zinc-500">{t("admin.bulkUrlOnlyHttps")}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 rounded-lg border border-zinc-800/80 bg-zinc-950/60 px-2 py-2">
+                  <span className="text-[11px] text-zinc-400">{t("admin.hlsFirstNEpisodes")}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={seriesHlsFirstN}
+                    onChange={(e) => setSeriesHlsFirstN(Math.max(0, Number(e.target.value || 0)))}
+                    className="w-16 rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-100"
+                  />
+                  <button
+                    type="button"
+                    disabled={seriesHlsRunning || addingEpisode || bulkAdding || !series}
+                    onClick={runSeriesHls}
+                    className="rounded-lg bg-fuchsia-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-fuchsia-500 disabled:opacity-50"
+                  >
+                    {seriesHlsRunning ? t("admin.hlsHotRunning") : t("admin.hlsRunCurrentSeries")}
+                  </button>
                 </div>
               </div>
             </div>

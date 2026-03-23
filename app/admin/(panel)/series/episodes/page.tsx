@@ -9,6 +9,12 @@ import type { Episode, Series } from "@/constants/mock-data";
 
 type Row = { series: Series; episode: Episode };
 
+function statusTone(status: Episode["videoStatus"]) {
+  if (status === "ready") return "bg-emerald-500/15 text-emerald-300 ring-emerald-500/40";
+  if (status === "failed") return "bg-red-500/15 text-red-300 ring-red-500/40";
+  return "bg-amber-500/15 text-amber-300 ring-amber-500/40";
+}
+
 export default function AdminEpisodeManagementPage() {
   const { t } = useTranslation();
   const [series, setSeries] = useState<Series[]>([]);
@@ -16,6 +22,8 @@ export default function AdminEpisodeManagementPage() {
   const [origin, setOrigin] = useState("");
   const [draft, setDraft] = useState({ dramaId: "", originalName: "", title: "" });
   const [applied, setApplied] = useState({ dramaId: "", originalName: "", title: "" });
+  const [refreshingEpisodeId, setRefreshingEpisodeId] = useState<string | null>(null);
+  const [batchRefreshing, setBatchRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -80,6 +88,14 @@ export default function AdminEpisodeManagementPage() {
     return out;
   }, [filteredSeries]);
 
+  const processingRows = useMemo(
+    () =>
+      rows.filter(
+        ({ episode }) => episode.videoStatus === "processing" && Boolean(episode.videoStreamId)
+      ),
+    [rows]
+  );
+
   const deleteEpisode = async (s: Series, e: Episode) => {
     const ok = confirm(t("admin.confirmDeleteEpisode", { title: s.title, n: e.index }));
     if (!ok) return;
@@ -99,6 +115,86 @@ export default function AdminEpisodeManagementPage() {
     }
   };
 
+  const refreshEpisodeStatus = async (s: Series, e: Episode) => {
+    if (!e.videoStreamId) {
+      showToast(t("admin.videoStatusNoStreamId"), "info");
+      return;
+    }
+    setRefreshingEpisodeId(e.id);
+    try {
+      const res = await fetch("/api/video/stream-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          seriesId: s.id,
+          episodeId: e.id,
+          streamId: e.videoStreamId
+        })
+      });
+      const json = (await res.json()) as { ok?: boolean };
+      if (!res.ok || !json?.ok) {
+        showToast(t("admin.videoStatusRefreshFailed"));
+        return;
+      }
+      await load();
+      showToast(t("admin.videoStatusRefreshed"), "success");
+    } catch {
+      showToast(t("admin.networkErrorShort"));
+    } finally {
+      setRefreshingEpisodeId(null);
+    }
+  };
+
+  const refreshProcessingEpisodes = async () => {
+    if (processingRows.length === 0) {
+      showToast(t("admin.videoStatusNoProcessing"), "info");
+      return;
+    }
+    setBatchRefreshing(true);
+    let okCount = 0;
+    try {
+      const queue = [...processingRows];
+      const concurrency = 4;
+      const workers = Array.from({ length: Math.min(concurrency, queue.length) }).map(
+        async () => {
+          while (queue.length > 0) {
+            const item = queue.shift();
+            if (!item) break;
+            const { series: s, episode: e } = item;
+            try {
+              const res = await fetch("/api/video/stream-status", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  seriesId: s.id,
+                  episodeId: e.id,
+                  streamId: e.videoStreamId
+                })
+              });
+              const json = (await res.json()) as { ok?: boolean };
+              if (res.ok && json?.ok) okCount += 1;
+            } catch {
+              // ignore single item error and continue
+            }
+          }
+        }
+      );
+      await Promise.all(workers);
+      await load();
+      showToast(
+        t("admin.videoStatusBatchRefreshed", {
+          ok: okCount,
+          total: processingRows.length
+        }),
+        "success"
+      );
+    } catch {
+      showToast(t("admin.videoStatusRefreshFailed"));
+    } finally {
+      setBatchRefreshing(false);
+    }
+  };
+
   const localHref = (e: Episode) =>
     (e.localVideoUrl && e.localVideoUrl.trim()) || e.videoUrl;
 
@@ -113,6 +209,12 @@ export default function AdminEpisodeManagementPage() {
 
   const siteHref = (s: Series, e: Episode) =>
     `${origin}/series/${encodeURIComponent(s.id)}?episode=${e.index}`;
+
+  const statusLabel = (status: Episode["videoStatus"]) => {
+    if (status === "ready") return t("admin.videoStatusReady");
+    if (status === "failed") return t("admin.videoStatusFailed");
+    return t("admin.videoStatusProcessing");
+  };
 
   return (
     <main>
@@ -162,6 +264,16 @@ export default function AdminEpisodeManagementPage() {
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
+            disabled={batchRefreshing}
+            onClick={refreshProcessingEpisodes}
+            className="rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-300 hover:bg-amber-500/20 disabled:opacity-50"
+          >
+            {batchRefreshing
+              ? t("admin.videoStatusBatchRefreshing")
+              : t("admin.videoStatusBatchRefresh", { count: processingRows.length })}
+          </button>
+          <button
+            type="button"
             onClick={handleReset}
             className="rounded-lg border border-zinc-600 bg-zinc-800/60 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-700/60"
           >
@@ -183,7 +295,7 @@ export default function AdminEpisodeManagementPage() {
             <div className="py-12 text-center text-zinc-500">{t("admin.tableLoading")}</div>
           ) : (
             <div className="overflow-x-auto scrollbar-thin">
-              <table className="w-full min-w-[1100px] border-collapse">
+              <table className="w-full min-w-[1180px] border-collapse">
                 <thead className="sticky top-0 z-10 border-b border-zinc-700/80 bg-zinc-900/95 backdrop-blur">
                   <tr className="text-left text-xs text-zinc-400">
                     <th className="whitespace-nowrap px-3 py-2 font-semibold">{t("admin.episodeColDramaId")}</th>
@@ -191,6 +303,7 @@ export default function AdminEpisodeManagementPage() {
                     <th className="min-w-[100px] px-3 py-2 font-semibold">{t("admin.colOriginalName")}</th>
                     <th className="min-w-[100px] px-3 py-2 font-semibold">{t("admin.colDramaTitle")}</th>
                     <th className="whitespace-nowrap px-3 py-2 font-semibold">{t("admin.episodeColCover")}</th>
+                    <th className="whitespace-nowrap px-3 py-2 font-semibold">{t("admin.episodeColStreamStatus")}</th>
                     <th className="min-w-[120px] px-3 py-2 font-semibold">{t("admin.episodeColLocalVideo")}</th>
                     <th className="min-w-[120px] px-3 py-2 font-semibold">{t("admin.episodeColSiteLink")}</th>
                     <th className="whitespace-nowrap px-3 py-2 font-semibold">{t("admin.action")}</th>
@@ -199,7 +312,7 @@ export default function AdminEpisodeManagementPage() {
                 <tbody>
                   {rows.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-4 py-12 text-center text-sm text-zinc-500">
+                      <td colSpan={9} className="px-4 py-12 text-center text-sm text-zinc-500">
                         {t("admin.noEpisodeRows")}
                       </td>
                     </tr>
@@ -249,6 +362,28 @@ export default function AdminEpisodeManagementPage() {
                               loading="lazy"
                             />
                           </a>
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={[
+                                "inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ring-1",
+                                statusTone(e.videoStatus)
+                              ].join(" ")}
+                            >
+                              {statusLabel(e.videoStatus)}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={refreshingEpisodeId === e.id}
+                              onClick={() => refreshEpisodeStatus(s, e)}
+                              className="rounded-md border border-zinc-600 px-2 py-1 text-[11px] font-semibold text-zinc-200 hover:bg-zinc-700/60 disabled:opacity-50"
+                            >
+                              {refreshingEpisodeId === e.id
+                                ? t("admin.videoStatusRefreshing")
+                                : t("admin.videoStatusRefresh")}
+                            </button>
+                          </div>
                         </td>
                         <td className="px-3 py-2">
                           <a

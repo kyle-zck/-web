@@ -9,6 +9,7 @@ import {
   slugify
 } from "@/lib/admin/placeholders";
 import { assignDramaIdForTitle } from "@/lib/drama-id-registry";
+import type { EpisodeVideoMetaItem } from "./storage-local";
 
 type StoredSeries = {
   id: string;
@@ -87,6 +88,9 @@ function initIfNeeded() {
   sqliteAddColumn(conn, "series", "task_status", "TEXT");
   sqliteAddColumn(conn, "episodes", "source_file_name", "TEXT");
   sqliteAddColumn(conn, "episodes", "local_video_url", "TEXT");
+  sqliteAddColumn(conn, "episodes", "video_stream_id", "TEXT");
+  sqliteAddColumn(conn, "episodes", "video_playback_url", "TEXT");
+  sqliteAddColumn(conn, "episodes", "video_status", "TEXT");
 
   const missingDrama = conn
     .prepare("SELECT id, title FROM series WHERE drama_id IS NULL")
@@ -112,8 +116,9 @@ function initIfNeeded() {
     `);
     const insertEpisode = conn.prepare(`
       INSERT INTO episodes (
-        id, series_id, ep_index, title, duration, thumbnail, video_url, is_free
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        id, series_id, ep_index, title, duration, thumbnail, video_url, is_free,
+        source_file_name, local_video_url, video_stream_id, video_playback_url, video_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const now = Date.now();
@@ -141,7 +146,12 @@ function initIfNeeded() {
             e.duration,
             e.thumbnail,
             e.videoUrl,
-            e.isFree ? 1 : 0
+            e.isFree ? 1 : 0,
+            e.sourceFileName ?? null,
+            e.localVideoUrl ?? null,
+            e.videoStreamId ?? null,
+            e.videoPlaybackUrl ?? e.videoUrl,
+            e.videoStatus ?? "ready"
           );
         }
       }
@@ -176,7 +186,10 @@ export async function getAllSeries(): Promise<Series[]> {
       videoUrl: row.video_url,
       isFree: row.is_free === 1,
       sourceFileName: row.source_file_name || undefined,
-      localVideoUrl: row.local_video_url || undefined
+      localVideoUrl: row.local_video_url || undefined,
+      videoStreamId: row.video_stream_id || undefined,
+      videoPlaybackUrl: row.video_playback_url || undefined,
+      videoStatus: row.video_status || undefined
     } satisfies Episode);
     grouped.set(row.series_id, eps);
   }
@@ -234,7 +247,10 @@ export async function getSeriesById(id: string): Promise<Series | null> {
     videoUrl: e.video_url,
     isFree: e.is_free === 1,
     sourceFileName: e.source_file_name || undefined,
-    localVideoUrl: e.local_video_url || undefined
+    localVideoUrl: e.local_video_url || undefined,
+    videoStreamId: e.video_stream_id || undefined,
+    videoPlaybackUrl: e.video_playback_url || undefined,
+    videoStatus: e.video_status || undefined
   }));
 
   return mapSqliteSeriesRow(s, episodes);
@@ -246,7 +262,7 @@ export async function createSeries(data: {
   tags: Series["tags"];
   coverDataUrl: string;
   episodeVideoUrls: string[];
-  episodeVideoMeta?: { fileName: string; localVideoUrl?: string }[];
+  episodeVideoMeta?: EpisodeVideoMetaItem[];
   lockStartIndex?: number;
   listed?: boolean;
   originalName?: string;
@@ -279,8 +295,9 @@ export async function createSeries(data: {
   `);
   const insertEpisode = conn.prepare(`
     INSERT INTO episodes (
-      id, series_id, ep_index, title, duration, thumbnail, video_url, is_free, source_file_name, local_video_url
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      id, series_id, ep_index, title, duration, thumbnail, video_url, is_free, source_file_name, local_video_url,
+      video_stream_id, video_playback_url, video_status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const total = Math.max(1, data.episodeVideoUrls.length);
@@ -293,6 +310,8 @@ export async function createSeries(data: {
     const localVideoUrl =
       meta?.localVideoUrl?.trim() ||
       (fileName ? `file:///${fileName.replace(/\\/g, "/")}` : undefined);
+    const videoPlaybackUrl = meta?.videoPlaybackUrl?.trim() || videoUrl;
+    const videoStatus = meta?.videoStatus ?? "ready";
     return {
       id: `${seriesId}-ep-${index}`,
       index,
@@ -305,7 +324,10 @@ export async function createSeries(data: {
       videoUrl,
       isFree,
       sourceFileName: fileName || undefined,
-      localVideoUrl
+      localVideoUrl,
+      videoStreamId: meta?.videoStreamId,
+      videoPlaybackUrl,
+      videoStatus
     };
   });
 
@@ -343,7 +365,10 @@ export async function createSeries(data: {
         e.videoUrl,
         e.isFree ? 1 : 0,
         e.sourceFileName ?? null,
-        e.localVideoUrl ?? null
+        e.localVideoUrl ?? null,
+        e.videoStreamId ?? null,
+        e.videoPlaybackUrl ?? e.videoUrl,
+        e.videoStatus ?? "ready"
       );
     }
   });
@@ -474,8 +499,9 @@ export async function deleteEpisodeFromSeries(
     conn.prepare("DELETE FROM episodes WHERE series_id = ?").run(seriesId);
     const ins = conn.prepare(`
       INSERT INTO episodes (
-        id, series_id, ep_index, title, duration, thumbnail, video_url, is_free, source_file_name, local_video_url
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        id, series_id, ep_index, title, duration, thumbnail, video_url, is_free, source_file_name, local_video_url,
+        video_stream_id, video_playback_url, video_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     for (const e of renumbered) {
       ins.run(
@@ -488,7 +514,10 @@ export async function deleteEpisodeFromSeries(
         e.videoUrl,
         e.isFree ? 1 : 0,
         e.sourceFileName ?? null,
-        e.localVideoUrl ?? null
+        e.localVideoUrl ?? null,
+        e.videoStreamId ?? null,
+        e.videoPlaybackUrl ?? e.videoUrl,
+        e.videoStatus ?? "ready"
       );
     }
   });
@@ -503,6 +532,9 @@ export async function appendEpisodeToSeries(
     videoUrl: string;
     sourceFileName?: string;
     localVideoUrl?: string;
+    videoStreamId?: string;
+    videoPlaybackUrl?: string;
+    videoStatus?: "processing" | "ready" | "failed";
   }
 ): Promise<Series | null> {
   initIfNeeded();
@@ -525,14 +557,18 @@ export async function appendEpisodeToSeries(
     videoUrl: data.videoUrl,
     isFree,
     sourceFileName: data.sourceFileName,
-    localVideoUrl: data.localVideoUrl
+    localVideoUrl: data.localVideoUrl,
+    videoStreamId: data.videoStreamId,
+    videoPlaybackUrl: data.videoPlaybackUrl ?? data.videoUrl,
+    videoStatus: data.videoStatus ?? "ready"
   };
 
   conn
     .prepare(`
       INSERT INTO episodes (
-        id, series_id, ep_index, title, duration, thumbnail, video_url, is_free, source_file_name, local_video_url
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        id, series_id, ep_index, title, duration, thumbnail, video_url, is_free, source_file_name, local_video_url,
+        video_stream_id, video_playback_url, video_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     .run(
       ep.id,
@@ -544,9 +580,44 @@ export async function appendEpisodeToSeries(
       ep.videoUrl,
       ep.isFree ? 1 : 0,
       ep.sourceFileName ?? null,
-      ep.localVideoUrl ?? null
+      ep.localVideoUrl ?? null,
+      ep.videoStreamId ?? null,
+      ep.videoPlaybackUrl ?? ep.videoUrl,
+      ep.videoStatus ?? "ready"
     );
 
+  return getSeriesById(seriesId);
+}
+
+export async function updateEpisodeStreamState(
+  seriesId: string,
+  episodeId: string,
+  patch: {
+    videoStreamId?: string;
+    videoPlaybackUrl?: string;
+    videoStatus?: "processing" | "ready" | "failed";
+  }
+): Promise<Series | null> {
+  initIfNeeded();
+  const conn = getDb();
+  conn
+    .prepare(
+      `
+      UPDATE episodes
+      SET
+        video_stream_id = COALESCE(?, video_stream_id),
+        video_playback_url = COALESCE(?, video_playback_url),
+        video_status = COALESCE(?, video_status)
+      WHERE series_id = ? AND id = ?
+    `
+    )
+    .run(
+      patch.videoStreamId ?? null,
+      patch.videoPlaybackUrl ?? null,
+      patch.videoStatus ?? null,
+      seriesId,
+      episodeId
+    );
   return getSeriesById(seriesId);
 }
 

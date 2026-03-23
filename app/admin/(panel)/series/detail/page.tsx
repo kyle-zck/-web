@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Series } from "@/constants/mock-data";
 import { showToast } from "@/components/ui/toast";
 import { DramaEditDrawer } from "@/components/admin/drama-edit-drawer";
 import { fetchAdminJson } from "@/lib/admin/fetch-admin-json";
+import { getSeriesVideoMode } from "@/lib/video/series-video-mode";
 
 function formatDate(ts: number | undefined, locale: string) {
   if (!ts) return "—";
@@ -26,11 +27,19 @@ function buildTaskName(
 
 export default function AdminDramaDetailPage() {
   const { t, i18n } = useTranslation();
-  const formatTs = (ts?: number) => formatDate(ts, i18n.language);
-  const taskLabel = (s: Series) => buildTaskName(s, t("admin.unnamed"), formatTs);
+  const formatTs = useCallback((ts?: number) => formatDate(ts, i18n.language), [i18n.language]);
+  const taskLabel = useCallback(
+    (s: Series) => buildTaskName(s, t("admin.unnamed"), formatTs),
+    [formatTs, t]
+  );
   const [series, setSeries] = useState<Series[]>([]);
   const [loading, setLoading] = useState(true);
   const [editTarget, setEditTarget] = useState<Series | null>(null);
+  const [batchHlsRunning, setBatchHlsRunning] = useState(false);
+  const [hotHlsRunning, setHotHlsRunning] = useState(false);
+  const [hotMinViews, setHotMinViews] = useState(500);
+  const [hotMaxSeries, setHotMaxSeries] = useState(20);
+  const [firstNEpisodesPerSeries, setFirstNEpisodesPerSeries] = useState(0);
 
   const defaultFilter = {
     taskName: "",
@@ -38,6 +47,7 @@ export default function AdminDramaDetailPage() {
     title: "",
     localOrTranslated: "" as "" | "local" | "translated",
     tag: "",
+    videoMode: "" as "" | "hls" | "mp4" | "mixed" | "processing",
     listed: "" as "" | "yes" | "no",
     sortBy: "createdAt" as "createdAt" | "completedAt" | "listedAt",
     sortOrder: "desc" as "asc" | "desc"
@@ -86,6 +96,9 @@ export default function AdminDramaDetailPage() {
     if (f.tag) {
       list = list.filter((s) => (s.tags ?? []).includes(f.tag as any));
     }
+    if (f.videoMode) {
+      list = list.filter((s) => getSeriesVideoMode(s) === f.videoMode);
+    }
     if (f.listed === "yes") list = list.filter((s) => s.listed !== false);
     if (f.listed === "no") list = list.filter((s) => s.listed === false);
 
@@ -98,7 +111,7 @@ export default function AdminDramaDetailPage() {
     });
 
     return list;
-  }, [series, appliedFilter, i18n.language, t]);
+  }, [appliedFilter, series, taskLabel]);
 
   const handleReset = () => {
     setFilter(defaultFilter);
@@ -130,6 +143,84 @@ export default function AdminDramaDetailPage() {
   const handleEditSaved = () => {
     load();
     setEditTarget(null);
+  };
+
+  const runBatchHlsOnFiltered = async () => {
+    const ids = filtered.map((s) => s.id);
+    if (ids.length === 0) {
+      showToast(t("admin.noDramasYetTable"), "info");
+      return;
+    }
+    setBatchHlsRunning(true);
+    try {
+      const res = await fetch("/admin/api/video/transcode-hls", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "manual",
+          seriesIds: ids,
+          firstNEpisodesPerSeries
+        })
+      });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        okCount?: number;
+        totalJobs?: number;
+      };
+      if (!res.ok || !json?.ok) {
+        showToast(t("admin.hlsBatchRunFailed"));
+        return;
+      }
+      showToast(
+        t("admin.hlsBatchRunDone", {
+          ok: json.okCount ?? 0,
+          total: json.totalJobs ?? 0
+        }),
+        "success"
+      );
+      await load();
+    } catch {
+      showToast(t("admin.networkErrorShort"));
+    } finally {
+      setBatchHlsRunning(false);
+    }
+  };
+
+  const runHotHls = async () => {
+    setHotHlsRunning(true);
+    try {
+      const res = await fetch("/admin/api/video/transcode-hls", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "hot",
+          minViews: hotMinViews,
+          maxSeries: hotMaxSeries,
+          firstNEpisodesPerSeries
+        })
+      });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        okCount?: number;
+        totalJobs?: number;
+      };
+      if (!res.ok || !json?.ok) {
+        showToast(t("admin.hlsHotRunFailed"));
+        return;
+      }
+      showToast(
+        t("admin.hlsHotRunDone", {
+          ok: json.okCount ?? 0,
+          total: json.totalJobs ?? 0
+        }),
+        "success"
+      );
+      await load();
+    } catch {
+      showToast(t("admin.networkErrorShort"));
+    } finally {
+      setHotHlsRunning(false);
+    }
   };
 
   const allTags = useMemo(() => {
@@ -207,6 +298,22 @@ export default function AdminDramaDetailPage() {
             </select>
           </div>
           <div>
+            <label className="block text-xs font-semibold text-zinc-400">{t("admin.videoMode")}</label>
+            <select
+              value={filter.videoMode}
+              onChange={(e) =>
+                setFilter({ ...filter, videoMode: e.target.value as typeof filter.videoMode })
+              }
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100"
+            >
+              <option value="">{t("admin.allOption")}</option>
+              <option value="hls">{t("admin.videoModeHls")}</option>
+              <option value="mp4">{t("admin.videoModeMp4")}</option>
+              <option value="mixed">{t("admin.videoModeMixed")}</option>
+              <option value="processing">{t("admin.videoModeProcessing")}</option>
+            </select>
+          </div>
+          <div>
             <label className="block text-xs font-semibold text-zinc-400">{t("admin.labelListedShort")}</label>
             <select
               value={filter.listed}
@@ -254,6 +361,57 @@ export default function AdminDramaDetailPage() {
               {t("admin.query")}
             </button>
           </div>
+          <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-2">
+            <button
+              type="button"
+              disabled={batchHlsRunning || hotHlsRunning}
+              onClick={runBatchHlsOnFiltered}
+              className="rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50"
+            >
+              {batchHlsRunning
+                ? t("admin.hlsBatchRunning")
+                : t("admin.hlsBatchRunFiltered", { count: filtered.length })}
+            </button>
+            <div className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900/40 px-2 py-1.5">
+              <span className="text-xs text-zinc-400">{t("admin.hlsFirstNEpisodes")}</span>
+              <input
+                type="number"
+                min={0}
+                value={firstNEpisodesPerSeries}
+                onChange={(e) =>
+                  setFirstNEpisodesPerSeries(Math.max(0, Number(e.target.value || 0)))
+                }
+                className="w-16 rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-100"
+              />
+              <span className="text-[11px] text-zinc-500">{t("admin.hlsFirstNEpisodesHint")}</span>
+            </div>
+            <div className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900/40 px-2 py-1.5">
+              <span className="text-xs text-zinc-400">{t("admin.hlsHotMinViews")}</span>
+              <input
+                type="number"
+                min={0}
+                value={hotMinViews}
+                onChange={(e) => setHotMinViews(Math.max(0, Number(e.target.value || 0)))}
+                className="w-20 rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-100"
+              />
+              <span className="text-xs text-zinc-400">{t("admin.hlsHotMaxSeries")}</span>
+              <input
+                type="number"
+                min={1}
+                value={hotMaxSeries}
+                onChange={(e) => setHotMaxSeries(Math.max(1, Number(e.target.value || 1)))}
+                className="w-16 rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-100"
+              />
+              <button
+                type="button"
+                disabled={batchHlsRunning || hotHlsRunning}
+                onClick={runHotHls}
+                className="rounded-md bg-fuchsia-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-fuchsia-500 disabled:opacity-50"
+              >
+                {hotHlsRunning ? t("admin.hlsHotRunning") : t("admin.hlsHotRun")}
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -275,6 +433,7 @@ export default function AdminDramaDetailPage() {
                     <th className="px-3 py-2 font-semibold">{t("admin.colOriginalName")}</th>
                     <th className="px-3 py-2 font-semibold">{t("admin.labelTypeShort")}</th>
                     <th className="px-3 py-2 font-semibold">{t("admin.tags")}</th>
+                    <th className="px-2 py-2 font-semibold">{t("admin.videoMode")}</th>
                     <th className="px-3 py-2 font-semibold">{t("admin.colDescShort")}</th>
                     <th className="px-2 py-2 font-semibold">{t("admin.colEpisodesCount")}</th>
                     <th className="px-2 py-2 font-semibold">{t("admin.colPaywallShort")}</th>
@@ -339,6 +498,15 @@ export default function AdminDramaDetailPage() {
                         <span className="whitespace-nowrap" title={(s.tags ?? []).join("、")}>
                           {(s.tags ?? []).join("、") || "—"}
                         </span>
+                      </td>
+                      <td className="whitespace-nowrap px-2 py-2 text-xs text-zinc-300">
+                        {(() => {
+                          const mode = getSeriesVideoMode(s);
+                          if (mode === "hls") return t("admin.videoModeHls");
+                          if (mode === "mp4") return t("admin.videoModeMp4");
+                          if (mode === "processing") return t("admin.videoModeProcessing");
+                          return t("admin.videoModeMixed");
+                        })()}
                       </td>
                       <td className="w-36 px-3 py-2 text-xs text-zinc-400">
                         <span className="line-clamp-2 block" title={s.description ?? ""}>

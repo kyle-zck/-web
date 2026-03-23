@@ -12,6 +12,10 @@ const CONFIG_PATH = path.join(process.cwd(), "data", "app-config.json");
 /** `next build` 静态生成会大量并发调用 getAppConfig；跳过远程 PG，避免连库超时或锁竞争 */
 function skipPgDuringNextBuild(): boolean {
   if (process.env.NEXT_SKIP_APP_CONFIG_PG === "1") return true;
+  // 开发环境默认优先读本地文件，避免远程 PG 抖动拖慢本地首屏
+  if (process.env.NODE_ENV === "development" && process.env.DEV_APP_CONFIG_USE_PG !== "1") {
+    return true;
+  }
   if (process.env.npm_lifecycle_event === "build") return true;
   if (process.env.NEXT_PHASE === "phase-production-build") return true;
   return false;
