@@ -6,6 +6,7 @@ import {
   deleteSeries,
   deleteEpisodeFromSeries,
   appendEpisodeToSeries,
+  updateEpisodeStreamState,
   updateSeries
 } from "./service";
 
@@ -17,6 +18,7 @@ export {
   deleteSeries,
   deleteEpisodeFromSeries,
   appendEpisodeToSeries,
+  updateEpisodeStreamState,
   updateSeries
 };
 
