@@ -88,6 +88,17 @@ export async function POST(req: Request) {
   }
 
   if (!bucket || !accessKeyId || !secretAccessKey) {
+    // Vercel 等无状态环境中，本地 public/uploads 不是持久存储，不能作为生产视频源。
+    if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+      return NextResponse.json(
+        {
+          ok: false,
+          errorKey: "apiErrStorageNotConfigured",
+          error: "Object storage is not configured in production"
+        },
+        { status: 400 }
+      );
+    }
     const uploadsDir = path.resolve(process.cwd(), "public", "uploads", "videos");
     if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
     const filename = `${Date.now()}-${sanitizeFilename(file.name || "video.mp4")}`;

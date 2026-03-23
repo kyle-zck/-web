@@ -1,6 +1,7 @@
 import type { Series } from "@/constants/mock-data";
 import { cache } from "react";
 import { getDatabaseUrl } from "@/lib/db/url";
+import { normalizeSeriesPublicUrls } from "@/lib/video/public-asset-url";
 import {
   getAllSeries as getAllLocal,
   getSeriesById as getSeriesByIdLocal,
@@ -145,11 +146,13 @@ async function getProvider(): Promise<RepoProvider> {
 async function getAllSeriesOnce(): Promise<Series[]> {
   const p = await getProvider();
   try {
-    return await p.getAllSeries();
+    const list = await p.getAllSeries();
+    return list.map(normalizeSeriesPublicUrls);
   } catch (e) {
     if (mode === "pg") {
       console.error("[series-repo] Postgres getAllSeries 失败，回退本地 JSON", e);
-      return getAllLocal();
+      const list = await getAllLocal();
+      return list.map(normalizeSeriesPublicUrls);
     }
     throw e;
   }
@@ -161,11 +164,13 @@ export const getAllSeries = cache(getAllSeriesOnce);
 async function getSeriesByIdOnce(id: string): Promise<Series | null> {
   const p = await getProvider();
   try {
-    return await p.getSeriesById(id);
+    const s = await p.getSeriesById(id);
+    return s ? normalizeSeriesPublicUrls(s) : null;
   } catch (e) {
     if (mode === "pg") {
       console.error("[series-repo] Postgres getSeriesById 失败，回退本地 JSON", e);
-      return getSeriesByIdLocal(id);
+      const s = await getSeriesByIdLocal(id);
+      return s ? normalizeSeriesPublicUrls(s) : null;
     }
     throw e;
   }
@@ -185,7 +190,7 @@ export async function createSeries(data: {
   originalName?: string;
   localOrTranslated?: "local" | "translated";
 }): Promise<Series> {
-  return (await getProvider()).createSeries(data);
+  return normalizeSeriesPublicUrls(await (await getProvider()).createSeries(data));
 }
 
 export async function deleteSeries(id: string): Promise<void> {
@@ -196,7 +201,8 @@ export async function deleteEpisodeFromSeries(
   seriesId: string,
   episodeId: string
 ): Promise<Series | null> {
-  return (await getProvider()).deleteEpisodeFromSeries(seriesId, episodeId);
+  const s = await (await getProvider()).deleteEpisodeFromSeries(seriesId, episodeId);
+  return s ? normalizeSeriesPublicUrls(s) : null;
 }
 
 export async function appendEpisodeToSeries(
@@ -210,7 +216,8 @@ export async function appendEpisodeToSeries(
     videoStatus?: "processing" | "ready" | "failed";
   }
 ): Promise<Series | null> {
-  return (await getProvider()).appendEpisodeToSeries(seriesId, data);
+  const s = await (await getProvider()).appendEpisodeToSeries(seriesId, data);
+  return s ? normalizeSeriesPublicUrls(s) : null;
 }
 
 export async function updateEpisodeStreamState(
@@ -222,7 +229,8 @@ export async function updateEpisodeStreamState(
     videoStatus?: "processing" | "ready" | "failed";
   }
 ): Promise<Series | null> {
-  return (await getProvider()).updateEpisodeStreamState(seriesId, episodeId, patch);
+  const s = await (await getProvider()).updateEpisodeStreamState(seriesId, episodeId, patch);
+  return s ? normalizeSeriesPublicUrls(s) : null;
 }
 
 export async function updateSeries(
@@ -239,5 +247,6 @@ export async function updateSeries(
     listed?: boolean;
   }
 ): Promise<Series | null> {
-  return (await getProvider()).updateSeries(id, patch);
+  const s = await (await getProvider()).updateSeries(id, patch);
+  return s ? normalizeSeriesPublicUrls(s) : null;
 }

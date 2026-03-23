@@ -41,6 +41,17 @@ export async function POST(req: Request) {
 
   // Dev fallback：未配置 S3 时，写入 public 目录返回本地 URL
   if (!bucket || !accessKeyId || !secretAccessKey) {
+    // 生产环境必须使用对象存储，否则 URL 在无状态实例中会 404。
+    if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+      return NextResponse.json(
+        {
+          ok: false,
+          errorKey: "apiErrStorageNotConfigured",
+          error: "Object storage is not configured in production"
+        },
+        { status: 400 }
+      );
+    }
     const uploadsDir = path.resolve(process.cwd(), "public", "uploads", "covers");
     if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
     const filename = `${Date.now()}-${sanitizeFilename(file.name || "cover.jpg")}`;

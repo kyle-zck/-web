@@ -684,6 +684,8 @@ export const resources: Record<AppLanguage, any> = {
         apiErrEpisodeVideoUrlRequired: "Please provide a playable video URL (HTTPS) or upload a video file.",
         apiErrSeriesNotFound: "Drama not found.",
         apiErrVideoTooLarge: "Video file is too large (adjust ADMIN_VIDEO_UPLOAD_MAX_BYTES or use an HTTPS URL).",
+        apiErrStorageNotConfigured:
+          "Production storage is not configured. Please set S3/R2 env vars or use HTTPS URLs.",
         apiErrCategoryExists: "Category already exists.",
         apiErrI18nTagNotFound: "Tag not found.",
         apiErrUnknownAction: "Unknown action."
@@ -1370,6 +1372,7 @@ export const resources: Record<AppLanguage, any> = {
         apiErrEpisodeVideoUrlRequired: "请填写可播放的视频地址（HTTPS）或上传视频文件。",
         apiErrSeriesNotFound: "未找到该剧目。",
         apiErrVideoTooLarge: "视频文件过大（可调整 ADMIN_VIDEO_UPLOAD_MAX_BYTES 或改用 HTTPS 直链）。",
+        apiErrStorageNotConfigured: "生产环境未配置对象存储，请先配置 S3/R2 环境变量或改用 HTTPS 直链。",
         apiErrCategoryExists: "类别已存在",
         apiErrI18nTagNotFound: "未找到标签",
         apiErrUnknownAction: "未知操作"
