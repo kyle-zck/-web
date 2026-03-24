@@ -184,11 +184,14 @@ export default function AdminDramaUploadPage() {
           };
 
           if (presign.ok && presignJson?.ok && presignJson.uploadUrl && presignJson.key) {
+            const controller = new AbortController();
+            const timer = globalThis.setTimeout(() => controller.abort(), 45_000);
             const putRes = await fetch(presignJson.uploadUrl, {
               method: "PUT",
               headers: { "Content-Type": v.file.type || "video/mp4" },
-              body: v.file
-            });
+              body: v.file,
+              signal: controller.signal
+            }).finally(() => globalThis.clearTimeout(timer));
             if (!putRes.ok) {
               throw new Error("direct upload failed");
             }
