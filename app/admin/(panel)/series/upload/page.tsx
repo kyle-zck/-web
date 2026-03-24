@@ -12,6 +12,14 @@ interface TagItem {
   name: string;
 }
 
+type UploadStage = "queued" | "presign" | "uploading" | "completing" | "done" | "failed";
+type UploadFileProgress = {
+  key: string;
+  fileName: string;
+  stage: UploadStage;
+  percent: number;
+};
+
 export default function AdminDramaUploadPage() {
   const { t } = useTranslation();
   const isLocalDevHost =
@@ -38,6 +46,7 @@ export default function AdminDramaUploadPage() {
     total: number;
     fileName: string;
   } | null>(null);
+  const [uploadFilesProgress, setUploadFilesProgress] = useState<UploadFileProgress[]>([]);
 
   useEffect(() => {
     fetchAdminJson<{ ok?: boolean; items?: TagItem[] }>("/admin/api/drama-tag-catalog")
@@ -156,12 +165,31 @@ export default function AdminDramaUploadPage() {
       }> = [];
       const total = sortedVideos.length;
 
-      const putByXhr = (url: string, file: File, timeoutMs = 180_000) =>
+      const updateUploadFileProgress = (
+        key: string,
+        patch: Partial<Pick<UploadFileProgress, "stage" | "percent">>
+      ) => {
+        setUploadFilesProgress((prev) =>
+          prev.map((it) => (it.key === key ? { ...it, ...patch } : it))
+        );
+      };
+
+      const putByXhr = (
+        url: string,
+        file: File,
+        onProgress?: (percent: number) => void,
+        timeoutMs = 300_000
+      ) =>
         new Promise<void>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
           xhr.open("PUT", url, true);
           xhr.timeout = timeoutMs;
           xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
+          xhr.upload.onprogress = (evt) => {
+            if (!evt.lengthComputable) return;
+            const percent = Math.max(0, Math.min(100, Math.round((evt.loaded / evt.total) * 100)));
+            onProgress?.(percent);
+          };
           xhr.onload = () => {
             if (xhr.status >= 200 && xhr.status < 300) resolve();
             else reject(new Error(`put failed: ${xhr.status}`));
@@ -171,10 +199,11 @@ export default function AdminDramaUploadPage() {
           xhr.send(file);
         });
 
-      const uploadSingle = async (file: File) => {
+      const uploadSingle = async (file: File, progressKey: string) => {
         const maxRetries = 2;
         for (let attempt = 1; attempt <= maxRetries + 1; attempt += 1) {
           try {
+            updateUploadFileProgress(progressKey, { stage: "presign", percent: 0 });
             const presign = await fetch("/admin/api/upload/video/presign", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -193,8 +222,15 @@ export default function AdminDramaUploadPage() {
               throw new Error("presign unavailable");
             }
 
-            await putByXhr(presignJson.uploadUrl, file, 180_000);
+            updateUploadFileProgress(progressKey, { stage: "uploading", percent: 1 });
+            await putByXhr(
+              presignJson.uploadUrl,
+              file,
+              (percent) => updateUploadFileProgress(progressKey, { stage: "uploading", percent }),
+              300_000
+            );
 
+            updateUploadFileProgress(progressKey, { stage: "completing", percent: 100 });
             const complete = await fetchAdminJson<{
               ok?: boolean;
               videoUrl?: string;
@@ -214,6 +250,7 @@ export default function AdminDramaUploadPage() {
             if (!complete.res.ok || !complete.json?.ok || !complete.json.videoUrl) {
               throw new Error("complete failed");
             }
+            updateUploadFileProgress(progressKey, { stage: "done", percent: 100 });
             return complete.json;
           } catch {
             if (attempt > maxRetries) break;
@@ -223,6 +260,7 @@ export default function AdminDramaUploadPage() {
 
         // 生产环境不回退到应用层中转（无服务器环境容易慢/超时）
         if (!isLocalDevHost) {
+          updateUploadFileProgress(progressKey, { stage: "failed" });
           throw new Error("direct upload failed");
         }
 
@@ -244,8 +282,10 @@ export default function AdminDramaUploadPage() {
           signal: controller.signal
         }).finally(() => globalThis.clearTimeout(timer));
         if (!fallback.res.ok || !fallback.json?.ok || !fallback.json.videoUrl) {
+          updateUploadFileProgress(progressKey, { stage: "failed" });
           throw new Error("fallback failed");
         }
+        updateUploadFileProgress(progressKey, { stage: "done", percent: 100 });
         return fallback.json;
       };
 
@@ -259,9 +299,18 @@ export default function AdminDramaUploadPage() {
           }
         | undefined
       > = new Array(total);
+      setUploadFilesProgress(
+        sortedVideos.map((v, idx) => ({
+          key: `${idx}-${v.file.name}-${v.file.size}`,
+          fileName: v.file.name,
+          stage: "queued",
+          percent: 0
+        }))
+      );
       let cursor = 0;
       let doneCount = 0;
-      const workerCount = Math.min(2, total);
+      // 生产环境提升到 3 路并发，通常能显著提升总吞吐
+      const workerCount = Math.min(isLocalDevHost ? 2 : 3, total);
       const workers = Array.from({ length: workerCount }).map(async () => {
         while (cursor < total) {
           const current = cursor;
@@ -272,7 +321,8 @@ export default function AdminDramaUploadPage() {
             total,
             fileName: v.file.name
           });
-          const json = await uploadSingle(v.file);
+          const progressKey = `${current}-${v.file.name}-${v.file.size}`;
+          const json = await uploadSingle(v.file, progressKey);
           byOrder[current] = {
             videoUrl: json.videoUrl!,
             videoStreamId: json.videoStreamId,
@@ -286,6 +336,9 @@ export default function AdminDramaUploadPage() {
       try {
         await Promise.all(workers);
       } catch {
+        setUploadFilesProgress((prev) =>
+          prev.map((it) => (it.stage === "done" ? it : { ...it, stage: "failed" }))
+        );
         showToast(t("admin.uploadDirectFailedUseHttps"));
         setSubmitting(false);
         return;
@@ -309,6 +362,7 @@ export default function AdminDramaUploadPage() {
         ok?: boolean;
         errorKey?: string;
         error?: string;
+        traceId?: string;
       }>("/admin/api/series", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -327,6 +381,7 @@ export default function AdminDramaUploadPage() {
       });
       if (res.ok && json?.ok) {
         showToast(t("admin.uploadSuccessShort"), "success");
+        setUploadFilesProgress([]);
         setForm({
           title: "",
           originalName: "",
@@ -341,7 +396,8 @@ export default function AdminDramaUploadPage() {
           listed: true
         });
       } else {
-        showToast(translateAdminApiError(json, t, "admin.submitFailed"));
+        const base = translateAdminApiError(json, t, "admin.submitFailed");
+        showToast(json?.traceId ? `${base} (trace: ${json.traceId})` : base);
       }
     } catch {
       showToast(t("admin.networkErrorShort"));
@@ -395,6 +451,7 @@ export default function AdminDramaUploadPage() {
           </label>
           <input
             type="text"
+            name="title"
             value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
             placeholder={t("admin.phTitleDupCheck")}
@@ -408,6 +465,7 @@ export default function AdminDramaUploadPage() {
           </label>
           <input
             type="text"
+            name="originalName"
             value={form.originalName}
             onChange={(e) => setForm({ ...form, originalName: e.target.value })}
             placeholder={t("admin.phManualInput")}
@@ -420,6 +478,7 @@ export default function AdminDramaUploadPage() {
             {t("admin.fieldLocalOrTranslated")} <span className="text-red-400">*</span>
           </label>
           <select
+            name="localOrTranslated"
             value={form.localOrTranslated}
             onChange={(e) =>
               setForm({
@@ -441,6 +500,7 @@ export default function AdminDramaUploadPage() {
           </label>
           <input
             type="number"
+            name="totalEpisodes"
             min={1}
             value={form.totalEpisodes || ""}
             onChange={(e) =>
@@ -459,6 +519,7 @@ export default function AdminDramaUploadPage() {
             {t("admin.fieldSynopsis")} <span className="text-red-400">*</span>
           </label>
           <textarea
+            name="description"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             rows={4}
@@ -496,6 +557,7 @@ export default function AdminDramaUploadPage() {
           </label>
           <p className="mt-1 text-xs text-zinc-500">{t("admin.lockStartHint")}</p>
           <select
+            name="lockStartIndex"
             value={form.lockStartIndex}
             onChange={(e) =>
               setForm({ ...form, lockStartIndex: parseInt(e.target.value, 10) })
@@ -522,6 +584,7 @@ export default function AdminDramaUploadPage() {
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/60 px-4 py-3 text-sm font-medium text-zinc-200 hover:bg-zinc-700/60">
               <input
                 type="file"
+                name="cover"
                 accept=".png,.jpg,.jpeg,.webp"
                 onChange={handleCoverUpload}
                 className="hidden"
@@ -551,6 +614,7 @@ export default function AdminDramaUploadPage() {
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/60 px-4 py-3 text-sm font-medium text-zinc-200 hover:bg-zinc-700/60">
               <input
                 type="file"
+                name="videos"
                 accept="video/*"
                 multiple
                 onChange={handleVideoUpload}
@@ -572,6 +636,7 @@ export default function AdminDramaUploadPage() {
           </label>
           <p className="mt-1 text-xs text-zinc-500">{t("admin.videoModeUploadHint")}</p>
           <select
+            name="uploadVideoMode"
             value={form.uploadVideoMode}
             onChange={(e) =>
               setForm({ ...form, uploadVideoMode: e.target.value as "mp4" | "hls" })
@@ -588,6 +653,7 @@ export default function AdminDramaUploadPage() {
             {t("admin.fieldListed")} <span className="text-red-400">*</span>
           </label>
           <select
+            name="listed"
             value={form.listed ? "1" : "0"}
             onChange={(e) => setForm({ ...form, listed: e.target.value === "1" })}
             className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-zinc-100"
@@ -626,6 +692,28 @@ export default function AdminDramaUploadPage() {
           <p className="text-xs text-amber-300">
             {t("admin.videoUploadingFile", { name: uploadProgress.fileName })}
           </p>
+        ) : null}
+        {uploadFilesProgress.length > 0 ? (
+          <div className="space-y-2 rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-3">
+            {uploadFilesProgress.map((it) => (
+              <div key={it.key} className="space-y-1">
+                <div className="flex items-center justify-between gap-3 text-xs">
+                  <span className="max-w-[70%] truncate text-zinc-300">{it.fileName}</span>
+                  <span className="text-zinc-400">
+                    {t(`admin.uploadStage_${it.stage}`)} {it.stage === "uploading" ? `${it.percent}%` : ""}
+                  </span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded bg-zinc-800">
+                  <div
+                    className={`h-full transition-all ${
+                      it.stage === "failed" ? "bg-red-500" : "bg-brand"
+                    }`}
+                    style={{ width: `${it.stage === "failed" ? 100 : it.percent}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : null}
       </form>
     </main>
