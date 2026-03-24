@@ -25,6 +25,10 @@ export function getS3Client() {
     forcePathStyle: Boolean(
       endpoint && !endpoint.includes(".amazonaws.com")
     ),
+    // Prevent optional checksum headers from being injected for presigned PUT,
+    // which often trigger CORS preflight header rejections on R2.
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
     credentials: {
       accessKeyId,
       secretAccessKey

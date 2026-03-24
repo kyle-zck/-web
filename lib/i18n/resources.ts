@@ -693,6 +693,8 @@ export const resources: Record<AppLanguage, any> = {
         apiErrVideoTooLarge: "Video file is too large (adjust ADMIN_VIDEO_UPLOAD_MAX_BYTES or use an HTTPS URL).",
         apiErrStorageNotConfigured:
           "Production storage is not configured. Please set S3/R2 env vars or use HTTPS URLs.",
+        uploadDirectFailedUseHttps:
+          "Direct upload failed. Check R2 CORS/credentials, or use HTTPS URL import in episode editor.",
         apiErrCategoryExists: "Category already exists.",
         apiErrI18nTagNotFound: "Tag not found.",
         apiErrUnknownAction: "Unknown action."
@@ -1387,6 +1389,8 @@ export const resources: Record<AppLanguage, any> = {
         apiErrSeriesNotFound: "未找到该剧目。",
         apiErrVideoTooLarge: "视频文件过大（可调整 ADMIN_VIDEO_UPLOAD_MAX_BYTES 或改用 HTTPS 直链）。",
         apiErrStorageNotConfigured: "生产环境未配置对象存储，请先配置 S3/R2 环境变量或改用 HTTPS 直链。",
+        uploadDirectFailedUseHttps:
+          "直传失败，请检查 R2 CORS/密钥配置，或改用分集编辑里的 HTTPS 地址导入。",
         apiErrCategoryExists: "类别已存在",
         apiErrI18nTagNotFound: "未找到标签",
         apiErrUnknownAction: "未知操作"

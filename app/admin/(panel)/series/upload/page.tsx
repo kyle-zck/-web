@@ -14,6 +14,9 @@ interface TagItem {
 
 export default function AdminDramaUploadPage() {
   const { t } = useTranslation();
+  const isLocalDevHost =
+    typeof window !== "undefined" &&
+    /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
   const [tags, setTags] = useState<TagItem[]>([]);
   const [form, setForm] = useState({
     title: "",
@@ -152,49 +155,46 @@ export default function AdminDramaUploadPage() {
         fileName: string;
       }> = [];
       const total = sortedVideos.length;
-      for (let i = 0; i < total; i += 1) {
-        const v = sortedVideos[i];
-        setUploadProgress({ current: i + 1, total, fileName: v.file.name });
-        let res: Response;
-        let json:
-          | {
-              ok?: boolean;
-              videoUrl?: string;
-              videoStreamId?: string;
-              videoPlaybackUrl?: string;
-              videoStatus?: "processing" | "ready" | "failed";
-              errorKey?: string;
-            }
-          | null
-          | undefined;
-        try {
-          const presign = await fetch("/admin/api/upload/video/presign", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              fileName: v.file.name,
-              contentType: v.file.type || "video/mp4"
-            })
-          });
-          const presignJson = (await presign.json()) as {
-            ok?: boolean;
-            uploadUrl?: string;
-            key?: string;
-            publicUrl?: string;
-          };
 
-          if (presign.ok && presignJson?.ok && presignJson.uploadUrl && presignJson.key) {
-            const controller = new AbortController();
-            const timer = globalThis.setTimeout(() => controller.abort(), 45_000);
-            const putRes = await fetch(presignJson.uploadUrl, {
-              method: "PUT",
-              headers: { "Content-Type": v.file.type || "video/mp4" },
-              body: v.file,
-              signal: controller.signal
-            }).finally(() => globalThis.clearTimeout(timer));
-            if (!putRes.ok) {
-              throw new Error("direct upload failed");
+      const putByXhr = (url: string, file: File, timeoutMs = 180_000) =>
+        new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("PUT", url, true);
+          xhr.timeout = timeoutMs;
+          xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) resolve();
+            else reject(new Error(`put failed: ${xhr.status}`));
+          };
+          xhr.onerror = () => reject(new Error("put network error"));
+          xhr.ontimeout = () => reject(new Error("put timeout"));
+          xhr.send(file);
+        });
+
+      const uploadSingle = async (file: File) => {
+        const maxRetries = 2;
+        for (let attempt = 1; attempt <= maxRetries + 1; attempt += 1) {
+          try {
+            const presign = await fetch("/admin/api/upload/video/presign", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                fileName: file.name,
+                contentType: file.type || "video/mp4"
+              })
+            });
+            const presignJson = (await presign.json()) as {
+              ok?: boolean;
+              uploadUrl?: string;
+              key?: string;
+              publicUrl?: string;
+            };
+            if (!presign.ok || !presignJson?.ok || !presignJson.uploadUrl || !presignJson.key) {
+              throw new Error("presign unavailable");
             }
+
+            await putByXhr(presignJson.uploadUrl, file, 180_000);
+
             const complete = await fetchAdminJson<{
               ok?: boolean;
               videoUrl?: string;
@@ -211,40 +211,90 @@ export default function AdminDramaUploadPage() {
                 targetMode: form.uploadVideoMode
               })
             });
-            res = complete.res;
-            json = complete.json;
-          } else {
-            throw new Error("presign unavailable");
+            if (!complete.res.ok || !complete.json?.ok || !complete.json.videoUrl) {
+              throw new Error("complete failed");
+            }
+            return complete.json;
+          } catch {
+            if (attempt > maxRetries) break;
+            await new Promise((r) => globalThis.setTimeout(r, 800 * attempt));
           }
-        } catch {
-          // 回退旧路径（本地开发/无对象存储）
-          const fd = new FormData();
-          fd.append("file", v.file);
-          fd.append("targetMode", form.uploadVideoMode);
-          const fallback = await fetchAdminJson<{
-            ok?: boolean;
-            videoUrl?: string;
+        }
+
+        // 生产环境不回退到应用层中转（无服务器环境容易慢/超时）
+        if (!isLocalDevHost) {
+          throw new Error("direct upload failed");
+        }
+
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("targetMode", form.uploadVideoMode);
+        const controller = new AbortController();
+        const timer = globalThis.setTimeout(() => controller.abort(), 45_000);
+        const fallback = await fetchAdminJson<{
+          ok?: boolean;
+          videoUrl?: string;
+          videoStreamId?: string;
+          videoPlaybackUrl?: string;
+          videoStatus?: "processing" | "ready" | "failed";
+          errorKey?: string;
+        }>("/admin/api/upload/video", {
+          method: "POST",
+          body: fd,
+          signal: controller.signal
+        }).finally(() => globalThis.clearTimeout(timer));
+        if (!fallback.res.ok || !fallback.json?.ok || !fallback.json.videoUrl) {
+          throw new Error("fallback failed");
+        }
+        return fallback.json;
+      };
+
+      const byOrder: Array<
+        | {
+            videoUrl: string;
             videoStreamId?: string;
             videoPlaybackUrl?: string;
             videoStatus?: "processing" | "ready" | "failed";
-            errorKey?: string;
-          }>("/admin/api/upload/video", { method: "POST", body: fd });
-          res = fallback.res;
-          json = fallback.json;
+            fileName: string;
+          }
+        | undefined
+      > = new Array(total);
+      let cursor = 0;
+      let doneCount = 0;
+      const workerCount = Math.min(2, total);
+      const workers = Array.from({ length: workerCount }).map(async () => {
+        while (cursor < total) {
+          const current = cursor;
+          cursor += 1;
+          const v = sortedVideos[current];
+          setUploadProgress({
+            current: Math.min(doneCount + 1, total),
+            total,
+            fileName: v.file.name
+          });
+          const json = await uploadSingle(v.file);
+          byOrder[current] = {
+            videoUrl: json.videoUrl!,
+            videoStreamId: json.videoStreamId,
+            videoPlaybackUrl: json.videoPlaybackUrl,
+            videoStatus: json.videoStatus,
+            fileName: v.file.name
+          };
+          doneCount += 1;
         }
-        if (!res.ok || !json?.ok || !json.videoUrl) {
-          showToast(translateAdminApiError(json, t, "admin.submitFailed"));
-          setSubmitting(false);
-          return;
-        }
-        uploaded.push({
-          videoUrl: json.videoUrl,
-          videoStreamId: json.videoStreamId,
-          videoPlaybackUrl: json.videoPlaybackUrl,
-          videoStatus: json.videoStatus,
-          fileName: v.file.name
-        });
+      });
+      try {
+        await Promise.all(workers);
+      } catch {
+        showToast(t("admin.uploadDirectFailedUseHttps"));
+        setSubmitting(false);
+        return;
       }
+      uploaded.push(
+        ...byOrder.filter(
+          (x): x is NonNullable<typeof x> => Boolean(x && x.videoUrl)
+        )
+      );
       setUploadProgress(null);
       const episodeUrls = uploaded.map((x) => x.videoUrl);
       const episodeVideoMeta = uploaded.map((x) => ({
