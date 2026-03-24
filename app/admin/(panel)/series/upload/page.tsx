@@ -48,6 +48,26 @@ export default function AdminDramaUploadPage() {
   } | null>(null);
   const [uploadFilesProgress, setUploadFilesProgress] = useState<UploadFileProgress[]>([]);
 
+  const suggestWorkerCount = (total: number) => {
+    if (total <= 1) return total;
+    if (isLocalDevHost) return Math.min(2, total);
+    if (typeof navigator === "undefined") return Math.min(2, total);
+    const nav = navigator as Navigator & {
+      connection?: {
+        effectiveType?: string;
+        saveData?: boolean;
+      };
+    };
+    const conn = nav.connection;
+    if (!conn) return Math.min(2, total);
+    if (conn.saveData) return 1;
+    const type = (conn.effectiveType ?? "").toLowerCase();
+    if (type.includes("2g")) return 1;
+    if (type.includes("3g")) return Math.min(2, total);
+    if (type.includes("4g")) return Math.min(3, total);
+    return Math.min(2, total);
+  };
+
   useEffect(() => {
     fetchAdminJson<{ ok?: boolean; items?: TagItem[] }>("/admin/api/drama-tag-catalog")
       .then(({ res, json }) => {
@@ -309,8 +329,8 @@ export default function AdminDramaUploadPage() {
       );
       let cursor = 0;
       let doneCount = 0;
-      // 生产环境提升到 3 路并发，通常能显著提升总吞吐
-      const workerCount = Math.min(isLocalDevHost ? 2 : 3, total);
+      // 生产环境按网络质量自适应并发，避免弱网上行被高并发反向拖慢。
+      const workerCount = suggestWorkerCount(total);
       const workers = Array.from({ length: workerCount }).map(async () => {
         while (cursor < total) {
           const current = cursor;

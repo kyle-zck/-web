@@ -7,7 +7,6 @@ import {
   posterPlaceholder,
   slugify
 } from "@/lib/admin/placeholders";
-import { assignDramaIdForTitle } from "@/lib/drama-id-registry";
 import type { EpisodeVideoMetaItem } from "./storage-local";
 
 /** node-pg 对 JSONB 常返回已解析的数组，勿 String(arr) 再 JSON.parse（会得到 "A,B" 而报错） */
@@ -92,6 +91,16 @@ function mapPgRowToSeries(s: Record<string, unknown>, episodes: Episode[]): Seri
 
 let pool: Pool | null = null;
 let initialized = false;
+
+async function allocateDramaId(conn: Pool): Promise<number> {
+  // Use a transaction-scoped advisory lock to avoid duplicate drama_id under concurrency.
+  await conn.query("SELECT pg_advisory_xact_lock($1)", [2026031901]);
+  const { rows } = await conn.query(
+    "SELECT COALESCE(MAX(drama_id), 9999) + 1 AS next_id FROM series"
+  );
+  const next = Number(rows?.[0]?.next_id ?? 10000);
+  return Number.isFinite(next) && next >= 10000 ? next : 10000;
+}
 
 function getPool() {
   if (pool) return pool;
@@ -238,13 +247,22 @@ async function initIfNeeded() {
     }
   }
 
-  const { rows: missingDrama } = await conn.query(
-    "SELECT id, title FROM series WHERE drama_id IS NULL"
-  );
-  for (const r of missingDrama as { id: string; title: string }[]) {
-    const did = assignDramaIdForTitle(r.title);
-    await conn.query("UPDATE series SET drama_id = $1 WHERE id = $2", [did, r.id]);
-  }
+  await conn.query(`
+    WITH base AS (
+      SELECT COALESCE(MAX(drama_id), 9999) AS max_id
+      FROM series
+      WHERE drama_id IS NOT NULL
+    ),
+    missing AS (
+      SELECT id, ROW_NUMBER() OVER (ORDER BY created_at, id) AS rn
+      FROM series
+      WHERE drama_id IS NULL
+    )
+    UPDATE series s
+    SET drama_id = base.max_id + missing.rn
+    FROM base, missing
+    WHERE s.id = missing.id;
+  `);
 
   initialized = true;
 }
@@ -311,7 +329,6 @@ export async function createSeries(data: {
 
   const cleanTitle = data.title.trim();
   const category = data.tags[0] ?? "Romance";
-  const dramaId = assignDramaIdForTitle(cleanTitle);
 
   const baseId = slugify(cleanTitle) || `series-${Date.now()}`;
   const seriesId = `${baseId}-${Math.random().toString(16).slice(2, 6)}`;
@@ -358,6 +375,7 @@ export async function createSeries(data: {
 
   await conn.query("BEGIN");
   try {
+    const dramaId = await allocateDramaId(conn);
     await conn.query(
       `
       INSERT INTO series (
@@ -415,35 +433,34 @@ export async function createSeries(data: {
     }
 
     await conn.query("COMMIT");
+    return mapPgRowToSeries(
+      {
+        id: seriesId,
+        title: cleanTitle,
+        description: data.description,
+        category,
+        tags_json: data.tags,
+        cover,
+        poster,
+        tagline,
+        is_trending: 1,
+        is_new: 1,
+        drama_id: dramaId,
+        original_name: data.originalName,
+        local_or_translated: data.localOrTranslated,
+        lock_start_index: lockStart,
+        listed,
+        created_at: now,
+        completed_at: now,
+        listed_at: listed ? now : null,
+        task_status: "completed"
+      },
+      episodes
+    );
   } catch (err) {
     await conn.query("ROLLBACK");
     throw err;
   }
-
-  return mapPgRowToSeries(
-    {
-      id: seriesId,
-      title: cleanTitle,
-      description: data.description,
-      category,
-      tags_json: data.tags,
-      cover,
-      poster,
-      tagline,
-      is_trending: 1,
-      is_new: 1,
-      drama_id: dramaId,
-      original_name: data.originalName,
-      local_or_translated: data.localOrTranslated,
-      lock_start_index: lockStart,
-      listed,
-      created_at: now,
-      completed_at: now,
-      listed_at: listed ? now : null,
-      task_status: "completed"
-    },
-    episodes
-  );
 }
 
 export async function deleteSeries(id: string): Promise<void> {
