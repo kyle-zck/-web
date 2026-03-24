@@ -1,4 +1,23 @@
 /** @type {import('next').NextConfig} */
+const imageRemotePatterns = [
+  {
+    protocol: "https",
+    hostname: "**.r2.dev"
+  }
+];
+
+if (process.env.S3_PUBLIC_BASE_URL) {
+  try {
+    const parsed = new URL(process.env.S3_PUBLIC_BASE_URL);
+    imageRemotePatterns.push({
+      protocol: parsed.protocol.replace(":", ""),
+      hostname: parsed.hostname
+    });
+  } catch {
+    // ignore invalid S3_PUBLIC_BASE_URL
+  }
+}
+
 const nextConfig = {
   reactStrictMode: true,
   // better-sqlite3 为原生模块；动态 import 后仍避免被打进无关服务端 chunk
@@ -18,6 +37,9 @@ const nextConfig = {
         ]
       }
     ];
+  },
+  images: {
+    remotePatterns: imageRemotePatterns
   }
 };
 

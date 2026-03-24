@@ -9,6 +9,7 @@ import type { AppLanguage } from "@/lib/i18n/languages";
 import { getSeriesI18nText } from "@/lib/i18n/seriesText";
 import { tagLabel } from "@/lib/i18n/tagKey";
 import { formatEngagementCount } from "@/lib/format-count";
+import { getSeriesArtworkChain } from "@/lib/series/artwork";
 
 export type HeroEngagementCounts = {
   collectionCount: number;
@@ -97,6 +98,7 @@ export function HeroCarousel({ items, countsBySeriesId }: HeroCarouselProps) {
           const { title, description } = getSeriesI18nText(item, lang);
           const categoryLabel = tagLabel(item.category, t);
           const eng = countsBySeriesId?.[item.id];
+          const artworkChain = getSeriesArtworkChain(item);
           return (
             <div
               key={item.id}
@@ -112,12 +114,23 @@ export function HeroCarousel({ items, countsBySeriesId }: HeroCarouselProps) {
                 <div className="poster-card-drama relative aspect-[3/4] w-full overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={item.poster || item.cover}
+                    src={artworkChain[0]}
                     alt={title}
                     className="poster-card-drama__img"
                     loading={index < 2 ? "eager" : "lazy"}
                     decoding="async"
                     fetchPriority={index === 0 ? "high" : "low"}
+                    data-fallback-index={0}
+                    onError={(e) => {
+                      const img = e.currentTarget;
+                      const nextIndex = Number(img.dataset.fallbackIndex ?? "0") + 1;
+                      if (nextIndex >= artworkChain.length) {
+                        img.onerror = null;
+                        return;
+                      }
+                      img.dataset.fallbackIndex = String(nextIndex);
+                      img.src = artworkChain[nextIndex];
+                    }}
                   />
                   <div
                     className="poster-card-drama__overlay poster-card-drama__overlay--hero absolute inset-0 z-[1]"

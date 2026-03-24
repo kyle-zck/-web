@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { AuthModal } from "@/components/ui/auth-modal";
 import { usePlayerStore } from "@/lib/store/player";
@@ -15,6 +14,7 @@ import type { AppLanguage } from "@/lib/i18n/languages";
 import { getSeriesI18nText } from "@/lib/i18n/seriesText";
 import { tagLabel } from "@/lib/i18n/tagKey";
 import { stubEpisodeForProgress } from "@/lib/series/slim-public";
+import { getSeriesArtworkChain } from "@/lib/series/artwork";
 
 type TabId = "history" | "mylist" | "wallet";
 
@@ -280,6 +280,9 @@ export default function ProfilePage() {
             <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
               {watchedHistory.length ? (
                 watchedHistory.map((row) => (
+                  (() => {
+                    const artworkChain = getSeriesArtworkChain(row.series);
+                    return (
                   <button
                     key={`${row.series.id}-${row.episode.id}`}
                     type="button"
@@ -291,12 +294,24 @@ export default function ProfilePage() {
                     className="group w-full text-left"
                   >
                     <div className="relative poster-aspect overflow-hidden rounded-xl bg-zinc-900 transition-transform duration-200 group-hover:scale-[1.02] group-hover:shadow-[0_0_24px_rgba(229,9,20,0.25)]">
-                      <Image
-                        src={row.series.poster || row.series.cover}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={artworkChain[0]}
                         alt={getSeriesI18nText(row.series, lang).title}
-                        fill
-                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-                        className="object-cover"
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                        decoding="async"
+                        data-fallback-index={0}
+                        onError={(e) => {
+                          const img = e.currentTarget;
+                          const nextIndex = Number(img.dataset.fallbackIndex ?? "0") + 1;
+                          if (nextIndex >= artworkChain.length) {
+                            img.onerror = null;
+                            return;
+                          }
+                          img.dataset.fallbackIndex = String(nextIndex);
+                          img.src = artworkChain[nextIndex];
+                        }}
                       />
                       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent" />
                       <div className="pointer-events-none absolute bottom-0 left-0 right-0 p-3">
@@ -312,6 +327,8 @@ export default function ProfilePage() {
                       </div>
                     </div>
                   </button>
+                    );
+                  })()
                 ))
               ) : (
                 <div className="col-span-full flex flex-col items-center justify-center rounded-xl border border-zinc-700/80 bg-zinc-900/30 py-16">
@@ -336,6 +353,9 @@ export default function ProfilePage() {
             <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
               {favoriteSeries.length ? (
                 favoriteSeries.map((series) => (
+                  (() => {
+                    const artworkChain = getSeriesArtworkChain(series);
+                    return (
                   <button
                     key={series.id}
                     type="button"
@@ -343,12 +363,24 @@ export default function ProfilePage() {
                     className="group w-full text-left"
                   >
                     <div className="relative poster-aspect overflow-hidden rounded-xl bg-zinc-900 transition-transform duration-200 group-hover:scale-[1.02] group-hover:shadow-[0_0_24px_rgba(229,9,20,0.25)]">
-                      <Image
-                        src={series.poster || series.cover}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={artworkChain[0]}
                         alt={getSeriesI18nText(series, lang).title}
-                        fill
-                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-                        className="object-cover"
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                        decoding="async"
+                        data-fallback-index={0}
+                        onError={(e) => {
+                          const img = e.currentTarget;
+                          const nextIndex = Number(img.dataset.fallbackIndex ?? "0") + 1;
+                          if (nextIndex >= artworkChain.length) {
+                            img.onerror = null;
+                            return;
+                          }
+                          img.dataset.fallbackIndex = String(nextIndex);
+                          img.src = artworkChain[nextIndex];
+                        }}
                       />
                       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent" />
                       <div className="pointer-events-none absolute bottom-0 left-0 right-0 p-3">
@@ -361,6 +393,8 @@ export default function ProfilePage() {
                       </div>
                     </div>
                   </button>
+                    );
+                  })()
                 ))
               ) : (
                 <div className="col-span-full flex flex-col items-center justify-center rounded-xl border border-zinc-700/80 bg-zinc-900/30 py-16">

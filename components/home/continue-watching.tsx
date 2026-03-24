@@ -10,6 +10,7 @@ import type { AppLanguage } from "@/lib/i18n/languages";
 import { getSeriesI18nText } from "@/lib/i18n/seriesText";
 import { tagLabel } from "@/lib/i18n/tagKey";
 import { stubEpisodeForProgress } from "@/lib/series/slim-public";
+import { getSeriesArtworkChain } from "@/lib/series/artwork";
 import { cn } from "@/lib/utils";
 
 export function ContinueWatching() {
@@ -71,6 +72,9 @@ export function ContinueWatching() {
           )}
         >
         {watched.map((row) => (
+          (() => {
+            const artworkChain = getSeriesArtworkChain(row.series);
+            return (
           <div
             key={`${row.series.id}-${row.episode.id}`}
             className="home-poster-cell min-w-0"
@@ -89,11 +93,22 @@ export function ContinueWatching() {
               <div className="poster-card-drama relative poster-aspect transition-transform duration-200 group-hover:scale-[1.02] group-hover:shadow-[0_0_36px_rgba(229,9,20,0.2)]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={row.series.poster || row.series.cover}
+                  src={artworkChain[0]}
                   alt={getSeriesI18nText(row.series, lang).title}
                   className="poster-card-drama__img"
                   loading="lazy"
                   decoding="async"
+                  data-fallback-index={0}
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    const nextIndex = Number(img.dataset.fallbackIndex ?? "0") + 1;
+                    if (nextIndex >= artworkChain.length) {
+                      img.onerror = null;
+                      return;
+                    }
+                    img.dataset.fallbackIndex = String(nextIndex);
+                    img.src = artworkChain[nextIndex];
+                  }}
                 />
                 <div
                   className="poster-card-drama__overlay absolute inset-0 z-[1]"
@@ -120,6 +135,8 @@ export function ContinueWatching() {
               {getSeriesI18nText(row.series, lang).title}
             </p>
           </div>
+            );
+          })()
         ))}
         </div>
       </div>

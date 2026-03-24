@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="1280" viewBox="0 0 720 1280" role="img" aria-label="Placeholder">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#171a2b"/>
+      <stop offset="100%" stop-color="#090b16"/>
+    </linearGradient>
+  </defs>
+  <rect width="720" height="1280" fill="url(#bg)"/>
+  <circle cx="560" cy="260" r="180" fill="#6d28d9" opacity="0.28"/>
+  <circle cx="160" cy="1030" r="220" fill="#7c3aed" opacity="0.18"/>
+  <rect x="40" y="900" width="640" height="280" rx="36" fill="#000" opacity="0.45"/>
+  <text x="72" y="1030" fill="#f4f4f5" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="48" font-weight="700">
+    ReelShorts
+  </text>
+  <text x="72" y="1088" fill="#a1a1aa" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="26">
+    Poster unavailable
+  </text>
+</svg>

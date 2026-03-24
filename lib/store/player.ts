@@ -8,6 +8,7 @@ type ProgressKey = `${SeriesId}::${number}`;
 
 /** 是否锁定：episode.index >= lockStartIndex 且未订阅 */
 export function isEpisodeLocked(series: Series, episode: Episode): boolean {
+  if (episode.isFree) return false;
   const lockStart = series.lockStartIndex ?? 4;
   return episode.index >= lockStart;
 }

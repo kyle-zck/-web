@@ -8,6 +8,7 @@ import type { Series } from "@/constants/mock-data";
 import type { AppLanguage } from "@/lib/i18n/languages";
 import { getSeriesI18nText } from "@/lib/i18n/seriesText";
 import { tagLabel } from "@/lib/i18n/tagKey";
+import { getSeriesArtworkChain } from "@/lib/series/artwork";
 
 interface SeriesRowProps {
   titleKey: string;
@@ -42,6 +43,7 @@ export function SeriesRow({ titleKey, items }: SeriesRowProps) {
           {items.map((s) => {
             const { title } = getSeriesI18nText(s, lang);
             const categoryLabel = tagLabel(s.category, t);
+            const artworkChain = getSeriesArtworkChain(s);
             return (
               <div key={s.id} className="home-poster-cell min-w-0">
                 <Link
@@ -53,11 +55,22 @@ export function SeriesRow({ titleKey, items }: SeriesRowProps) {
                   <div className="poster-card-drama relative poster-aspect transition-transform duration-200 group-hover:scale-[1.02] group-hover:shadow-[0_0_36px_rgba(229,9,20,0.22)]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={s.poster || s.cover}
+                      src={artworkChain[0]}
                       alt={title}
                       className="poster-card-drama__img"
                       loading="lazy"
                       decoding="async"
+                      data-fallback-index={0}
+                      onError={(e) => {
+                        const img = e.currentTarget;
+                        const nextIndex = Number(img.dataset.fallbackIndex ?? "0") + 1;
+                        if (nextIndex >= artworkChain.length) {
+                          img.onerror = null;
+                          return;
+                        }
+                        img.dataset.fallbackIndex = String(nextIndex);
+                        img.src = artworkChain[nextIndex];
+                      }}
                     />
                     <div
                       className="poster-card-drama__overlay absolute inset-0 z-[1]"

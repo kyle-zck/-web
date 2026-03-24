@@ -9,6 +9,16 @@ import { useTranslation } from "react-i18next";
 import type { AppLanguage } from "@/lib/i18n/languages";
 import type { SubscriptionPlan } from "@/constants/mock-data";
 import { getEpisodePlaybackUrl, isHlsUrl } from "@/lib/video/playback";
+import { normalizeAssetUrl } from "@/lib/video/public-asset-url";
+
+function toRuntimePlayableUrl(raw: string): string {
+  const src = raw.trim();
+  if (!src) return src;
+  if (/^https?:\/\/[^/]+\.r2\.dev\/.+/i.test(src)) {
+    return `/api/video/proxy?src=${encodeURIComponent(src)}`;
+  }
+  return src;
+}
 
 export function ImmersivePlayer({
   series,
@@ -120,11 +130,6 @@ export function ImmersivePlayer({
     }
   };
 
-  const handleLoadError = () => {
-    setLoadFailed(true);
-    setReady(false);
-  };
-
   const episodeLabel =
     lang === "zh-CN"
       ? t("series.episodeLabelZh", { index: episode.index })
@@ -136,16 +141,39 @@ export function ImmersivePlayer({
   const [runtimePlaybackUrl, setRuntimePlaybackUrl] = useState<string>(() =>
     getEpisodePlaybackUrl(episode)
   );
+  const [runtimePlaybackIndex, setRuntimePlaybackIndex] = useState(0);
   const [runtimeVideoStatus, setRuntimeVideoStatus] = useState<
     "processing" | "ready" | "failed"
   >(episode.videoStatus ?? "ready");
+  const playbackCandidates = useMemo(() => {
+    const urls = [episode.videoPlaybackUrl, episode.videoUrl]
+      .map((item) => normalizeAssetUrl(item) ?? "")
+      .map((item) => toRuntimePlayableUrl(item))
+      .map((item) => item.trim())
+      .filter(Boolean);
+    return Array.from(new Set(urls));
+  }, [episode.videoPlaybackUrl, episode.videoUrl]);
   const playbackUrl = runtimePlaybackUrl;
   const hls = isHlsUrl(playbackUrl);
 
+  const handleLoadError = () => {
+    const nextIndex = runtimePlaybackIndex + 1;
+    if (nextIndex < playbackCandidates.length) {
+      setRuntimePlaybackIndex(nextIndex);
+      setRuntimePlaybackUrl(playbackCandidates[nextIndex]);
+      setLoadFailed(false);
+      setReady(false);
+      return;
+    }
+    setLoadFailed(true);
+    setReady(false);
+  };
+
   useEffect(() => {
-    setRuntimePlaybackUrl(getEpisodePlaybackUrl(episode));
+    setRuntimePlaybackUrl(playbackCandidates[0] ?? getEpisodePlaybackUrl(episode));
+    setRuntimePlaybackIndex(0);
     setRuntimeVideoStatus(episode.videoStatus ?? "ready");
-  }, [episode]);
+  }, [episode, playbackCandidates]);
 
   useEffect(() => {
     if (!unlocked) return;
@@ -179,7 +207,11 @@ export function ImmersivePlayer({
           videoStatus?: "processing" | "ready" | "failed";
         };
         if (!json.ok) return;
-        if (json.videoPlaybackUrl) setRuntimePlaybackUrl(json.videoPlaybackUrl);
+        if (json.videoPlaybackUrl) {
+          const resolved = normalizeAssetUrl(json.videoPlaybackUrl) ?? json.videoPlaybackUrl;
+          setRuntimePlaybackUrl(toRuntimePlayableUrl(resolved));
+          setRuntimePlaybackIndex(0);
+        }
         if (json.videoStatus) setRuntimeVideoStatus(json.videoStatus);
         if (json.videoStatus === "ready" || json.videoStatus === "failed") {
           window.clearInterval(timer);
