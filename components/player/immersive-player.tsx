@@ -12,12 +12,16 @@ import { getEpisodePlaybackUrl, isHlsUrl } from "@/lib/video/playback";
 
 export function ImmersivePlayer({
   series,
-  episode
+  episode,
+  sessionKey = 0
 }: {
   series: Series;
   episode: Episode;
+  sessionKey?: number;
 }) {
+  const playerRootRef = useRef<HTMLElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const initialSeekAppliedKeyRef = useRef<string>("");
   const [ready, setReady] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
@@ -25,7 +29,7 @@ export function ImmersivePlayer({
   const { t, i18n } = useTranslation();
   const lang = i18n.language as AppLanguage;
 
-  const { isEpisodeUnlocked, episodeIndex, setEpisodeIndex, saveProgress, getProgress } =
+  const { isEpisodeUnlocked, episodeIndex, setEpisodeIndex, saveProgress, getProgress, resetProgress } =
     usePlayerStore();
 
   const locked = isEpisodeLocked(series, episode);
@@ -33,7 +37,7 @@ export function ImmersivePlayer({
   const initialSeek = useMemo(
     () => getProgress(series.id, episode.index),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [series.id, episode.index]
+    [series.id, episode.index, sessionKey]
   );
 
   /** 延后拉订阅套餐，避免与首帧视频抢带宽/主线程 */
@@ -55,14 +59,32 @@ export function ImmersivePlayer({
   useEffect(() => {
     setReady(false);
     setLoadFailed(false);
-  }, [episode.id]);
+    initialSeekAppliedKeyRef.current = "";
+  }, [episode.id, sessionKey]);
+
+  useEffect(() => {
+    const syncFullscreen = () => {
+      const fs = document.fullscreenElement;
+      const onPlayer =
+        !!playerRootRef.current && (fs === playerRootRef.current || playerRootRef.current.contains(fs));
+      const onVideo = fs === videoRef.current;
+      document.body.classList.toggle("player-immersive-fullscreen", onPlayer || onVideo);
+      document.body.classList.toggle("player-native-video-fullscreen", onVideo);
+    };
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    return () => {
+      document.removeEventListener("fullscreenchange", syncFullscreen);
+      document.body.classList.remove("player-immersive-fullscreen");
+      document.body.classList.remove("player-native-video-fullscreen");
+    };
+  }, []);
 
   useEffect(() => {
     if (!unlocked) return;
     const id = window.setInterval(() => {
       const seconds = videoRef.current?.currentTime ?? 0;
       saveProgress(series.id, episode.index, seconds);
-    }, 1500);
+    }, 3000);
     return () => window.clearInterval(id);
   }, [episode.index, saveProgress, series.id, unlocked]);
 
@@ -74,6 +96,7 @@ export function ImmersivePlayer({
   };
 
   const handleEnded = () => {
+    resetProgress(series.id, episode.index);
     goNext();
   };
 
@@ -81,9 +104,16 @@ export function ImmersivePlayer({
     setLoadFailed(false);
     setReady(true);
     if (!unlocked) return;
-    if (initialSeek > 0) {
+    const seekKey = `${episode.id}::${playbackUrl}`;
+    if (initialSeek > 0 && initialSeekAppliedKeyRef.current !== seekKey) {
+      initialSeekAppliedKeyRef.current = seekKey;
       try {
-        if (videoRef.current) videoRef.current.currentTime = initialSeek;
+        if (videoRef.current) {
+          const current = videoRef.current.currentTime ?? 0;
+          if (Math.abs(current - initialSeek) > 1) {
+            videoRef.current.currentTime = initialSeek;
+          }
+        }
       } catch {
         // ignore
       }
@@ -211,29 +241,38 @@ export function ImmersivePlayer({
     };
   }, [hls, playbackUrl, unlocked, episode.id]);
 
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !unlocked) return;
+    video.muted = true;
+    void video.play().catch(() => {
+      // Keep manual controls as fallback when autoplay is blocked.
+    });
+  }, [episode.id, playbackUrl, unlocked]);
+
   return (
-    <section className="relative h-full w-full min-h-0">
+    <section
+      ref={playerRootRef}
+      className="immersive-player-root relative h-full w-full min-h-0"
+    >
       <div className="relative h-full w-full min-h-0 overflow-hidden rounded-none border-0 bg-[#000000] shadow-none ring-0">
         <video
           ref={videoRef}
-          className="h-full w-full object-cover"
+          className="immersive-video-el h-full w-full object-cover"
           src={hls ? undefined : playbackUrl}
           controls={unlocked}
           playsInline
           muted
+          controlsList="nodownload noremoteplayback"
+          disablePictureInPicture
+          disableRemotePlayback
           autoPlay={unlocked}
           preload={unlocked ? "auto" : "metadata"}
           onCanPlay={handleReady}
           onError={handleLoadError}
           onEnded={handleEnded}
-          onTimeUpdate={() => {
-            if (!unlocked) return;
-            const seconds = videoRef.current?.currentTime ?? 0;
-            saveProgress(series.id, episode.index, seconds);
-          }}
           style={locked ? { pointerEvents: "none" } : undefined}
         />
-
         {locked && (
           <LockedOverlay onUnlock={() => setSubscriptionModalOpen(true)} />
         )}

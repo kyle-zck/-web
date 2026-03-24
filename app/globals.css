@@ -300,3 +300,100 @@ body {
     transform: scaleY(1);
   }
 }
+
+/* Fullscreen player-only immersive mode (native fullscreen button). */
+.immersive-player-root:fullscreen,
+.immersive-player-root:-webkit-full-screen,
+.immersive-player-root video:fullscreen,
+.immersive-player-root video:-webkit-full-screen {
+  background: #000 !important;
+}
+
+.immersive-player-root:fullscreen,
+.immersive-player-root:-webkit-full-screen {
+  width: 100vw !important;
+  height: 100dvh !important;
+}
+
+.immersive-player-root:fullscreen > div,
+.immersive-player-root:-webkit-full-screen > div {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  background: #000 !important;
+}
+
+.immersive-player-root:fullscreen video,
+.immersive-player-root:-webkit-full-screen video,
+.immersive-player-root video:fullscreen,
+.immersive-player-root video:-webkit-full-screen {
+  width: min(calc(100dvh * 9 / 16), 100vw) !important;
+  height: 100dvh !important;
+  max-width: min(calc(100dvh * 9 / 16), 100vw) !important;
+  object-fit: contain !important;
+  background: #000 !important;
+  margin: 0 auto !important;
+}
+
+/* Explicit class fallback for browsers where :fullscreen styles on video are inconsistent. */
+body.player-immersive-fullscreen .immersive-player-root,
+body.player-immersive-fullscreen .immersive-player-root > div {
+  width: 100vw !important;
+  height: 100dvh !important;
+  background: #000 !important;
+}
+
+body.player-immersive-fullscreen .immersive-video-el {
+  width: min(calc(100dvh * 9 / 16), 100vw) !important;
+  height: 100dvh !important;
+  max-width: min(calc(100dvh * 9 / 16), 100vw) !important;
+  object-fit: contain !important;
+  margin: 0 auto !important;
+}
+
+body:has(.immersive-player-root:fullscreen) header,
+body:has(.immersive-player-root:-webkit-full-screen) header,
+body:has(.immersive-player-root video:fullscreen) header,
+body:has(.immersive-player-root video:-webkit-full-screen) header {
+  display: none !important;
+}
+
+body:has(.immersive-player-root:fullscreen) .immersive-info-panel,
+body:has(.immersive-player-root:-webkit-full-screen) .immersive-info-panel,
+body:has(.immersive-player-root video:fullscreen) .immersive-info-panel,
+body:has(.immersive-player-root video:-webkit-full-screen) .immersive-info-panel {
+  display: none !important;
+}
+
+body:has(.immersive-player-root:fullscreen) .immersive-player-shell,
+body:has(.immersive-player-root:-webkit-full-screen) .immersive-player-shell,
+body:has(.immersive-player-root video:fullscreen) .immersive-player-shell,
+body:has(.immersive-player-root video:-webkit-full-screen) .immersive-player-shell {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  margin: 0 !important;
+  border: 0 !important;
+  z-index: 9999 !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  background: #000 !important;
+}
+
+body:has(.immersive-player-root:fullscreen) .player-feedback-fab,
+body:has(.immersive-player-root:-webkit-full-screen) .player-feedback-fab,
+body:has(.immersive-player-root video:fullscreen) .player-feedback-fab,
+body:has(.immersive-player-root video:-webkit-full-screen) .player-feedback-fab {
+  display: none !important;
+}
+
+/* Fallback class-based immersive mode, synced by fullscreenchange */
+body.player-immersive-fullscreen header,
+body.player-immersive-fullscreen .immersive-info-panel,
+body.player-immersive-fullscreen .player-feedback-fab {
+  display: none !important;
+}

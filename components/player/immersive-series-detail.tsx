@@ -107,7 +107,14 @@ function ShareButton({ title, compact }: { title: string; compact?: boolean }) {
 }
 
 export function ImmersiveSeriesDetail({ series }: { series: Series }) {
-  const { setSeries, episodeIndex, setEpisodeIndex, isEpisodeUnlocked } = usePlayerStore();
+  const {
+    setSeries,
+    episodeIndex,
+    setEpisodeIndex,
+    isEpisodeUnlocked,
+    getProgress,
+    resetProgress
+  } = usePlayerStore();
   const { has: isFavorited, toggle: toggleFavorite, seriesIds } = useFavoritesStore();
   const { has: isLiked, toggle: toggleLike } = useLikesStore();
   const { isLoggedIn, userId, supabaseUserId } = useUserStore();
@@ -120,6 +127,7 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
   const [plotExpanded, setPlotExpanded] = useState(false);
   const [episodeTab, setEpisodeTab] = useState(0);
   const [allEpisodesOpen, setAllEpisodesOpen] = useState(false);
+  const [playerSessionKey, setPlayerSessionKey] = useState(0);
 
   const lockStartIndex = series.lockStartIndex ?? 4;
 
@@ -182,11 +190,32 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
     return series.episodes.filter((e) => e.index >= tab.start && e.index <= tab.end);
   }, [series.episodes, tabs, episodeTab]);
 
+  const parseEpisodeDurationSeconds = (durationText?: string): number | null => {
+    if (!durationText) return null;
+    const parts = durationText.split(":").map((v) => Number(v.trim()));
+    if (parts.some((n) => Number.isNaN(n) || n < 0)) return null;
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    return null;
+  };
+
+  const handleEpisodeSelect = (ep: Episode, closeAllEpisodes = false) => {
+    const saved = getProgress(series.id, ep.index);
+    const durationSec = parseEpisodeDurationSeconds(ep.duration);
+    if (durationSec && saved >= Math.max(1, durationSec - 2)) {
+      resetProgress(series.id, ep.index);
+    }
+    setEpisodeIndex(ep.index);
+    // Force player to re-evaluate resume/replay even when clicking same episode.
+    setPlayerSessionKey((k) => k + 1);
+    if (closeAllEpisodes) setAllEpisodesOpen(false);
+  };
+
   return (
     <>
-      <div className="flex h-full min-h-0 flex-col bg-black pb-16">
+      <div className="immersive-series-page flex h-full min-h-0 flex-col bg-black pb-16">
         {/* 左侧：桌面端 fixed 固定，不随页面滚动；移动端正常流式布局 */}
-        <aside className="relative z-10 mb-6 flex w-full shrink-0 justify-center bg-black lg:fixed lg:left-0 lg:top-20 lg:mb-0 lg:h-[calc(100dvh-5rem)] lg:w-[65vw] lg:overflow-hidden lg:border-r lg:border-zinc-900">
+        <aside className="immersive-player-shell relative z-10 mb-6 flex w-full shrink-0 justify-center bg-black lg:fixed lg:left-0 lg:top-20 lg:mb-0 lg:h-[calc(100dvh-5rem)] lg:w-[65vw] lg:overflow-hidden lg:border-r lg:border-zinc-900">
         <div className="relative flex h-full w-full items-center justify-center px-3 py-4 lg:px-4 lg:py-0">
           <div className="relative h-full w-auto max-w-full shrink-0 aspect-[9/16]">
               <button
@@ -197,12 +226,16 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
               >
                 ←
               </button>
-              <ImmersivePlayer series={series} episode={episode} />
+              <ImmersivePlayer
+                series={series}
+                episode={episode}
+                sessionKey={playerSessionKey}
+              />
             </div>
           </div>
         </aside>
 
-        <div className="w-full min-w-0 flex-1 overflow-y-auto px-5 pb-16 pt-5 lg:ml-[65vw] lg:h-full lg:min-h-0 lg:w-[35vw] lg:px-6 lg:pt-7">
+        <div className="immersive-info-panel w-full min-w-0 flex-1 overflow-y-auto px-5 pb-16 pt-5 lg:ml-[65vw] lg:h-full lg:min-h-0 lg:w-[35vw] lg:px-6 lg:pt-7">
           <nav className="text-sm text-zinc-500">
             <Link href="/" className="hover:text-zinc-200">
               {t("nav.home")}
@@ -391,7 +424,7 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
                       key={ep.id}
                       type="button"
                       onClick={() => {
-                        setEpisodeIndex(ep.index);
+                        handleEpisodeSelect(ep);
                         if (isLockedCandidate) {
                           setAllEpisodesOpen(false);
                         }
@@ -451,8 +484,7 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
                   key={ep.id}
                   type="button"
                   onClick={() => {
-                    setEpisodeIndex(ep.index);
-                    setAllEpisodesOpen(false);
+                    handleEpisodeSelect(ep, true);
                   }}
                   className={cn(
                     "relative flex aspect-[5/4] items-center justify-center rounded-md border text-base font-semibold transition-colors",
@@ -489,7 +521,7 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
       {/* 右下角客服 / 反馈小头像浮标 */}
       <button
         type="button"
-        className="fixed bottom-6 right-6 z-40 flex h-11 w-11 items-center justify-center rounded-full bg-zinc-900 text-sm text-white ring-2 ring-zinc-700 shadow-lg shadow-black/70"
+        className="player-feedback-fab fixed bottom-6 right-6 z-40 flex h-11 w-11 items-center justify-center rounded-full bg-zinc-900 text-sm text-white ring-2 ring-zinc-700 shadow-lg shadow-black/70"
         aria-label="feedback"
       >
         🙂

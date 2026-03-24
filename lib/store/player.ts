@@ -29,6 +29,7 @@ interface PlayerState {
   getDaysRemaining: () => number;
   saveProgress: (seriesId: SeriesId, episodeIndex: number, seconds: number) => void;
   getProgress: (seriesId: SeriesId, episodeIndex: number) => number;
+  resetProgress: (seriesId: SeriesId, episodeIndex: number) => void;
 }
 
 export const usePlayerStore = create<PlayerState>()(
@@ -77,10 +78,14 @@ export const usePlayerStore = create<PlayerState>()(
 
       saveProgress: (seriesId, episodeIndex, seconds) => {
         const key: ProgressKey = `${seriesId}::${episodeIndex}`;
+        const next = Math.max(0, Math.floor(seconds));
+        const current = get().progressSeconds[key] ?? 0;
+        // Reduce frequent persist writes to avoid playback jank in local runtime.
+        if (next <= current || next - current < 2) return;
         set((s) => ({
           progressSeconds: {
             ...s.progressSeconds,
-            [key]: Math.max(0, Math.floor(seconds))
+            [key]: next
           }
         }));
       },
@@ -88,6 +93,16 @@ export const usePlayerStore = create<PlayerState>()(
       getProgress: (seriesId, episodeIndex) => {
         const key: ProgressKey = `${seriesId}::${episodeIndex}`;
         return get().progressSeconds[key] ?? 0;
+      },
+
+      resetProgress: (seriesId, episodeIndex) => {
+        const key: ProgressKey = `${seriesId}::${episodeIndex}`;
+        set((s) => ({
+          progressSeconds: {
+            ...s.progressSeconds,
+            [key]: 0
+          }
+        }));
       }
     }),
     {
