@@ -106,7 +106,11 @@ export function ImmersivePlayer({
   };
 
   const handleEnded = () => {
-    resetProgress(series.id, episode.index);
+    // 确保“看完”的最终进度也会写入本地进度（Profile 同步到后台依赖 progressSeconds>0）
+    if (unlocked && videoRef.current) {
+      const seconds = videoRef.current.currentTime ?? 0;
+      saveProgress(series.id, episode.index, seconds);
+    }
     goNext();
   };
 

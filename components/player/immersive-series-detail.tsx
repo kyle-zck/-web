@@ -307,16 +307,16 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
                 const wasCollected = isFavorited(series.id);
                 toggleFavorite(series.id);
                 setCollectionCount((c) => Math.max(0, wasCollected ? c - 1 : c + 1));
-                if (isLoggedIn && userId) {
-                  const next = wasCollected
-                    ? seriesIds.filter((id) => id !== series.id)
-                    : [...seriesIds, series.id];
-                  fetch("/api/user/favorites", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ clientId: userId, seriesIds: next })
-                  }).catch(() => {});
-                }
+                const clientId = userId ?? supabaseUserId ?? getOrCreateDeviceClientId();
+                if (!clientId) return;
+                const next = wasCollected
+                  ? seriesIds.filter((id) => id !== series.id)
+                  : [...seriesIds, series.id];
+                fetch("/api/user/favorites", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ clientId, seriesIds: next })
+                }).catch(() => {});
               }}
               className="flex min-w-0 flex-1 items-center justify-center gap-1.5 transition-colors hover:text-brand sm:gap-2"
             >
@@ -340,17 +340,17 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
                 const wasLiked = isLiked(series.id);
                 toggleLike(series.id);
                 setLikesCount((c) => Math.max(0, wasLiked ? c - 1 : c + 1));
-                if (isLoggedIn && userId) {
-                  fetch("/api/user/likes", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      clientId: userId,
-                      seriesId: series.id,
-                      liked: !wasLiked
-                    })
-                  }).catch(() => {});
-                }
+                const clientId = userId ?? supabaseUserId ?? getOrCreateDeviceClientId();
+                if (!clientId) return;
+                fetch("/api/user/likes", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    clientId,
+                    seriesId: series.id,
+                    liked: !wasLiked
+                  })
+                }).catch(() => {});
               }}
               className="flex min-w-0 flex-1 items-center justify-center gap-1.5 transition-colors hover:text-brand sm:gap-2"
             >

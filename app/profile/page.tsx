@@ -15,6 +15,7 @@ import { getSeriesI18nText } from "@/lib/i18n/seriesText";
 import { tagLabel } from "@/lib/i18n/tagKey";
 import { stubEpisodeForProgress } from "@/lib/series/slim-public";
 import { getSeriesArtworkChain } from "@/lib/series/artwork";
+import { getOrCreateDeviceClientId } from "@/lib/client/device-client-id";
 
 type TabId = "history" | "mylist" | "wallet";
 
@@ -89,7 +90,8 @@ export default function ProfilePage() {
 
   // 同步本地数据到管理后台，并从管理后台拉取
   useEffect(() => {
-    if (!isLoggedIn || !userId) return;
+    const clientId = userId ?? getOrCreateDeviceClientId();
+    if (!clientId) return;
 
     const entries: WatchHistoryEntry[] = Object.entries(progressSeconds)
       .filter(([, s]) => s > 0)
@@ -105,9 +107,9 @@ export default function ProfilePage() {
     fetch("/api/user/history", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId: userId, entries })
+      body: JSON.stringify({ clientId, entries })
     })
-      .then(() => fetch(`/api/user/history?clientId=${encodeURIComponent(userId)}`))
+      .then(() => fetch(`/api/user/history?clientId=${encodeURIComponent(clientId)}`))
       .then((r) => r.json())
       .then((json) => {
         if (json?.ok && Array.isArray(json.entries)) {
@@ -121,9 +123,9 @@ export default function ProfilePage() {
     fetch("/api/user/favorites", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId: userId, seriesIds: localFavoriteIds })
+      body: JSON.stringify({ clientId, seriesIds: localFavoriteIds })
     })
-      .then(() => fetch(`/api/user/favorites?clientId=${encodeURIComponent(userId)}`))
+      .then(() => fetch(`/api/user/favorites?clientId=${encodeURIComponent(clientId)}`))
       .then((r) => r.json())
       .then((json) => {
         if (json?.ok && Array.isArray(json.seriesIds)) {
@@ -133,7 +135,7 @@ export default function ProfilePage() {
         }
       })
       .catch(() => setFavoriteSeriesIds(localFavoriteIds));
-  }, [isLoggedIn, userId, progressSeconds, localFavoriteIds]);
+  }, [userId, progressSeconds, localFavoriteIds]);
 
   useEffect(() => {
     if (activeTab === "wallet" && userId) {
@@ -149,14 +151,15 @@ export default function ProfilePage() {
   }, [activeTab, userId]);
 
   const watchedHistory = useMemo(() => {
-    const entries = isLoggedIn ? watchHistoryEntries : (
+    // History 同步后优先展示服务端口径；无服务端数据时回落到本地 progressSeconds。
+    const entries =
+      (watchHistoryEntries.length > 0 ? watchHistoryEntries : null) ??
       Object.entries(progressSeconds)
         .filter(([, s]) => s > 0)
         .map(([key, seconds]) => {
           const [seriesId, idx] = key.split("::");
           return { seriesId, episodeIndex: Number(idx), seconds };
-        })
-    );
+        });
     return entries
       .map((e) => {
         const series = seriesList.find((s) => s.id === e.seriesId);
@@ -172,7 +175,7 @@ export default function ProfilePage() {
       episode: Series["episodes"][number];
       seconds: number;
     }>;
-  }, [isLoggedIn, watchHistoryEntries, progressSeconds, seriesList]);
+  }, [watchHistoryEntries, progressSeconds, seriesList]);
 
   const favoriteSeries = useMemo(() => {
     const ids = isLoggedIn ? favoriteSeriesIds : localFavoriteIds;
