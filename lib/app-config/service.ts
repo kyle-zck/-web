@@ -23,7 +23,9 @@ function skipPgDuringNextBuild(): boolean {
 
 export function shouldUsePgStorage(): boolean {
   if (skipPgDuringNextBuild()) return false;
-  return process.env.SERIES_STORAGE === "pg" && Boolean(getDatabaseUrl());
+  // 线上只要配置了 DATABASE_URL 就优先入库，避免因 SERIES_STORAGE 未设为 pg
+  // 回退到只读文件系统导致保存失败。
+  return Boolean(getDatabaseUrl());
 }
 
 function cloneDefault(): Record<string, unknown> {

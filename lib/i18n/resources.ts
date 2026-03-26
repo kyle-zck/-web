@@ -742,7 +742,9 @@ export const resources: Record<AppLanguage, any> = {
           "Direct upload failed. Check R2 CORS/credentials, or use HTTPS URL import in episode editor.",
         apiErrCategoryExists: "Category already exists.",
         apiErrI18nTagNotFound: "Tag not found.",
-        apiErrUnknownAction: "Unknown action."
+        apiErrUnknownAction: "Unknown action.",
+        apiErrLoadFailed: "Load failed, please retry.",
+        apiErrSaveFailed: "Save failed, please retry."
       }
     }
   },
@@ -1483,7 +1485,9 @@ export const resources: Record<AppLanguage, any> = {
           "直传失败，请检查 R2 CORS/密钥配置，或改用分集编辑里的 HTTPS 地址导入。",
         apiErrCategoryExists: "类别已存在",
         apiErrI18nTagNotFound: "未找到标签",
-        apiErrUnknownAction: "未知操作"
+        apiErrUnknownAction: "未知操作",
+        apiErrLoadFailed: "加载失败，请重试",
+        apiErrSaveFailed: "保存失败，请重试"
       }
     }
   }

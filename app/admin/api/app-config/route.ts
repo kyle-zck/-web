@@ -13,7 +13,7 @@ export async function GET() {
     return NextResponse.json({ ok: true, config });
   } catch (e) {
     console.error("[admin app-config] GET", e);
-    return NextResponse.json({ ok: false, error: "load_failed" }, { status: 500 });
+    return NextResponse.json({ ok: false, errorKey: "apiErrLoadFailed" }, { status: 500 });
   }
 }
 
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, config: next });
   } catch (e) {
     console.error("[admin app-config] POST", e);
-    return NextResponse.json({ ok: false, error: "save_failed" }, { status: 500 });
+    return NextResponse.json({ ok: false, errorKey: "apiErrSaveFailed" }, { status: 500 });
   }
 }
 
@@ -39,6 +39,6 @@ export async function PUT(req: Request) {
     return NextResponse.json({ ok: true, config: next });
   } catch (e) {
     console.error("[admin app-config] PUT", e);
-    return NextResponse.json({ ok: false, error: "save_failed" }, { status: 500 });
+    return NextResponse.json({ ok: false, errorKey: "apiErrSaveFailed" }, { status: 500 });
   }
 }
