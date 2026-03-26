@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { unstable_cache } from "next/cache";
+import { seriesDetailTag } from "@/lib/cache/cache-tags";
 import { getSeriesById } from "@/lib/series-repo";
+import { getEngagementCountsBatch } from "@/lib/user-repo";
 import { SeriesDetailClient } from "./series-detail-client";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +23,10 @@ function getCachedSeriesForDetailPage(id: string) {
   return unstable_cache(
     async () => getSeriesById(id),
     ["series-detail-page", id],
-    { revalidate: Math.max(5, detailRevalidate) }
+    {
+      revalidate: Math.max(5, detailRevalidate),
+      tags: [seriesDetailTag(id)]
+    }
   )();
 }
 
@@ -33,9 +38,16 @@ export default async function SeriesDetailPage({
   const series = await getCachedSeriesForDetailPage(params.id);
   if (!series) return notFound();
 
+  const initialEngagement =
+    (await getEngagementCountsBatch([params.id]))[params.id] ?? {
+      collectionCount: 0,
+      likesCount: 0,
+      viewsCount: 0
+    };
+
   return (
     <main className="h-full min-h-0 overflow-hidden lg:flex lg:flex-col">
-      <SeriesDetailClient series={series} />
+      <SeriesDetailClient series={series} initialEngagement={initialEngagement} />
     </main>
   );
 }

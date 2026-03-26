@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCollectionCount, getLikesCount, getViewsCount } from "@/lib/user-repo";
+import { getEngagementCountsBatch } from "@/lib/user-repo";
 
 export const dynamic = "force-dynamic";
 
@@ -21,21 +21,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, byId: {} });
   }
 
+  const batch = await getEngagementCountsBatch(ids);
   const byId: Record<
     string,
     { collectionCount: number; likesCount: number; viewsCount: number }
   > = {};
-
-  await Promise.all(
-    ids.map(async (seriesId) => {
-      const [collectionCount, likesCount, viewsCount] = await Promise.all([
-        getCollectionCount(seriesId),
-        getLikesCount(seriesId),
-        getViewsCount(seriesId)
-      ]);
-      byId[seriesId] = { collectionCount, likesCount, viewsCount };
-    })
-  );
+  for (const seriesId of ids) {
+    byId[seriesId] =
+      batch[seriesId] ?? { collectionCount: 0, likesCount: 0, viewsCount: 0 };
+  }
 
   return NextResponse.json({ ok: true, byId });
 }

@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import {
+  invalidateEngagementEverywhere,
+  invalidateSeriesCatalogCaches
+} from "@/lib/cache/invalidate-data-cache";
 import { requireAdminSession } from "@/lib/admin/auth";
 import { validateTagsAgainstCatalog } from "@/lib/drama-tag-catalog/validate";
 import { deleteSeries, updateSeries } from "@/lib/series-repo";
@@ -9,7 +13,10 @@ export async function DELETE(
 ) {
   const unauth = await requireAdminSession();
   if (unauth) return unauth;
-  await deleteSeries(params.id);
+  const id = params.id;
+  await deleteSeries(id);
+  invalidateSeriesCatalogCaches(id);
+  await invalidateEngagementEverywhere([id]);
   return NextResponse.json({ ok: true });
 }
 
@@ -49,6 +56,7 @@ export async function PATCH(
     tags: body.tags
   });
   if (!series) return NextResponse.json({ ok: false }, { status: 404 });
+  invalidateSeriesCatalogCaches(params.id);
   return NextResponse.json({ ok: true, series });
 }
 

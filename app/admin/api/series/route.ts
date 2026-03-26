@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { invalidateSeriesCatalogCaches } from "@/lib/cache/invalidate-data-cache";
 import { requireAdminSession } from "@/lib/admin/auth";
 import { validateTagsAgainstCatalog } from "@/lib/drama-tag-catalog/validate";
 import { createSeries, getAllSeries } from "@/lib/series-repo";
@@ -91,6 +92,7 @@ export async function POST(req: Request) {
       localOrTranslated
     });
 
+    invalidateSeriesCatalogCaches(series.id);
     return NextResponse.json({ ok: true, series });
   } catch (err) {
     const message =

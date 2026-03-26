@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AuthModal } from "@/components/ui/auth-modal";
@@ -15,6 +15,7 @@ import { getSeriesI18nText } from "@/lib/i18n/seriesText";
 import { tagLabel } from "@/lib/i18n/tagKey";
 import { stubEpisodeForProgress } from "@/lib/series/slim-public";
 import { getSeriesArtworkChain } from "@/lib/series/artwork";
+import { PosterImage } from "@/components/ui/poster-image";
 import { getOrCreateDeviceClientId } from "@/lib/client/device-client-id";
 
 type TabId = "history" | "mylist" | "wallet";
@@ -51,7 +52,7 @@ function formatUsd(price: number) {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { isLoggedIn, userId, uid, logout, fetchUid } = useUserStore();
+  const { isLoggedIn, userId, supabaseUserId, uid, logout, fetchUid } = useUserStore();
   const {
     isSubscribed,
     subscriptionTier,
@@ -70,6 +71,8 @@ export default function ProfilePage() {
   const [rechargeRecords, setRechargeRecords] = useState<RechargeRecord[]>([]);
   const [watchHistoryEntries, setWatchHistoryEntries] = useState<WatchHistoryEntry[]>([]);
   const [favoriteSeriesIds, setFavoriteSeriesIds] = useState<string[]>([]);
+  const lastHistorySyncRef = useRef("");
+  const lastFavoritesSyncRef = useRef("");
 
   useEffect(() => {
     fetch("/api/series?lite=1")
@@ -83,14 +86,12 @@ export default function ProfilePage() {
   }, []);
 
   useEffect(() => {
-    if (isLoggedIn && userId) {
-      fetchUid().then(() => {});
-    }
+    fetchUid().then(() => {});
   }, [isLoggedIn, userId, fetchUid]);
 
   // 同步本地数据到管理后台，并从管理后台拉取
   useEffect(() => {
-    const clientId = userId ?? getOrCreateDeviceClientId();
+    const clientId = supabaseUserId ?? getOrCreateDeviceClientId();
     if (!clientId) return;
 
     const entries: WatchHistoryEntry[] = Object.entries(progressSeconds)
@@ -104,42 +105,65 @@ export default function ProfilePage() {
         };
       });
 
-    fetch("/api/user/history", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId, entries })
-    })
-      .then(() => fetch(`/api/user/history?clientId=${encodeURIComponent(clientId)}`))
-      .then((r) => r.json())
-      .then((json) => {
-        if (json?.ok && Array.isArray(json.entries)) {
-          setWatchHistoryEntries(json.entries);
-        } else {
-          setWatchHistoryEntries(entries);
-        }
-      })
-      .catch(() => setWatchHistoryEntries(entries));
+    const historyPayload = JSON.stringify({ clientId, entries });
+    const favoritesPayload = JSON.stringify({ clientId, seriesIds: localFavoriteIds });
+    if (
+      historyPayload === lastHistorySyncRef.current &&
+      favoritesPayload === lastFavoritesSyncRef.current
+    ) {
+      return;
+    }
+    lastHistorySyncRef.current = historyPayload;
+    lastFavoritesSyncRef.current = favoritesPayload;
 
-    fetch("/api/user/favorites", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId, seriesIds: localFavoriteIds })
-    })
-      .then(() => fetch(`/api/user/favorites?clientId=${encodeURIComponent(clientId)}`))
-      .then((r) => r.json())
-      .then((json) => {
-        if (json?.ok && Array.isArray(json.seriesIds)) {
-          setFavoriteSeriesIds(json.seriesIds);
-        } else {
-          setFavoriteSeriesIds(localFavoriteIds);
-        }
+    const ctrl = new AbortController();
+    const timer = window.setTimeout(() => {
+      fetch("/api/user/history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: historyPayload,
+        signal: ctrl.signal
       })
-      .catch(() => setFavoriteSeriesIds(localFavoriteIds));
-  }, [userId, progressSeconds, localFavoriteIds]);
+        .then(() => fetch(`/api/user/history?clientId=${encodeURIComponent(clientId)}`, { signal: ctrl.signal }))
+        .then((r) => r.json())
+        .then((json) => {
+          if (json?.ok && Array.isArray(json.entries)) {
+            setWatchHistoryEntries(json.entries);
+          } else {
+            setWatchHistoryEntries(entries);
+          }
+        })
+        .catch(() => setWatchHistoryEntries(entries));
+
+      fetch("/api/user/favorites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: favoritesPayload,
+        signal: ctrl.signal
+      })
+        .then(() => fetch(`/api/user/favorites?clientId=${encodeURIComponent(clientId)}`, { signal: ctrl.signal }))
+        .then((r) => r.json())
+        .then((json) => {
+          if (json?.ok && Array.isArray(json.seriesIds)) {
+            setFavoriteSeriesIds(json.seriesIds);
+          } else {
+            setFavoriteSeriesIds(localFavoriteIds);
+          }
+        })
+        .catch(() => setFavoriteSeriesIds(localFavoriteIds));
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timer);
+      ctrl.abort();
+    };
+  }, [supabaseUserId, progressSeconds, localFavoriteIds]);
 
   useEffect(() => {
-    if (activeTab === "wallet" && userId) {
-      fetch(`/api/user/recharge?clientId=${encodeURIComponent(userId)}`)
+    if (activeTab === "wallet") {
+      const clientId = supabaseUserId ?? getOrCreateDeviceClientId();
+      if (!clientId) return;
+      fetch(`/api/user/recharge?clientId=${encodeURIComponent(clientId)}`)
         .then((r) => r.json())
         .then((json) => {
           if (json?.ok && Array.isArray(json.records)) {
@@ -148,7 +172,12 @@ export default function ProfilePage() {
         })
         .catch(() => setRechargeRecords([]));
     }
-  }, [activeTab, userId]);
+  }, [activeTab, supabaseUserId]);
+
+  const seriesById = useMemo(
+    () => new Map(seriesList.map((s) => [s.id, s] as const)),
+    [seriesList]
+  );
 
   const watchedHistory = useMemo(() => {
     // History 同步后优先展示服务端口径；无服务端数据时回落到本地 progressSeconds。
@@ -162,7 +191,7 @@ export default function ProfilePage() {
         });
     return entries
       .map((e) => {
-        const series = seriesList.find((s) => s.id === e.seriesId);
+        const series = seriesById.get(e.seriesId);
         if (!series) return null;
         const episode =
           series.episodes.find((ep) => ep.index === e.episodeIndex) ??
@@ -175,11 +204,12 @@ export default function ProfilePage() {
       episode: Series["episodes"][number];
       seconds: number;
     }>;
-  }, [watchHistoryEntries, progressSeconds, seriesList]);
+  }, [watchHistoryEntries, progressSeconds, seriesById]);
 
   const favoriteSeries = useMemo(() => {
     const ids = isLoggedIn ? favoriteSeriesIds : localFavoriteIds;
-    return seriesList.filter((s) => ids.includes(s.id));
+    const idSet = new Set(ids);
+    return seriesList.filter((s) => idSet.has(s.id));
   }, [isLoggedIn, favoriteSeriesIds, localFavoriteIds, seriesList]);
 
   const NAV: { id: TabId; labelKey: string; icon: string }[] = [
@@ -297,24 +327,11 @@ export default function ProfilePage() {
                     className="group w-full text-left"
                   >
                     <div className="relative poster-aspect overflow-hidden rounded-xl bg-zinc-900 transition-transform duration-200 group-hover:scale-[1.02] group-hover:shadow-[0_0_24px_rgba(229,9,20,0.25)]">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={artworkChain[0]}
+                      <PosterImage
+                        chain={artworkChain}
                         alt={getSeriesI18nText(row.series, lang).title}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                        decoding="async"
-                        data-fallback-index={0}
-                        onError={(e) => {
-                          const img = e.currentTarget;
-                          const nextIndex = Number(img.dataset.fallbackIndex ?? "0") + 1;
-                          if (nextIndex >= artworkChain.length) {
-                            img.onerror = null;
-                            return;
-                          }
-                          img.dataset.fallbackIndex = String(nextIndex);
-                          img.src = artworkChain[nextIndex];
-                        }}
+                        sizes="(max-width:640px) 45vw, (max-width:1024px) 30vw, 200px"
+                        className="h-full w-full object-cover object-[center_22%]"
                       />
                       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent" />
                       <div className="pointer-events-none absolute bottom-0 left-0 right-0 p-3">
@@ -366,24 +383,11 @@ export default function ProfilePage() {
                     className="group w-full text-left"
                   >
                     <div className="relative poster-aspect overflow-hidden rounded-xl bg-zinc-900 transition-transform duration-200 group-hover:scale-[1.02] group-hover:shadow-[0_0_24px_rgba(229,9,20,0.25)]">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={artworkChain[0]}
+                      <PosterImage
+                        chain={artworkChain}
                         alt={getSeriesI18nText(series, lang).title}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                        decoding="async"
-                        data-fallback-index={0}
-                        onError={(e) => {
-                          const img = e.currentTarget;
-                          const nextIndex = Number(img.dataset.fallbackIndex ?? "0") + 1;
-                          if (nextIndex >= artworkChain.length) {
-                            img.onerror = null;
-                            return;
-                          }
-                          img.dataset.fallbackIndex = String(nextIndex);
-                          img.src = artworkChain[nextIndex];
-                        }}
+                        sizes="(max-width:640px) 45vw, (max-width:1024px) 30vw, 200px"
+                        className="h-full w-full object-cover object-[center_22%]"
                       />
                       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent" />
                       <div className="pointer-events-none absolute bottom-0 left-0 right-0 p-3">

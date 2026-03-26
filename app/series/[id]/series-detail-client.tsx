@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import type { Series } from "@/constants/mock-data";
+import type { EngagementCounts } from "@/lib/user-repo";
 import { SeriesDetailSkeleton } from "@/components/player/series-detail-skeleton";
 
 /** 拆 chunk：首包更小，点击 Play 后并行拉取播放页组件 */
@@ -14,6 +15,18 @@ const ImmersiveSeriesDetail = dynamic(
   }
 );
 
-export function SeriesDetailClient({ series }: { series: Series }) {
-  return <ImmersiveSeriesDetail series={series} />;
+export function SeriesDetailClient({
+  series,
+  initialEngagement
+}: {
+  series: Series;
+  initialEngagement?: EngagementCounts;
+}) {
+  return (
+    <ImmersiveSeriesDetail
+      key={series.id}
+      series={series}
+      initialEngagement={initialEngagement}
+    />
+  );
 }

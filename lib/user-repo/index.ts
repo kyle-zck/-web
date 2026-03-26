@@ -1,2 +1,9 @@
-export type { StoredUser, RechargeRecord, WatchHistoryEntry } from "./types";
+export type {
+  StoredUser,
+  AdminUserSafe,
+  AdminUserQuery,
+  RechargeRecord,
+  WatchHistoryEntry,
+  EngagementCounts
+} from "./types";
 export * from "./service";

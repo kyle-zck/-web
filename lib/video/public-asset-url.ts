@@ -4,6 +4,18 @@ function baseUrl(): string {
   return (process.env.S3_PUBLIC_BASE_URL ?? "").trim().replace(/\/+$/, "");
 }
 
+/**
+ * R2 公网 `.r2.dev` 直链在部分网络/客户端不稳定，视频与封面统一走本站代理（与播放链路一致）。
+ */
+export function proxifyR2DevMediaUrl(raw: string): string {
+  const src = raw.trim();
+  if (!src) return src;
+  if (/^https?:\/\/[^/]+\.r2\.dev\/.+/i.test(src)) {
+    return `/api/video/proxy?src=${encodeURIComponent(src)}`;
+  }
+  return src;
+}
+
 export function normalizeAssetUrl(url?: string): string | undefined {
   if (!url) return url;
   const raw = url.trim();

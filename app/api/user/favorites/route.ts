@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { invalidateEngagementEverywhere } from "@/lib/cache/invalidate-data-cache";
 import {
   getOrCreateUid,
   getUserFavorites,
@@ -28,7 +29,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const nextIds = seriesIds.filter((x): x is string => typeof x === "string" && x.length > 0);
+
   await getOrCreateUid(clientId);
-  await syncUserFavorites(clientId, seriesIds);
+  const prev = await getUserFavorites(clientId);
+  await syncUserFavorites(clientId, nextIds);
+  await invalidateEngagementEverywhere([...new Set([...prev, ...nextIds])]);
   return NextResponse.json({ ok: true });
 }

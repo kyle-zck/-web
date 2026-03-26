@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { invalidateEngagementEverywhere } from "@/lib/cache/invalidate-data-cache";
 import { getOrCreateUid, getViewsCount, recordSeriesView } from "@/lib/user-repo";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,10 @@ export async function POST(req: NextRequest) {
   }
 
   await getOrCreateUid(clientId);
-  await recordSeriesView(clientId, seriesId);
+  const isNewViewer = await recordSeriesView(clientId, seriesId);
+  if (isNewViewer) {
+    await invalidateEngagementEverywhere([seriesId]);
+  }
   const viewsCount = await getViewsCount(seriesId);
   return NextResponse.json({ ok: true, viewsCount });
 }

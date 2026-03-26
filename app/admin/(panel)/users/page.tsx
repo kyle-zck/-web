@@ -1,21 +1,68 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-interface StoredUser {
-  clientId: string;
+interface AdminUserSafe {
   uid: string;
   createdAt: string;
+  name: string;
+  email: string;
+  phone: string;
+  provider: "" | "google" | "facebook" | "apple";
+  lastLoginAt: string;
+  lastLoginIp: string;
+  status: "active" | "disabled";
+  membershipPlan: string;
+  membershipExpiresAt: string;
+  deviceType: "ios" | "android" | "web" | "unknown";
+  rechargeCount?: number;
+  rechargeTotalUsd?: number;
+  lastRechargeAt?: string;
+  rechargeRecent?: string[];
 }
 
 export default function AdminUsersPage() {
   const { t } = useTranslation();
-  const [users, setUsers] = useState<StoredUser[]>([]);
+  const [users, setUsers] = useState<AdminUserSafe[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uid, setUid] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [provider, setProvider] = useState<"" | "google" | "facebook" | "apple">("");
+  const [membershipPlan, setMembershipPlan] = useState("");
+  const [remainingSort, setRemainingSort] = useState<"" | "remainingAsc" | "remainingDesc">("");
+  const [planOptions, setPlanOptions] = useState<string[]>([]);
+
+  const qs = useMemo(() => {
+    const p = new URLSearchParams();
+    if (uid.trim()) p.set("uid", uid.trim());
+    if (name.trim()) p.set("name", name.trim());
+    if (email.trim()) p.set("email", email.trim());
+    if (provider) p.set("provider", provider);
+    if (membershipPlan.trim()) p.set("membershipPlan", membershipPlan.trim());
+    if (remainingSort) p.set("remainingSort", remainingSort);
+    const s = p.toString();
+    return s ? `?${s}` : "";
+  }, [uid, name, email, provider, membershipPlan, remainingSort]);
 
   useEffect(() => {
-    fetch("/admin/api/users")
+    fetch("/admin/api/app-config")
+      .then((r) => r.json())
+      .then((json) => {
+        const cfg = json?.config ?? json;
+        const plans = Array.isArray(cfg?.subscriptionPlans) ? cfg.subscriptionPlans : [];
+        const labels = plans
+          .map((x: any) => (typeof x?.label === "string" ? x.label : ""))
+          .filter(Boolean);
+        setPlanOptions(labels);
+      })
+      .catch(() => setPlanOptions([]));
+  }, []);
+
+  const load = () => {
+    setLoading(true);
+    fetch(`/admin/api/users${qs}`)
       .then((r) => r.json())
       .then((json) => {
         if (json?.ok && Array.isArray(json.users)) {
@@ -24,7 +71,30 @@ export default function AdminUsersPage() {
       })
       .catch(() => setUsers([]))
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qs]);
+
+  const providerLabel = (p: AdminUserSafe["provider"]) => {
+    if (p === "google") return "Google";
+    if (p === "facebook") return "Facebook";
+    if (p === "apple") return "Apple ID";
+    return t("admin.unnamed");
+  };
+
+  const remainingText = (expiresAtIso: string) => {
+    if (!expiresAtIso) return "-";
+    const ms = new Date(expiresAtIso).getTime() - Date.now();
+    if (!Number.isFinite(ms)) return "-";
+    const sign = ms < 0 ? "-" : "";
+    const abs = Math.abs(ms);
+    const days = Math.floor(abs / (24 * 3600 * 1000));
+    const hours = Math.floor((abs % (24 * 3600 * 1000)) / (3600 * 1000));
+    return `${sign}${days}d ${hours}h`;
+  };
 
   return (
     <div>
@@ -32,27 +102,151 @@ export default function AdminUsersPage() {
       <p className="mt-1 text-sm text-zinc-400">
         {t("admin.usersHint")}
       </p>
+
+      <div className="mt-5 flex flex-wrap items-end gap-3 rounded-xl border border-zinc-700/80 bg-zinc-900/50 p-4">
+        <label className="block">
+          <span className="block text-xs font-semibold text-zinc-400">UID</span>
+          <input
+            value={uid}
+            onChange={(e) => setUid(e.target.value)}
+            className="mt-1 w-44 rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500"
+            placeholder="UID"
+          />
+        </label>
+        <label className="block">
+          <span className="block text-xs font-semibold text-zinc-400">{t("admin.name")}</span>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="mt-1 w-56 rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500"
+            placeholder="Name"
+          />
+        </label>
+        <label className="block">
+          <span className="block text-xs font-semibold text-zinc-400">Email</span>
+          <input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="mt-1 w-64 rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500"
+            placeholder="Email"
+          />
+        </label>
+        <label className="block">
+          <span className="block text-xs font-semibold text-zinc-400">{t("admin.loginProvider")}</span>
+          <select
+            value={provider}
+            onChange={(e) => setProvider(e.target.value as any)}
+            className="mt-1 rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-white"
+          >
+            <option value="">{t("admin.allOption")}</option>
+            <option value="google">Google</option>
+            <option value="facebook">Facebook</option>
+            <option value="apple">Apple ID</option>
+          </select>
+        </label>
+        <label className="block">
+          <span className="block text-xs font-semibold text-zinc-400">{t("admin.membershipPlan")}</span>
+          <select
+            value={membershipPlan}
+            onChange={(e) => setMembershipPlan(e.target.value)}
+            className="mt-1 w-56 rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-white"
+          >
+            <option value="">{t("admin.allOption")}</option>
+            {planOptions.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <span className="block text-xs font-semibold text-zinc-400">{t("admin.remainingSort")}</span>
+          <select
+            value={remainingSort}
+            onChange={(e) => setRemainingSort(e.target.value as any)}
+            className="mt-1 rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-white"
+          >
+            <option value="">{t("admin.none")}</option>
+            <option value="remainingAsc">{t("admin.remainingAsc")}</option>
+            <option value="remainingDesc">{t("admin.remainingDesc")}</option>
+          </select>
+        </label>
+        <button
+          type="button"
+          onClick={load}
+          className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-red-600"
+        >
+          {t("admin.query")}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setUid("");
+            setName("");
+            setEmail("");
+            setProvider("");
+            setMembershipPlan("");
+            setRemainingSort("");
+          }}
+          className="rounded-lg border border-zinc-600 bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-100 hover:bg-zinc-700"
+        >
+          {t("admin.reset")}
+        </button>
+      </div>
+
       <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-700/80 bg-zinc-900/50">
         {loading ? (
           <div className="p-8 text-center text-zinc-500">{t("admin.loading")}</div>
         ) : users.length === 0 ? (
           <div className="p-8 text-center text-zinc-500">{t("admin.noUsersYet")}</div>
         ) : (
-          <table className="w-full min-w-[500px]">
+          <table className="w-full min-w-[1100px]">
             <thead>
               <tr className="border-b border-zinc-700/80">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.clientId")}</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">UID</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.name")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">Email</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.phone")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.loginProvider")}</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.created")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.lastLoginAt")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.lastLoginIp")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.accountStatus")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.membershipPlan")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.remainingTime")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.deviceType")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">Recharge</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">Recharge History</th>
               </tr>
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.clientId} className="border-b border-zinc-800/60 last:border-0">
-                  <td className="px-4 py-3 text-sm text-white">{u.clientId}</td>
+                <tr key={u.uid} className="border-b border-zinc-800/60 last:border-0">
                   <td className="px-4 py-3 text-sm font-mono font-semibold text-brand">{u.uid}</td>
+                  <td className="px-4 py-3 text-sm text-white">{u.name || "-"}</td>
+                  <td className="px-4 py-3 text-sm text-zinc-300">{u.email || "-"}</td>
+                  <td className="px-4 py-3 text-sm text-zinc-300">{u.phone || "-"}</td>
+                  <td className="px-4 py-3 text-sm text-zinc-300">{providerLabel(u.provider)}</td>
                   <td className="px-4 py-3 text-xs text-zinc-500">
                     {new Date(u.createdAt).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-zinc-500">
+                    {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : "-"}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-zinc-500">{u.lastLoginIp || "-"}</td>
+                  <td className="px-4 py-3 text-xs text-zinc-300">
+                    {u.status === "disabled" ? t("admin.statusDisabled") : t("admin.statusActive")}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-zinc-300">{u.membershipPlan || "-"}</td>
+                  <td className="px-4 py-3 text-xs text-zinc-300">{remainingText(u.membershipExpiresAt)}</td>
+                  <td className="px-4 py-3 text-xs text-zinc-300">{u.deviceType}</td>
+                  <td className="px-4 py-3 text-xs text-zinc-300">
+                    {u.rechargeCount ?? 0} / ${Number(u.rechargeTotalUsd ?? 0).toFixed(2)}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-zinc-400">
+                    {Array.isArray(u.rechargeRecent) && u.rechargeRecent.length > 0
+                      ? u.rechargeRecent.join(" | ")
+                      : "-"}
                   </td>
                 </tr>
               ))}

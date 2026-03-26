@@ -33,6 +33,19 @@ export interface AppConfigLegal {
   privacyUrl?: string;
 }
 
+export type StorePaymentMethod = {
+  id: string;
+  label: string;
+  icon: string;
+};
+
+export interface AppConfigStore {
+  title?: string;
+  subtitle?: string;
+  tips?: string[];
+  paymentMethods?: StorePaymentMethod[];
+}
+
 /**
  * 全站可配置项（公开 API 返回；含订阅套餐等敏感度低的展示数据）
  * 与旧版兼容：brandName + subscriptionPlans 为必填语义
@@ -46,4 +59,5 @@ export interface AppConfig {
   nav?: AppConfigNav;
   home?: AppConfigHome;
   legal?: AppConfigLegal;
+  store?: AppConfigStore;
 }

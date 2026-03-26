@@ -1,0 +1,43 @@
+{
+  // ============================================
+  // Cursor 自动索引配置
+  // ============================================
+  
+  // 启用代码库索引功能
+  "cursor.index.enabled": true,
+  "cursor.index.autoIndex": true,
+  
+  // 自动索引新仓库
+  "cursor.index.autoIndexNewRepos": true,
+  
+  // 文件监听配置（自动索引需要文件系统监听）
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/.DS_Store": true,
+    "**/.cursor/**": true,
+    "**/__pycache__/**": true,
+    "**/*.pyc": true,
+    "**/.pytest_cache/**": true
+  },
+  
+  // 搜索排除配置（这些文件不会被索引）
+  "search.exclude": {
+    "**/.DS_Store": true,
+    "**/node_modules": true,
+    "**/.git": true,
+    "**/.cursor": true,
+    "**/__pycache__": true,
+    "**/*.pyc": true
+  },
+  
+  // 文件关联配置（确保文件类型被正确识别）
+  "files.associations": {
+    "*.md": "markdown"
+  },
+  
+  // 自动保存（确保文件更改能被索引）
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 1000
+}

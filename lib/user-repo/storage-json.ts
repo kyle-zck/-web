@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import type { RechargeRecord, StoredUser, WatchHistoryEntry } from "./types";
+import type { EngagementCounts, RechargeRecord, StoredUser, WatchHistoryEntry } from "./types";
 
 const DATA_DIR = path.resolve(process.cwd(), "data");
 const USERS_PATH = path.join(DATA_DIR, "users.json");
@@ -104,6 +104,15 @@ export function getAllRechargeRecords(): RechargeRecord[] {
   return [...store.records].sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1));
 }
 
+export function deleteRechargeRecordById(id: string): RechargeRecord | null {
+  const store = readRecharge();
+  const idx = store.records.findIndex((r) => r.id === id);
+  if (idx < 0) return null;
+  const [removed] = store.records.splice(idx, 1);
+  writeRecharge(store);
+  return removed ?? null;
+}
+
 type WatchHistoryStore = { byClient: Record<string, WatchHistoryEntry[]> };
 
 function readWatchHistory(): WatchHistoryStore {
@@ -166,6 +175,35 @@ export function syncUserFavorites(clientId: string, seriesIds: string[]): void {
 
 export function getAllUserFavorites(): Record<string, string[]> {
   return readUserFavorites().byClient;
+}
+
+/** 各表各扫一遍 byClient，避免对每个 seriesId 重复读盘 */
+export function getEngagementCountsBatch(seriesIds: string[]): Record<string, EngagementCounts> {
+  const unique = [...new Set(seriesIds.filter((id) => id && id.length > 0))];
+  if (unique.length === 0) return {};
+
+  const idSet = new Set(unique);
+  const out: Record<string, EngagementCounts> = {};
+  for (const id of unique) {
+    out[id] = { collectionCount: 0, likesCount: 0, viewsCount: 0 };
+  }
+
+  for (const list of Object.values(readUserFavorites().byClient)) {
+    for (const sid of list) {
+      if (idSet.has(sid)) out[sid].collectionCount += 1;
+    }
+  }
+  for (const list of Object.values(readUserLikes().byClient)) {
+    for (const sid of list) {
+      if (idSet.has(sid)) out[sid].likesCount += 1;
+    }
+  }
+  for (const list of Object.values(readUserViews().byClient)) {
+    for (const sid of list) {
+      if (idSet.has(sid)) out[sid].viewsCount += 1;
+    }
+  }
+  return out;
 }
 
 export function getCollectionCount(seriesId: string): number {

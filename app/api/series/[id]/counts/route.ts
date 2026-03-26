@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCollectionCount, getLikesCount, getViewsCount } from "@/lib/user-repo";
+import { getEngagementCountsBatch } from "@/lib/user-repo";
 
 export const dynamic = "force-dynamic";
 
@@ -12,16 +12,17 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "seriesId required" }, { status: 400 });
   }
 
-  const [collectionCount, likesCount, viewsCount] = await Promise.all([
-    getCollectionCount(seriesId),
-    getLikesCount(seriesId),
-    getViewsCount(seriesId)
-  ]);
+  const row =
+    (await getEngagementCountsBatch([seriesId]))[seriesId] ?? {
+      collectionCount: 0,
+      likesCount: 0,
+      viewsCount: 0
+    };
 
   return NextResponse.json({
     ok: true,
-    collectionCount,
-    likesCount,
-    viewsCount
+    collectionCount: row.collectionCount,
+    likesCount: row.likesCount,
+    viewsCount: row.viewsCount
   });
 }

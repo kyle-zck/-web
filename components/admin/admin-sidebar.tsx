@@ -16,17 +16,18 @@ const DRAMA_MENU = [
   { href: "/admin/distribution", key: "distributionCenter" }
 ];
 
+const ASSET_NAV = [
+  { href: "/admin/users", key: "usersAndUid" },
+  { href: "/admin/config", key: "rechargeTemplateManagement" },
+  { href: "/admin/recharge", key: "rechargeRecords" },
+  { href: "/admin/views", key: "watchInfoManagement" },
+  { href: "/admin/access-list", key: "blackWhiteListManagement" }
+];
+
 const OTHER_NAV = [
   { href: "/admin", key: "dashboard" },
   { href: "/admin/site", key: "siteSettings" },
-  { href: "/admin/config", key: "subscriptionConfig" },
   { href: "/admin/security", key: "securityPassword" },
-  { href: "/admin/users", key: "usersAndUid" },
-  { href: "/admin/recharge", key: "rechargeRecords" },
-  { href: "/admin/history", key: "watchHistory" },
-  { href: "/admin/favorites", key: "userFavorites" },
-  { href: "/admin/likes", key: "userLikes" },
-  { href: "/admin/views", key: "userViews" }
 ];
 
 export function AdminSidebar() {
@@ -37,8 +38,12 @@ export function AdminSidebar() {
   const [dramaOpen, setDramaOpen] = useState(
     pathname.startsWith("/admin/series") || pathname.startsWith("/admin/distribution")
   );
+  const [assetOpen, setAssetOpen] = useState(
+    ASSET_NAV.some((m) => pathname === m.href || pathname.startsWith(m.href + "/"))
+  );
 
   const isDramaActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
+  const isAssetActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
   const isOtherActive = (href: string) =>
     href === "/admin" ? pathname === href : pathname.startsWith(href);
 
@@ -99,6 +104,48 @@ export function AdminSidebar() {
                   className={cn(
                     "block rounded-xl px-3 py-2 text-sm font-medium transition",
                     isDramaActive(item.href)
+                      ? "bg-brand/15 text-brand"
+                      : "text-zinc-400 hover:bg-zinc-900/50 hover:text-zinc-200"
+                  )}
+                >
+                  {t(`admin.${item.key}`)}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 资产管理 - 可折叠 */}
+        <div className="mt-4 border-t border-zinc-800/60 pt-4">
+          <button
+            type="button"
+            onClick={() => setAssetOpen(!assetOpen)}
+            className={cn(
+              "flex w-full items-center justify-between rounded-2xl px-3 py-2 text-sm font-semibold ring-1 ring-transparent transition",
+              assetOpen || ASSET_NAV.some((m) => isAssetActive(m.href))
+                ? "bg-brand/10 text-brand ring-brand/30"
+                : "text-zinc-300 hover:bg-zinc-900/60 hover:ring-zinc-800/80"
+            )}
+          >
+            {t("admin.assetManagement")}
+            <svg
+              className={cn("h-4 w-4 transition-transform", assetOpen && "rotate-180")}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {assetOpen && (
+            <div className="ml-3 mt-1 space-y-0.5 border-l border-zinc-800/80 pl-3">
+              {ASSET_NAV.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "block rounded-xl px-3 py-2 text-sm font-medium transition",
+                    isAssetActive(item.href)
                       ? "bg-brand/15 text-brand"
                       : "text-zinc-400 hover:bg-zinc-900/50 hover:text-zinc-200"
                   )}

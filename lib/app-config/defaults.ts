@@ -6,23 +6,32 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
   subscriptionPlans: [
     {
       id: "monthly",
+      templateName: "Monthly VIP",
       label: "Monthly VIP",
       priceUsd: 29.9,
       durationDays: 30,
+      discountPercent: 100,
+      discountDays: 0,
       paymentUrl: "/store?plan=monthly"
     },
     {
       id: "weekly",
+      templateName: "Weekly VIP",
       label: "Weekly VIP",
       priceUsd: 19.99,
       durationDays: 7,
+      discountPercent: 100,
+      discountDays: 0,
       paymentUrl: "/store?plan=weekly"
     },
     {
       id: "yearly",
+      templateName: "Yearly VIP",
       label: "Yearly VIP",
       priceUsd: 199.99,
       durationDays: 365,
+      discountPercent: 100,
+      discountDays: 0,
       paymentUrl: "/store?plan=yearly"
     }
   ],
@@ -47,4 +56,20 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     termsUrl: "",
     privacyUrl: "",
   },
+  store: {
+    title: "VIP Unlock all series for free",
+    subtitle: "Auto renew. Cancel anytime.",
+    tips: [
+      "Free and paid content available. You decide which to unlock.",
+      "VIP subscription unlocks all paid content.",
+      "Refill and countdown days are equal value. Recharge does not support refund.",
+      "Contact us if you have other problems."
+    ],
+    paymentMethods: [
+      { id: "paypal", label: "PayPal", icon: "PP" },
+      { id: "card", label: "Credit/Debit", icon: "💳" },
+      { id: "generic", label: "Card", icon: "💳" },
+      { id: "gpay", label: "Google Pay", icon: "G" }
+    ]
+  }
 };

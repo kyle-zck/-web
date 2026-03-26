@@ -11,6 +11,7 @@ import { getSeriesI18nText } from "@/lib/i18n/seriesText";
 import { tagLabel } from "@/lib/i18n/tagKey";
 import { stubEpisodeForProgress } from "@/lib/series/slim-public";
 import { getSeriesArtworkChain } from "@/lib/series/artwork";
+import { PosterImage } from "@/components/ui/poster-image";
 import { cn } from "@/lib/utils";
 
 export function ContinueWatching() {
@@ -31,6 +32,11 @@ export function ContinueWatching() {
       .catch(() => setSeriesList([]));
   }, []);
 
+  const seriesById = useMemo(
+    () => new Map(seriesList.map((s) => [s.id, s] as const)),
+    [seriesList]
+  );
+
   const watched = useMemo(() => {
     const rows: Array<{ series: Series; episode: Episode; seconds: number }> =
       [];
@@ -39,7 +45,7 @@ export function ContinueWatching() {
       const [seriesId, idx] = key.split("::");
       const episodeIndex = Number(idx);
       if (!seconds || seconds <= 0) continue;
-      const series = seriesList.find((s) => s.id === seriesId);
+      const series = seriesById.get(seriesId);
       if (!series) continue;
       const episode =
         series.episodes.find((e) => e.index === episodeIndex) ??
@@ -49,7 +55,7 @@ export function ContinueWatching() {
 
     rows.sort((a, b) => b.seconds - a.seconds);
     return rows.slice(0, 6);
-  }, [progressSeconds, seriesList]);
+  }, [progressSeconds, seriesById]);
 
   if (!watched.length) return null;
 
@@ -91,24 +97,11 @@ export function ContinueWatching() {
               className="group block"
             >
               <div className="poster-card-drama relative poster-aspect transition-transform duration-200 group-hover:scale-[1.02] group-hover:shadow-[0_0_36px_rgba(229,9,20,0.2)]">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={artworkChain[0]}
+                <PosterImage
+                  chain={artworkChain}
                   alt={getSeriesI18nText(row.series, lang).title}
+                  sizes="(max-width:640px) 40vw, (max-width:1024px) 150px, 170px"
                   className="poster-card-drama__img"
-                  loading="lazy"
-                  decoding="async"
-                  data-fallback-index={0}
-                  onError={(e) => {
-                    const img = e.currentTarget;
-                    const nextIndex = Number(img.dataset.fallbackIndex ?? "0") + 1;
-                    if (nextIndex >= artworkChain.length) {
-                      img.onerror = null;
-                      return;
-                    }
-                    img.dataset.fallbackIndex = String(nextIndex);
-                    img.src = artworkChain[nextIndex];
-                  }}
                 />
                 <div
                   className="poster-card-drama__overlay absolute inset-0 z-[1]"

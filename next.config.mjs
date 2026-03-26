@@ -22,7 +22,7 @@ const nextConfig = {
   reactStrictMode: true,
   // better-sqlite3 为原生模块；动态 import 后仍避免被打进无关服务端 chunk
   experimental: {
-    serverComponentsExternalPackages: ["better-sqlite3"]
+    serverComponentsExternalPackages: ["better-sqlite3", "ioredis"]
   },
   /** 本地上传到 public/uploads 的资源：长缓存（文件名通常含时间戳；生产封面建议走 S3/R2 URL） */
   async headers() {
@@ -39,7 +39,8 @@ const nextConfig = {
     ];
   },
   images: {
-    remotePatterns: imageRemotePatterns
+    remotePatterns: imageRemotePatterns,
+    formats: ["image/avif", "image/webp"]
   }
 };
 

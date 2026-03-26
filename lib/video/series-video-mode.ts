@@ -1,4 +1,5 @@
 import type { Episode, Series } from "@/constants/mock-data";
+import { normalizeAssetUrl } from "@/lib/video/public-asset-url";
 
 export type EpisodeVideoMode = "hls" | "mp4" | "processing" | "failed";
 export type SeriesVideoMode = "hls" | "mp4" | "mixed" | "processing";
@@ -7,10 +8,13 @@ function isHlsUrl(url: string): boolean {
   return /\.m3u8(\?.*)?$/i.test(url);
 }
 
+/** 与播放候选同源：归一化后的源地址（不含 R2 代理，便于判断 HLS 后缀） */
 export function getEpisodeEffectivePlaybackUrl(ep: Episode): string {
-  if (ep.videoStatus === "ready" && ep.videoPlaybackUrl?.trim()) return ep.videoPlaybackUrl;
-  if (ep.videoPlaybackUrl?.trim()) return ep.videoPlaybackUrl;
-  return ep.videoUrl;
+  const raw =
+    ep.videoPlaybackUrl?.trim() ||
+    ep.videoUrl?.trim() ||
+    "";
+  return normalizeAssetUrl(raw) ?? raw;
 }
 
 export function getEpisodeVideoMode(ep: Episode): EpisodeVideoMode {

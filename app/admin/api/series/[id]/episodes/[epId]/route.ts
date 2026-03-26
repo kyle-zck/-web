@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { invalidateSeriesCatalogCaches } from "@/lib/cache/invalidate-data-cache";
 import { requireAdminSession } from "@/lib/admin/auth";
 import { deleteEpisodeFromSeries } from "@/lib/series-repo/service";
 
@@ -20,5 +21,6 @@ export async function DELETE(
       { status: 404 }
     );
   }
+  invalidateSeriesCatalogCaches(params.id);
   return NextResponse.json({ ok: true, series });
 }

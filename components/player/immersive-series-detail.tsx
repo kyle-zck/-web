@@ -17,6 +17,7 @@ import { tagLabel } from "@/lib/i18n/tagKey";
 import { Modal } from "@/components/ui/modal";
 import { formatEngagementCount } from "@/lib/format-count";
 import { getOrCreateDeviceClientId } from "@/lib/client/device-client-id";
+import type { EngagementCounts } from "@/lib/user-repo";
 
 const EPISODES_PER_TAB = 50;
 
@@ -106,7 +107,13 @@ function ShareButton({ title, compact }: { title: string; compact?: boolean }) {
   );
 }
 
-export function ImmersiveSeriesDetail({ series }: { series: Series }) {
+export function ImmersiveSeriesDetail({
+  series,
+  initialEngagement
+}: {
+  series: Series;
+  initialEngagement?: EngagementCounts;
+}) {
   const {
     setSeries,
     episodeIndex,
@@ -118,9 +125,11 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
   const { has: isFavorited, toggle: toggleFavorite, seriesIds } = useFavoritesStore();
   const { has: isLiked, toggle: toggleLike } = useLikesStore();
   const { isLoggedIn, userId, supabaseUserId } = useUserStore();
-  const [collectionCount, setCollectionCount] = useState(0);
-  const [likesCount, setLikesCount] = useState(0);
-  const [viewsCount, setViewsCount] = useState(0);
+  const [collectionCount, setCollectionCount] = useState(
+    () => initialEngagement?.collectionCount ?? 0
+  );
+  const [likesCount, setLikesCount] = useState(() => initialEngagement?.likesCount ?? 0);
+  const [viewsCount, setViewsCount] = useState(() => initialEngagement?.viewsCount ?? 0);
 
   const { t, i18n } = useTranslation();
   const lang = i18n.language as AppLanguage;
@@ -136,6 +145,7 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
   }, [series.id, setSeries]);
 
   useEffect(() => {
+    if (initialEngagement != null) return;
     fetch(`/api/series/${series.id}/counts`)
       .then((r) => r.json())
       .then((json) => {
@@ -146,7 +156,7 @@ export function ImmersiveSeriesDetail({ series }: { series: Series }) {
         }
       })
       .catch(() => {});
-  }, [series.id]);
+  }, [series.id, initialEngagement]);
 
   /** 首次进入播放页记录观看（每用户每剧一条，与收藏/点赞同源 clientId 体系） */
   useEffect(() => {

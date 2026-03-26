@@ -2,6 +2,7 @@ import type { User } from "@supabase/supabase-js";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { getOrCreateDeviceClientId } from "@/lib/client/device-client-id";
 
 interface UserState {
   /** 展示用：优先邮箱，否则 Supabase user id */
@@ -120,8 +121,9 @@ export const useUserStore = create<UserState>()(
 
       fetchUid: async () => {
         const { supabaseUserId } = get();
-        if (!supabaseUserId) return null;
-        const res = await fetch(`/api/user/uid?clientId=${encodeURIComponent(supabaseUserId)}`);
+        const clientId = supabaseUserId || getOrCreateDeviceClientId();
+        if (!clientId) return null;
+        const res = await fetch(`/api/user/uid?clientId=${encodeURIComponent(clientId)}`);
         const json = await res.json();
         if (json?.ok && json.uid) {
           set({ uid: json.uid });

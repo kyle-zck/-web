@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
+import { PUBLIC_LISTED_SERIES_TAG } from "@/lib/cache/cache-tags";
 import { getAllSeries } from "@/lib/series-repo";
 import type { Series } from "@/constants/mock-data";
 
@@ -22,7 +23,7 @@ const getListedSeriesCached = unstable_cache(
     return all.filter((s) => s.listed !== false);
   },
   ["public-api-listed-series-v1"],
-  { revalidate: Math.max(1, revalidateSeconds) }
+  { revalidate: Math.max(1, revalidateSeconds), tags: [PUBLIC_LISTED_SERIES_TAG] }
 );
 
 function toLiteSeriesList(full: Series[]): Series[] {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin/auth";
 import { getAllSeries, updateEpisodeStreamState } from "@/lib/series-repo";
-import { getViewsCount } from "@/lib/user-repo";
+import { getEngagementCountsBatch } from "@/lib/user-repo";
 import { tryCreateStreamByUrl } from "@/lib/video/cloudflare-stream";
 import { getEpisodeVideoMode } from "@/lib/video/series-video-mode";
 import type { Episode, Series } from "@/constants/mock-data";
@@ -117,9 +117,11 @@ export async function POST(req: Request) {
   const all = await getAllSeries();
   let selected: Series[] = [];
   if (mode === "hot") {
-    const withViews = await Promise.all(
-      all.map(async (s) => ({ s, views: await getViewsCount(s.id) }))
-    );
+    const viewsById = await getEngagementCountsBatch(all.map((s) => s.id));
+    const withViews = all.map((s) => ({
+      s,
+      views: viewsById[s.id]?.viewsCount ?? 0
+    }));
     selected = withViews
       .filter((x) => x.views >= minViews)
       .sort((a, b) => b.views - a.views)

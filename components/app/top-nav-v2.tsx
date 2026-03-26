@@ -8,6 +8,30 @@ import { useAppLanguage } from "@/components/i18n/I18nProvider";
 import { usePlayerStore } from "@/lib/store/player";
 import { useUserStore } from "@/lib/store/user";
 import type { AppConfig } from "@/lib/app-config/types";
+import { getOrCreateDeviceClientId } from "@/lib/client/device-client-id";
+
+interface RechargeRecordLite {
+  id: string;
+  tier: string;
+  remainingDays?: number;
+}
+
+async function fetchJsonWithTimeout<T>(url: string, timeoutMs = 5000, signal?: AbortSignal): Promise<T> {
+  const ctrl = new AbortController();
+  const timer = window.setTimeout(() => ctrl.abort(), timeoutMs);
+  const onAbort = () => ctrl.abort();
+  signal?.addEventListener("abort", onAbort);
+  try {
+    const res = await fetch(url, {
+      signal: ctrl.signal,
+      cache: "no-store"
+    });
+    return (await res.json()) as T;
+  } finally {
+    window.clearTimeout(timer);
+    signal?.removeEventListener("abort", onAbort);
+  }
+}
 
 function SearchGlyph() {
   return (
@@ -50,8 +74,8 @@ export function TopNavV2() {
   const { t, i18n } = useTranslation();
   const { lang, setLanguage, languageOptions } = useAppLanguage();
 
-  const { isSubscribed, getDaysRemaining } = usePlayerStore();
-  const { isLoggedIn, userId } = useUserStore();
+  const { isSubscribed, getDaysRemaining, setSubscribed } = usePlayerStore();
+  const { isLoggedIn, userId, supabaseUserId } = useUserStore();
 
   const hidden = useMemo(() => pathname.startsWith("/admin"), [pathname]);
 
@@ -66,8 +90,8 @@ export function TopNavV2() {
   const uidDisplay = isLoggedIn ? userId ?? "—" : "—";
 
   useEffect(() => {
-    fetch("/api/app-config")
-      .then((r) => r.json())
+    const ctrl = new AbortController();
+    fetchJsonWithTimeout<AppConfig>("/api/app-config", 5000, ctrl.signal)
       .then((json: AppConfig) => {
         if (json?.brandName) setBrandName(json.brandName);
         setLogoUrl(json.logoUrl?.trim() || undefined);
@@ -76,8 +100,41 @@ export function TopNavV2() {
       .catch(() => {
         // ignore
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => ctrl.abort();
   }, []);
+
+  useEffect(() => {
+    const clientId = supabaseUserId ?? getOrCreateDeviceClientId();
+    if (!clientId) return;
+    const ctrl = new AbortController();
+    fetchJsonWithTimeout<{ records?: RechargeRecordLite[] }>(
+      `/api/user/recharge?clientId=${encodeURIComponent(clientId)}`,
+      6000,
+      ctrl.signal
+    )
+      .then((json) => {
+        const list = (json?.records ?? []) as RechargeRecordLite[];
+        if (!Array.isArray(list) || list.length === 0) {
+          setSubscribed(false);
+          return;
+        }
+        const active = list
+          .map((x) => ({
+            tier: x.tier,
+            remainingDays: Number.isFinite(Number(x.remainingDays)) ? Number(x.remainingDays) : 0
+          }))
+          .sort((a, b) => b.remainingDays - a.remainingDays)[0];
+        if (!active || active.remainingDays <= 0) {
+          setSubscribed(false);
+          return;
+        }
+        setSubscribed(true, active.remainingDays, active.tier || "VIP");
+      })
+      .catch(() => {
+        // ignore
+      });
+    return () => ctrl.abort();
+  }, [supabaseUserId, setSubscribed]);
 
   const navItems = useMemo(() => {
     const showExplore = navFlags?.showExplore !== false;

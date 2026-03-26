@@ -10,6 +10,7 @@ import { getSeriesI18nText } from "@/lib/i18n/seriesText";
 import { tagLabel } from "@/lib/i18n/tagKey";
 import { formatEngagementCount } from "@/lib/format-count";
 import { getSeriesArtworkChain } from "@/lib/series/artwork";
+import { PosterImage } from "@/components/ui/poster-image";
 
 export type HeroEngagementCounts = {
   collectionCount: number;
@@ -112,25 +113,12 @@ export function HeroCarousel({ items, countsBySeriesId }: HeroCarouselProps) {
                 className="group block"
               >
                 <div className="poster-card-drama relative aspect-[3/4] w-full overflow-hidden">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={artworkChain[0]}
+                  <PosterImage
+                    chain={artworkChain}
                     alt={title}
+                    sizes="(max-width:640px) 46vw, (max-width:1024px) 240px, 280px"
                     className="poster-card-drama__img"
-                    loading={index < 2 ? "eager" : "lazy"}
-                    decoding="async"
-                    fetchPriority={index === 0 ? "high" : "low"}
-                    data-fallback-index={0}
-                    onError={(e) => {
-                      const img = e.currentTarget;
-                      const nextIndex = Number(img.dataset.fallbackIndex ?? "0") + 1;
-                      if (nextIndex >= artworkChain.length) {
-                        img.onerror = null;
-                        return;
-                      }
-                      img.dataset.fallbackIndex = String(nextIndex);
-                      img.src = artworkChain[nextIndex];
-                    }}
+                    priority={index === 0}
                   />
                   <div
                     className="poster-card-drama__overlay poster-card-drama__overlay--hero absolute inset-0 z-[1]"

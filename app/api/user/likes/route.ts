@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { invalidateEngagementEverywhere } from "@/lib/cache/invalidate-data-cache";
 import {
   getOrCreateUid,
   getUserLikes,
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
   const shouldBeLiked = liked === true;
   if (has !== shouldBeLiked) {
     await toggleUserLike(clientId, seriesId);
+    await invalidateEngagementEverywhere([seriesId]);
   }
   return NextResponse.json({ ok: true, liked: shouldBeLiked });
 }

@@ -35,9 +35,20 @@ export interface SeriesI18nText {
 /** 订阅套餐：管理后台可配置 */
 export interface SubscriptionPlan {
   id: string;
+  /** 模版名称：给运营区分用（不一定展示在前台） */
+  templateName?: string;
   label: string;
   priceUsd: number;
   durationDays: number;
+  /**
+   * 折扣百分比（100 表示无折扣模式；<100 则前台展示“限时折扣”）
+   * 前台真实支付金额 = priceUsd * discountPercent / 100
+   */
+  discountPercent?: number;
+  /** 折扣持续天数（0 表示不做倒计时展示） */
+  discountDays?: number;
+  /** 折扣开始时间（ISO）；用于倒计时计算 */
+  discountStartAt?: string;
   paymentUrl?: string;
 }
 

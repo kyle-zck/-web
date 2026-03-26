@@ -11,6 +11,7 @@ import type { AppLanguage } from "@/lib/i18n/languages";
 import { getSeriesI18nText } from "@/lib/i18n/seriesText";
 import { tagLabel } from "@/lib/i18n/tagKey";
 import { getSeriesArtworkChain } from "@/lib/series/artwork";
+import { PosterImage } from "@/components/ui/poster-image";
 import {
   SeriesEngagementInline,
   type EngagementCounts
@@ -247,24 +248,11 @@ function ExploreContent() {
                     className="group flex gap-4 rounded-2xl bg-zinc-950/80 p-4 shadow-[0_0_18px_rgba(0,0,0,0.7)] transition-colors duration-200 hover:bg-zinc-900"
                   >
                     <div className="poster-card-drama relative aspect-[2/3] w-44 shrink-0 overflow-hidden transition-transform duration-200 group-hover:scale-[1.03]">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={artworkChain[0]}
+                      <PosterImage
+                        chain={artworkChain}
                         alt=""
-                        loading="lazy"
-                        decoding="async"
+                        sizes="176px"
                         className="poster-card-drama__img"
-                        data-fallback-index={0}
-                        onError={(e) => {
-                          const img = e.currentTarget;
-                          const nextIndex = Number(img.dataset.fallbackIndex ?? "0") + 1;
-                          if (nextIndex >= artworkChain.length) {
-                            img.onerror = null;
-                            return;
-                          }
-                          img.dataset.fallbackIndex = String(nextIndex);
-                          img.src = artworkChain[nextIndex];
-                        }}
                       />
                       <div
                         className="poster-card-drama__overlay poster-card-drama__overlay--hero absolute inset-0 z-[1]"

@@ -8,17 +8,12 @@ import { SubscriptionModal } from "@/components/player/subscription-modal";
 import { useTranslation } from "react-i18next";
 import type { AppLanguage } from "@/lib/i18n/languages";
 import type { SubscriptionPlan } from "@/constants/mock-data";
-import { getEpisodePlaybackUrl, isHlsUrl } from "@/lib/video/playback";
-import { normalizeAssetUrl } from "@/lib/video/public-asset-url";
-
-function toRuntimePlayableUrl(raw: string): string {
-  const src = raw.trim();
-  if (!src) return src;
-  if (/^https?:\/\/[^/]+\.r2\.dev\/.+/i.test(src)) {
-    return `/api/video/proxy?src=${encodeURIComponent(src)}`;
-  }
-  return src;
-}
+import {
+  buildEpisodePlaybackCandidates,
+  getEpisodePlaybackUrl,
+  playbackUrlIndicatesHls,
+  resolveNormalizedPlayableUrl
+} from "@/lib/video/playback";
 
 export function ImmersivePlayer({
   series,
@@ -149,16 +144,12 @@ export function ImmersivePlayer({
   const [runtimeVideoStatus, setRuntimeVideoStatus] = useState<
     "processing" | "ready" | "failed"
   >(episode.videoStatus ?? "ready");
-  const playbackCandidates = useMemo(() => {
-    const urls = [episode.videoPlaybackUrl, episode.videoUrl]
-      .map((item) => normalizeAssetUrl(item) ?? "")
-      .map((item) => toRuntimePlayableUrl(item))
-      .map((item) => item.trim())
-      .filter(Boolean);
-    return Array.from(new Set(urls));
-  }, [episode.videoPlaybackUrl, episode.videoUrl]);
+  const playbackCandidates = useMemo(
+    () => buildEpisodePlaybackCandidates(episode),
+    [episode]
+  );
   const playbackUrl = runtimePlaybackUrl;
-  const hls = isHlsUrl(playbackUrl);
+  const hls = playbackUrlIndicatesHls(playbackUrl);
 
   const handleLoadError = () => {
     const nextIndex = runtimePlaybackIndex + 1;
@@ -212,8 +203,7 @@ export function ImmersivePlayer({
         };
         if (!json.ok) return;
         if (json.videoPlaybackUrl) {
-          const resolved = normalizeAssetUrl(json.videoPlaybackUrl) ?? json.videoPlaybackUrl;
-          setRuntimePlaybackUrl(toRuntimePlayableUrl(resolved));
+          setRuntimePlaybackUrl(resolveNormalizedPlayableUrl(json.videoPlaybackUrl));
           setRuntimePlaybackIndex(0);
         }
         if (json.videoStatus) setRuntimeVideoStatus(json.videoStatus);

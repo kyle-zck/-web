@@ -13,7 +13,7 @@ const ContinueWatching = dynamic(
   { loading: () => null, ssr: false }
 );
 import { slimSeriesListForPublic } from "@/lib/series/slim-public";
-import { getCollectionCount, getLikesCount, getViewsCount } from "@/lib/user-repo";
+import { getEngagementCountsBatch } from "@/lib/user-repo";
 
 /** 生产环境首页可缓存，减轻 DB/磁盘压力；开发模式仍按需渲染 */
 export const revalidate = 60;
@@ -35,14 +35,15 @@ async function buildHomeContent() {
   const newArrivals = series.filter((s) => s.isNew);
   const allForFill = [...newArrivals, ...trending, ...series];
 
+  const dedupFill: Series[] = [];
+  const seenFill = new Set<string>();
+  for (const s of allForFill) {
+    if (seenFill.has(s.id)) continue;
+    seenFill.add(s.id);
+    dedupFill.push(s);
+  }
   const newReleaseItems =
-    newArrivals.length >= 5
-      ? newArrivals.slice(0, 5)
-      : allForFill
-          .filter(
-            (s, idx, arr) => arr.findIndex((x) => x.id === s.id) === idx
-          )
-          .slice(0, 5);
+    newArrivals.length >= 5 ? newArrivals.slice(0, 5) : dedupFill.slice(0, 5);
 
   const featuredIds = (homeCfg?.featuredSeriesIds ?? []).map((id) => id.trim()).filter(Boolean);
   const byId = new Map(series.map((s) => [s.id, s]));
@@ -64,20 +65,7 @@ async function buildHomeContent() {
   }
 
   const heroIds = heroItems.map((s) => s.id);
-  const heroCountsEntries = await Promise.all(
-    heroIds.map(async (id) => {
-      const [collectionCount, likesCount, viewsCount] = await Promise.all([
-        getCollectionCount(id),
-        getLikesCount(id),
-        getViewsCount(id)
-      ]);
-      return [id, { collectionCount, likesCount, viewsCount }] as const;
-    })
-  );
-  const heroCountsBySeriesId = Object.fromEntries(heroCountsEntries) as Record<
-    string,
-    { collectionCount: number; likesCount: number; viewsCount: number }
-  >;
+  const heroCountsBySeriesId = await getEngagementCountsBatch(heroIds);
 
   const byTag = (tag: string) => series.filter((s) => s.tags.includes(tag)).slice(0, 12);
 
