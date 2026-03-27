@@ -26,6 +26,7 @@ export default function AdminDramaUploadPage() {
     typeof window !== "undefined" &&
     /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
   const [tags, setTags] = useState<TagItem[]>([]);
+  const [tagsLoadError, setTagsLoadError] = useState<string | null>(null);
   const [form, setForm] = useState({
     title: "",
     originalName: "",
@@ -68,13 +69,29 @@ export default function AdminDramaUploadPage() {
     return Math.min(2, total);
   };
 
+  const loadTags = async () => {
+    setTagsLoadError(null);
+    try {
+      const { res, json } = await fetchAdminJson<{ ok?: boolean; items?: TagItem[]; errorKey?: string }>(
+        "/admin/api/drama-tag-catalog",
+        undefined,
+        10000
+      );
+      if (res.ok && json?.ok && Array.isArray(json.items)) {
+        setTags(json.items);
+      } else {
+        setTags([]);
+        setTagsLoadError(translateAdminApiError(json, t, "admin.submitFailed"));
+      }
+    } catch {
+      setTags([]);
+      setTagsLoadError(String(t("admin.networkError")));
+    }
+  };
+
   useEffect(() => {
-    fetchAdminJson<{ ok?: boolean; items?: TagItem[] }>("/admin/api/drama-tag-catalog")
-      .then(({ res, json }) => {
-        if (res.ok && json?.ok && Array.isArray(json.items)) setTags(json.items);
-        else setTags([]);
-      })
-      .catch(() => setTags([]));
+    loadTags();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkDuplicate = async () => {
@@ -82,17 +99,27 @@ export default function AdminDramaUploadPage() {
     if (!name) return true;
     setChecking(true);
     try {
-      const res = await fetch("/admin/api/series/check-title", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: name })
-      });
-      const json = await res.json();
+      const { res, json } = await fetchAdminJson<{ ok?: boolean; duplicate?: boolean; errorKey?: string }>(
+        "/admin/api/series/check-title",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: name })
+        },
+        10000
+      );
+      if (!res.ok || !json?.ok) {
+        showToast(translateAdminApiError(json, t, "admin.submitFailed"), "error");
+        return false;
+      }
       if (json?.duplicate) {
         showToast(t("admin.toastTitleExists"));
         return false;
       }
       return true;
+    } catch {
+      showToast(t("admin.networkErrorShort"), "error");
+      return false;
     } finally {
       setChecking(false);
     }
@@ -126,12 +153,21 @@ export default function AdminDramaUploadPage() {
     }
     const fd = new FormData();
     fd.append("file", file);
-    const res = await fetch("/admin/api/upload/cover", { method: "POST", body: fd });
-    const json = await res.json();
-    if (json?.ok && json.coverUrl) {
-      setForm((f) => ({ ...f, coverUrl: json.coverUrl }));
-    } else {
-      showToast(t("admin.toastCoverUploadFail"));
+    try {
+      const controller = new AbortController();
+      const timer = globalThis.setTimeout(() => controller.abort(), 30000);
+      const { res, json } = await fetchAdminJson<{ ok?: boolean; coverUrl?: string; errorKey?: string }>(
+        "/admin/api/upload/cover",
+        { method: "POST", body: fd, signal: controller.signal },
+        30000
+      ).finally(() => globalThis.clearTimeout(timer));
+      if (res.ok && json?.ok && json.coverUrl) {
+        setForm((f) => ({ ...f, coverUrl: json.coverUrl }));
+      } else {
+        showToast(translateAdminApiError(json, t, "admin.toastCoverUploadFail"), "error");
+      }
+    } catch {
+      showToast(t("admin.networkErrorShort"), "error");
     }
     e.target.value = "";
   };
@@ -224,21 +260,25 @@ export default function AdminDramaUploadPage() {
         for (let attempt = 1; attempt <= maxRetries + 1; attempt += 1) {
           try {
             updateUploadFileProgress(progressKey, { stage: "presign", percent: 0 });
-            const presign = await fetch("/admin/api/upload/video/presign", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                fileName: file.name,
-                contentType: file.type || "video/mp4"
-              })
-            });
-            const presignJson = (await presign.json()) as {
+            const { res: presignRes, json: presignJson } = await fetchAdminJson<{
               ok?: boolean;
               uploadUrl?: string;
               key?: string;
               publicUrl?: string;
-            };
-            if (!presign.ok || !presignJson?.ok || !presignJson.uploadUrl || !presignJson.key) {
+              errorKey?: string;
+            }>(
+              "/admin/api/upload/video/presign",
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  fileName: file.name,
+                  contentType: file.type || "video/mp4"
+                })
+              },
+              10000
+            );
+            if (!presignRes.ok || !presignJson?.ok || !presignJson.uploadUrl || !presignJson.key) {
               throw new Error("presign unavailable");
             }
 
@@ -553,6 +593,18 @@ export default function AdminDramaUploadPage() {
             {t("admin.fieldTagsRequired")} <span className="text-red-400">*</span>
           </label>
           <p className="mt-1 text-xs text-zinc-500">{t("admin.tagsPickHint")}</p>
+          {tagsLoadError ? (
+            <div className="mt-2 flex items-center justify-between rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+              <span>{tagsLoadError}</span>
+              <button
+                type="button"
+                onClick={loadTags}
+                className="rounded-md border border-red-400/40 bg-red-500/10 px-2.5 py-1 font-semibold text-red-100 hover:bg-red-500/20"
+              >
+                {t("admin.query")}
+              </button>
+            </div>
+          ) : null}
           <div className="mt-2 flex flex-wrap gap-2">
             {tags.map((tagItem) => (
               <button

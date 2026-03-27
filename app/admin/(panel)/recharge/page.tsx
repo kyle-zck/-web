@@ -27,6 +27,7 @@ export default function AdminRechargePage() {
   const { t } = useTranslation();
   const [records, setRecords] = useState<RechargeRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [uidFilter, setUidFilter] = useState("");
   const [tierFilter, setTierFilter] = useState("");
   const [templateTiers, setTemplateTiers] = useState<RechargeTemplateLite[]>([]);
@@ -44,15 +45,21 @@ export default function AdminRechargePage() {
 
   const load = async () => {
     setLoading(true);
+    setLoadError(null);
     const q = new URLSearchParams();
     if (uidFilter.trim()) q.set("uid", uidFilter.trim());
     if (tierFilter.trim()) q.set("tier", tierFilter.trim());
     const qs = q.size > 0 ? `?${q.toString()}` : "";
-    const { json } = await fetchAdminJson<{ ok?: boolean; records?: RechargeRecord[] }>(
-      `/admin/api/recharge${qs}`
-    ).catch(() => ({ res: new Response(), json: null }));
-    if (json?.ok && Array.isArray(json.records)) setRecords(json.records);
-    else setRecords([]);
+    const { res, json } = await fetchAdminJson<{ ok?: boolean; records?: RechargeRecord[]; errorKey?: string }>(
+      `/admin/api/recharge${qs}`,
+      undefined,
+      10000
+    ).catch(() => ({ res: new Response(null, { status: 500 }), json: null }));
+    if (res.ok && json?.ok && Array.isArray(json.records)) setRecords(json.records);
+    else {
+      setRecords([]);
+      setLoadError(translateAdminApiError(json, t));
+    }
     setLoading(false);
   };
 
@@ -218,6 +225,19 @@ export default function AdminRechargePage() {
           {t("admin.addRecord")}
         </button>
       </div>
+
+      {loadError ? (
+        <div className="mt-4 flex items-center justify-between rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <span>{loadError}</span>
+          <button
+            type="button"
+            onClick={load}
+            className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-100 hover:bg-red-500/20"
+          >
+            {t("admin.query")}
+          </button>
+        </div>
+      ) : null}
 
       {addOpen ? (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4">

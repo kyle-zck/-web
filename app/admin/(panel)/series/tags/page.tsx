@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { DramaTagCatalogModal } from "@/components/admin/drama-tag-catalog-modal";
 import { showToast } from "@/components/ui/toast";
 import { fetchAdminJson } from "@/lib/admin/fetch-admin-json";
+import { translateAdminApiError } from "@/lib/admin/api-error";
 import type { Series } from "@/constants/mock-data";
 
 type Row = { series: Series; tag: string | null };
@@ -17,16 +18,22 @@ export default function AdminSeriesTagsPage() {
   const [applied, setApplied] = useState({ tag: "", title: "" });
   const [manageOpen, setManageOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadSeries = useCallback(async () => {
     try {
       const { res, json } = await fetchAdminJson<{ ok?: boolean; series?: Series[] }>(
         "/admin/api/series"
       );
-      if (res.ok && json?.ok && Array.isArray(json.series)) setSeries(json.series);
-      else setSeries([]);
+      if (res.ok && json?.ok && Array.isArray(json.series)) {
+        setSeries(json.series);
+        return true;
+      }
+      setSeries([]);
+      return false;
     } catch {
       setSeries([]);
+      return false;
     }
   }, []);
 
@@ -37,23 +44,34 @@ export default function AdminSeriesTagsPage() {
       );
       if (res.ok && json?.ok && Array.isArray(json.items)) {
         setCatalogNames(json.items.map((x) => x.name));
-      } else setCatalogNames([]);
+        return true;
+      }
+      setCatalogNames([]);
+      return false;
     } catch {
       setCatalogNames([]);
+      return false;
     }
   }, []);
 
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const [seriesOk, catalogOk] = await Promise.all([loadSeries(), loadCatalog()]);
+      if (!seriesOk && !catalogOk) {
+        setLoadError(String(t("admin.submitFailed")));
+      }
+    } catch {
+      setLoadError(String(t("admin.networkError")));
+    } finally {
+      setLoading(false);
+    }
+  }, [loadCatalog, loadSeries, t]);
+
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      await Promise.all([loadSeries(), loadCatalog()]);
-      if (!cancelled) setLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [loadSeries, loadCatalog]);
+    loadAll();
+  }, [loadAll]);
 
   const handleQuery = () => {
     setApplied({ tag: draft.tag.trim(), title: draft.title.trim() });
@@ -101,14 +119,17 @@ export default function AdminSeriesTagsPage() {
     if (!ok) return;
     const nextTags = (s.tags ?? []).filter((tg) => tg !== tag);
     try {
-      const res = await fetch(`/admin/api/series/${s.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tags: nextTags })
-      });
-      const json = await res.json();
-      if (!json?.ok) {
-        showToast(t("admin.tagRemoveFailed"));
+      const { res, json } = await fetchAdminJson<{ ok?: boolean; errorKey?: string }>(
+        `/admin/api/series/${s.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tags: nextTags })
+        },
+        10000
+      );
+      if (!res.ok || !json?.ok) {
+        showToast(translateAdminApiError(json, t, "admin.tagRemoveFailed"), "error");
         return;
       }
       showToast(t("admin.tagRemoved"), "success");
@@ -180,6 +201,19 @@ export default function AdminSeriesTagsPage() {
           </button>
         </div>
       </section>
+
+      {loadError ? (
+        <div className="mt-4 flex items-center justify-between rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <span>{loadError}</span>
+          <button
+            type="button"
+            onClick={loadAll}
+            className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-100 hover:bg-red-500/20"
+          >
+            {t("admin.query")}
+          </button>
+        </div>
+      ) : null}
 
       <DramaTagCatalogModal
         open={manageOpen}

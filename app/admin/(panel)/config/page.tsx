@@ -12,6 +12,7 @@ export default function AdminConfigPage() {
   const { t } = useTranslation();
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // 正在编辑（未暂存）
   const [plansEdit, setPlansEdit] = useState<SubscriptionPlan[]>([]);
@@ -26,37 +27,53 @@ export default function AdminConfigPage() {
   const [draftPlans, setDraftPlans] = useState<SubscriptionPlan[]>([]);
   const [draftStore, setDraftStore] = useState<AppConfigStore>({});
 
-  useEffect(() => {
-    fetchAdminJson<{ ok?: boolean; config?: any }>("/admin/api/app-config")
-      .then(({ json }) => {
-        const cfg = json?.config ?? {};
-        const plans = (cfg?.subscriptionPlans ?? []) as SubscriptionPlan[];
-        const store = (cfg?.store ?? {}) as AppConfigStore;
-
-        setPlansEdit(plans);
-        setDraftPlans(plans);
-
-        setStoreTitleEdit(store?.title ?? "");
-        setStoreSubtitleEdit(store?.subtitle ?? "");
-        setTipsEdit(Array.isArray(store?.tips) ? [...store.tips] : ["", "", "", ""]);
-        setPaymentMethodsEdit(
-          Array.isArray(store?.paymentMethods) ? [...store.paymentMethods] : []
-        );
-
-        setDraftStore({
-          title: store?.title ?? "",
-          subtitle: store?.subtitle ?? "",
-          tips: Array.isArray(store?.tips) ? [...store.tips] : undefined,
-          paymentMethods: Array.isArray(store?.paymentMethods)
-            ? [...store.paymentMethods]
-            : undefined
-        });
-      })
-      .catch(() => {
+  const loadConfig = async (signal?: AbortSignal) => {
+    setLoadError(null);
+    setLoaded(false);
+    try {
+      const { res, json } = await fetchAdminJson<{ ok?: boolean; config?: any; errorKey?: string }>(
+        "/admin/api/app-config",
+        { signal },
+        10000
+      );
+      if (!res.ok || !json?.ok) {
         setPlansEdit([]);
         setDraftPlans([]);
-      })
-      .finally(() => setLoaded(true));
+        setLoadError(translateAdminApiError(json, t, "admin.loading"));
+        return;
+      }
+      const cfg = json?.config ?? {};
+      const plans = (cfg?.subscriptionPlans ?? []) as SubscriptionPlan[];
+      const store = (cfg?.store ?? {}) as AppConfigStore;
+
+      setPlansEdit(plans);
+      setDraftPlans(plans);
+
+      setStoreTitleEdit(store?.title ?? "");
+      setStoreSubtitleEdit(store?.subtitle ?? "");
+      setTipsEdit(Array.isArray(store?.tips) ? [...store.tips] : ["", "", "", ""]);
+      setPaymentMethodsEdit(Array.isArray(store?.paymentMethods) ? [...store.paymentMethods] : []);
+
+      setDraftStore({
+        title: store?.title ?? "",
+        subtitle: store?.subtitle ?? "",
+        tips: Array.isArray(store?.tips) ? [...store.tips] : undefined,
+        paymentMethods: Array.isArray(store?.paymentMethods) ? [...store.paymentMethods] : undefined
+      });
+    } catch {
+      setPlansEdit([]);
+      setDraftPlans([]);
+      setLoadError(String(t("admin.networkError")));
+    } finally {
+      setLoaded(true);
+    }
+  };
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    loadConfig(ctrl.signal);
+    return () => ctrl.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const updatePlan = (index: number, patch: Partial<SubscriptionPlan>) => {
@@ -191,6 +208,19 @@ export default function AdminConfigPage() {
           {saving ? t("admin.saving") : t("admin.save")}
         </button>
       </div>
+
+      {loadError ? (
+        <div className="mt-4 flex items-center justify-between rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <span>{loadError}</span>
+          <button
+            type="button"
+            onClick={() => loadConfig()}
+            className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-100 hover:bg-red-500/20"
+          >
+            {t("admin.query")}
+          </button>
+        </div>
+      ) : null}
 
       <section className="mt-5 rounded-3xl border border-zinc-800/80 bg-zinc-950/60 p-4">
         <div className="flex items-center justify-between">

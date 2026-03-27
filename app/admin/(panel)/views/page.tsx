@@ -16,22 +16,36 @@ export default function AdminViewsPage() {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabId>("history");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [historyByClient, setHistoryByClient] = useState<Record<string, WatchEntry[]>>({});
   const [favoritesByClient, setFavoritesByClient] = useState<Record<string, string[]>>({});
   const [likesByClient, setLikesByClient] = useState<Record<string, string[]>>({});
   const [viewsByClient, setViewsByClient] = useState<Record<string, string[]>>({});
 
-  useEffect(() => {
+  const loadAll = () => {
     let cancelled = false;
+    const ctrl = new AbortController();
+    const timer = window.setTimeout(() => ctrl.abort(), 10000);
     setLoading(true);
+    setLoadError(null);
+    const safeJson = (url: string) =>
+      fetch(url, { signal: ctrl.signal, cache: "no-store" })
+        .then((r) => r.json())
+        .catch(() => ({}));
     Promise.all([
-      fetch("/admin/api/history").then((r) => r.json()).catch(() => ({})),
-      fetch("/admin/api/favorites").then((r) => r.json()).catch(() => ({})),
-      fetch("/admin/api/likes").then((r) => r.json()).catch(() => ({})),
-      fetch("/admin/api/views").then((r) => r.json()).catch(() => ({}))
+      safeJson("/admin/api/history"),
+      safeJson("/admin/api/favorites"),
+      safeJson("/admin/api/likes"),
+      safeJson("/admin/api/views")
     ])
       .then(([historyJson, favoritesJson, likesJson, viewsJson]) => {
         if (cancelled) return;
+        const anyOk = Boolean(
+          historyJson?.ok || favoritesJson?.ok || likesJson?.ok || viewsJson?.ok
+        );
+        if (!anyOk) {
+          setLoadError(String(t("admin.submitFailed")));
+        }
         setHistoryByClient(
           historyJson?.ok && historyJson.byClient
             ? (historyJson.byClient as Record<string, WatchEntry[]>)
@@ -50,11 +64,18 @@ export default function AdminViewsPage() {
         );
       })
       .finally(() => {
+        window.clearTimeout(timer);
         if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
+      ctrl.abort();
     };
+  };
+
+  useEffect(() => {
+    const cleanup = loadAll();
+    return cleanup;
   }, []);
 
   const historyRows = Object.entries(historyByClient).flatMap(([clientId, list]) =>
@@ -95,6 +116,19 @@ export default function AdminViewsPage() {
         {tabBtn("likes", t("admin.userLikes"))}
         {tabBtn("views", t("admin.userViews"))}
       </div>
+
+      {loadError ? (
+        <div className="mt-4 flex items-center justify-between rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <span>{loadError}</span>
+          <button
+            type="button"
+            onClick={loadAll}
+            className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-100 hover:bg-red-500/20"
+          >
+            {t("admin.query")}
+          </button>
+        </div>
+      ) : null}
 
       {activeTab === "history" ? (
         <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-700/80 bg-zinc-900/50">

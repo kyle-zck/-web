@@ -16,11 +16,15 @@ export default function AdminSecurityPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    const ctrl = new AbortController();
+    const timer = window.setTimeout(() => ctrl.abort(), 10000);
     try {
       const res = await fetch("/admin/api/auth/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
+        cache: "no-store",
+        signal: ctrl.signal,
         body: JSON.stringify({
           oldPassword: oldPw,
           newPassword: newPw,
@@ -40,6 +44,7 @@ export default function AdminSecurityPage() {
     } catch {
       setError(t("admin.networkError"));
     } finally {
+      window.clearTimeout(timer);
       setLoading(false);
     }
   };

@@ -24,19 +24,36 @@ function idsToText(ids: string[] | undefined): string {
 export default function AdminAccessListPage() {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [whitelistText, setWhitelistText] = useState("");
   const [blacklistText, setBlacklistText] = useState("");
 
+  const load = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const { res, json } = await fetchAdminJson<{ ok?: boolean; accessList?: AccessListConfig; errorKey?: string }>(
+        "/admin/api/access-list",
+        undefined,
+        10000
+      );
+      if (res.ok && json?.ok && json.accessList) {
+        setWhitelistText(idsToText(json.accessList.whitelistClientIds));
+        setBlacklistText(idsToText(json.accessList.blacklistClientIds));
+      } else {
+        setLoadError(translateAdminApiError(json, t));
+      }
+    } catch {
+      setLoadError(String(t("admin.networkError")));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetchAdminJson<{ ok?: boolean; accessList?: AccessListConfig }>("/admin/api/access-list")
-      .then(({ json }) => {
-        if (json?.ok && json.accessList) {
-          setWhitelistText(idsToText(json.accessList.whitelistClientIds));
-          setBlacklistText(idsToText(json.accessList.blacklistClientIds));
-        }
-      })
-      .finally(() => setLoading(false));
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const whitelistIds = useMemo(() => linesToIds(whitelistText), [whitelistText]);
@@ -89,6 +106,18 @@ export default function AdminAccessListPage() {
         </div>
       ) : (
         <>
+          {loadError ? (
+            <div className="mb-4 flex items-center justify-between rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              <span>{loadError}</span>
+              <button
+                type="button"
+                onClick={load}
+                className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-100 hover:bg-red-500/20"
+              >
+                {t("admin.query")}
+              </button>
+            </div>
+          ) : null}
           <section className="rounded-3xl border border-zinc-800/80 bg-zinc-950/60 p-4">
             <h2 className="text-sm font-semibold text-zinc-100">{t("admin.whitelist")}</h2>
             <p className="mt-1 text-xs text-zinc-500">{t("admin.whitelistHint")}</p>

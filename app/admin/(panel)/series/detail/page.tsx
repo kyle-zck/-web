@@ -7,6 +7,7 @@ import { showToast } from "@/components/ui/toast";
 import { DramaEditDrawer } from "@/components/admin/drama-edit-drawer";
 import { fetchAdminJson } from "@/lib/admin/fetch-admin-json";
 import { getSeriesVideoMode } from "@/lib/video/series-video-mode";
+import { translateAdminApiError } from "@/lib/admin/api-error";
 
 function formatDate(ts: number | undefined, locale: string) {
   if (!ts) return "—";
@@ -34,6 +35,7 @@ export default function AdminDramaDetailPage() {
   );
   const [series, setSeries] = useState<Series[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [editTarget, setEditTarget] = useState<Series | null>(null);
   const [batchHlsRunning, setBatchHlsRunning] = useState(false);
   const [hotHlsRunning, setHotHlsRunning] = useState(false);
@@ -57,14 +59,22 @@ export default function AdminDramaDetailPage() {
   const [appliedFilter, setAppliedFilter] = useState(defaultFilter);
 
   const load = async () => {
+    setLoading(true);
+    setLoadError(null);
     try {
-      const { res, json } = await fetchAdminJson<{ ok?: boolean; series?: Series[] }>(
-        "/admin/api/series"
+      const { res, json } = await fetchAdminJson<{ ok?: boolean; series?: Series[]; errorKey?: string }>(
+        "/admin/api/series",
+        undefined,
+        10000
       );
       if (res.ok && json?.ok && Array.isArray(json.series)) setSeries(json.series);
-      else setSeries([]);
+      else {
+        setSeries([]);
+        setLoadError(translateAdminApiError(json, t));
+      }
     } catch {
       setSeries([]);
+      setLoadError(String(t("admin.networkError")));
     } finally {
       setLoading(false);
     }
@@ -127,13 +137,16 @@ export default function AdminDramaDetailPage() {
   const handleDelete = async (s: Series) => {
     if (!confirm(t("admin.confirmDeleteDramaFull", { title: s.title }))) return;
     try {
-      const res = await fetch(`/admin/api/series/${s.id}`, { method: "DELETE" });
-      const json = await res.json();
-      if (json?.ok) {
+      const { res, json } = await fetchAdminJson<{ ok?: boolean; errorKey?: string }>(
+        `/admin/api/series/${s.id}`,
+        { method: "DELETE" },
+        10000
+      );
+      if (res.ok && json?.ok) {
         showToast(t("admin.deleteSuccess"), "success");
         load();
       } else {
-        showToast(t("admin.deleteFailed"));
+        showToast(translateAdminApiError(json, t, "admin.deleteFailed"), "error");
       }
     } catch {
       showToast(t("admin.networkErrorShort"));
@@ -153,22 +166,26 @@ export default function AdminDramaDetailPage() {
     }
     setBatchHlsRunning(true);
     try {
-      const res = await fetch("/admin/api/video/transcode-hls", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: "manual",
-          seriesIds: ids,
-          firstNEpisodesPerSeries
-        })
-      });
-      const json = (await res.json()) as {
+      const { res, json } = await fetchAdminJson<{
         ok?: boolean;
         okCount?: number;
         totalJobs?: number;
-      };
+        errorKey?: string;
+      }>(
+        "/admin/api/video/transcode-hls",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: "manual",
+            seriesIds: ids,
+            firstNEpisodesPerSeries
+          })
+        },
+        10000
+      );
       if (!res.ok || !json?.ok) {
-        showToast(t("admin.hlsBatchRunFailed"));
+        showToast(translateAdminApiError(json, t, "admin.hlsBatchRunFailed"), "error");
         return;
       }
       showToast(
@@ -189,23 +206,27 @@ export default function AdminDramaDetailPage() {
   const runHotHls = async () => {
     setHotHlsRunning(true);
     try {
-      const res = await fetch("/admin/api/video/transcode-hls", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: "hot",
-          minViews: hotMinViews,
-          maxSeries: hotMaxSeries,
-          firstNEpisodesPerSeries
-        })
-      });
-      const json = (await res.json()) as {
+      const { res, json } = await fetchAdminJson<{
         ok?: boolean;
         okCount?: number;
         totalJobs?: number;
-      };
+        errorKey?: string;
+      }>(
+        "/admin/api/video/transcode-hls",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: "hot",
+            minViews: hotMinViews,
+            maxSeries: hotMaxSeries,
+            firstNEpisodesPerSeries
+          })
+        },
+        10000
+      );
       if (!res.ok || !json?.ok) {
-        showToast(t("admin.hlsHotRunFailed"));
+        showToast(translateAdminApiError(json, t, "admin.hlsHotRunFailed"), "error");
         return;
       }
       showToast(
@@ -414,6 +435,19 @@ export default function AdminDramaDetailPage() {
           </div>
         </div>
       </section>
+
+      {loadError ? (
+        <div className="mt-4 flex items-center justify-between rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <span>{loadError}</span>
+          <button
+            type="button"
+            onClick={load}
+            className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-100 hover:bg-red-500/20"
+          >
+            {t("admin.query")}
+          </button>
+        </div>
+      ) : null}
 
       <section className="mt-6 overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/60">
         <div className="max-h-[calc(100vh-320px)] overflow-auto">

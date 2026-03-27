@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { AppConfig } from "@/lib/app-config/types";
+import { fetchAdminJson } from "@/lib/admin/fetch-admin-json";
+import { translateAdminApiError } from "@/lib/admin/api-error";
+import { showToast } from "@/components/ui/toast";
 
 function emptyConfig(): AppConfig {
   return {
@@ -33,24 +36,41 @@ export default function AdminSiteSettingsPage() {
   const [featuredText, setFeaturedText] = useState("");
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadConfig = async () => {
+    setLoaded(false);
+    setLoadError(null);
+    try {
+      const { res, json } = await fetchAdminJson<{ ok?: boolean; config?: AppConfig; errorKey?: string }>(
+        "/admin/api/app-config",
+        undefined,
+        10000
+      );
+      if (!res.ok || !json?.ok) {
+        setLoadError(translateAdminApiError(json, t));
+        return;
+      }
+      const c = (json?.config ?? {}) as AppConfig;
+      setCfg({
+        ...emptyConfig(),
+        ...c,
+        seo: { ...emptyConfig().seo, ...c.seo },
+        nav: { ...emptyConfig().nav, ...c.nav },
+        home: { ...emptyConfig().home, ...c.home },
+        legal: { ...emptyConfig().legal, ...c.legal }
+      });
+      setFeaturedText((c.home?.featuredSeriesIds ?? []).join(", "));
+    } catch {
+      setLoadError(String(t("admin.networkError")));
+    } finally {
+      setLoaded(true);
+    }
+  };
 
   useEffect(() => {
-    fetch("/admin/api/app-config")
-      .then((r) => r.json())
-      .then((json) => {
-        const c = (json?.config ?? json) as AppConfig;
-        setCfg({
-          ...emptyConfig(),
-          ...c,
-          seo: { ...emptyConfig().seo, ...c.seo },
-          nav: { ...emptyConfig().nav, ...c.nav },
-          home: { ...emptyConfig().home, ...c.home },
-          legal: { ...emptyConfig().legal, ...c.legal }
-        });
-        setFeaturedText((c.home?.featuredSeriesIds ?? []).join(", "));
-        setLoaded(true);
-      })
-      .catch(() => setLoaded(true));
+    loadConfig();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const patch = (partial: Partial<AppConfig>) => {
@@ -64,21 +84,30 @@ export default function AdminSiteSettingsPage() {
       .filter(Boolean);
     try {
       setSaving(true);
-      await fetch("/admin/api/app-config", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          brandName: cfg.brandName,
-          logoUrl: cfg.logoUrl || "",
-          seo: cfg.seo,
-          nav: cfg.nav,
-          home: {
-            ...cfg.home,
-            featuredSeriesIds: ids
-          },
-          legal: cfg.legal
-        })
-      });
+      const { res, json } = await fetchAdminJson<{ ok?: boolean; errorKey?: string }>(
+        "/admin/api/app-config",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            brandName: cfg.brandName,
+            logoUrl: cfg.logoUrl || "",
+            seo: cfg.seo,
+            nav: cfg.nav,
+            home: {
+              ...cfg.home,
+              featuredSeriesIds: ids
+            },
+            legal: cfg.legal
+          })
+        },
+        10000
+      );
+      if (!res.ok || !json?.ok) {
+        showToast(translateAdminApiError(json, t), "error");
+        return;
+      }
+      showToast(t("admin.saved"), "success");
     } finally {
       setSaving(false);
     }
@@ -108,6 +137,19 @@ export default function AdminSiteSettingsPage() {
           {saving ? t("admin.saving") : t("admin.save")}
         </button>
       </div>
+
+      {loadError ? (
+        <div className="flex items-center justify-between rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <span>{loadError}</span>
+          <button
+            type="button"
+            onClick={loadConfig}
+            className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-100 hover:bg-red-500/20"
+          >
+            {t("admin.query")}
+          </button>
+        </div>
+      ) : null}
 
       <section className="rounded-3xl border border-zinc-800/80 bg-zinc-950/60 p-4">
         <h2 className="text-sm font-semibold text-zinc-100">{t("admin.branding")}</h2>

@@ -14,7 +14,10 @@ import {
   Bar
 } from "recharts";
 import { Badge } from "@/components/ui/badge";
+import { showToast } from "@/components/ui/toast";
 import { useAdminSeriesStore } from "@/lib/store/admin-series";
+import { fetchAdminJson } from "@/lib/admin/fetch-admin-json";
+import { translateAdminApiError } from "@/lib/admin/api-error";
 
 function hashScore(input: string) {
   let h = 0;
@@ -27,25 +30,49 @@ export default function AdminDashboardPage() {
   const { series } = useAdminSeriesStore();
   const [brandName, setBrandName] = useState("ReelShorts");
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadBranding = async () => {
+    setLoadError(null);
+    try {
+      const { res, json } = await fetchAdminJson<{ ok?: boolean; config?: { brandName?: string }; errorKey?: string }>(
+        "/admin/api/app-config",
+        undefined,
+        10000
+      );
+      if (!res.ok || !json?.ok) {
+        setLoadError(translateAdminApiError(json, t));
+        return;
+      }
+      const cfg = json.config ?? {};
+      if (cfg?.brandName) setBrandName(cfg.brandName);
+    } catch {
+      setLoadError(String(t("admin.networkError")));
+    }
+  };
 
   useEffect(() => {
-    fetch("/admin/api/app-config")
-      .then((r) => r.json())
-      .then((json) => {
-        const cfg = json?.config ?? json;
-        if (cfg?.brandName) setBrandName(cfg.brandName);
-      })
-      .catch(() => {});
+    loadBranding();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const saveConfig = async () => {
     try {
       setSaving(true);
-      await fetch("/admin/api/app-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brandName })
-      });
+      const { res, json } = await fetchAdminJson<{ ok?: boolean; errorKey?: string }>(
+        "/admin/api/app-config",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ brandName })
+        },
+        10000
+      );
+      if (!res.ok || !json?.ok) {
+        showToast(translateAdminApiError(json, t), "error");
+        return;
+      }
+      showToast(t("admin.saved"), "success");
     } finally {
       setSaving(false);
     }
@@ -113,6 +140,18 @@ export default function AdminDashboardPage() {
           >
             {saving ? t("admin.saving") : t("admin.saveBranding")}
           </button>
+          {loadError ? (
+            <div className="mt-3 flex items-center justify-between rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+              <span>{loadError}</span>
+              <button
+                type="button"
+                onClick={loadBranding}
+                className="rounded-lg border border-red-400/40 bg-red-500/10 px-2.5 py-1 font-semibold text-red-100 hover:bg-red-500/20"
+              >
+                {t("admin.query")}
+              </button>
+            </div>
+          ) : null}
         </section>
       </div>
 

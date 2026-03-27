@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { fetchAdminJson } from "@/lib/admin/fetch-admin-json";
 
 interface AdminUserSafe {
   uid: string;
@@ -26,6 +27,7 @@ export default function AdminUsersPage() {
   const { t } = useTranslation();
   const [users, setUsers] = useState<AdminUserSafe[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [uid, setUid] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -47,14 +49,18 @@ export default function AdminUsersPage() {
   }, [uid, name, email, provider, membershipPlan, remainingSort]);
 
   useEffect(() => {
-    fetch("/admin/api/app-config")
-      .then((r) => r.json())
-      .then((json) => {
-        const cfg = json?.config ?? json;
-        const plans = Array.isArray(cfg?.subscriptionPlans) ? cfg.subscriptionPlans : [];
-        const labels = plans
-          .map((x: any) => (typeof x?.label === "string" ? x.label : ""))
-          .filter(Boolean);
+    fetchAdminJson<{ ok?: boolean; config?: { subscriptionPlans?: Array<{ label?: string }> } }>(
+      "/admin/api/app-config",
+      undefined,
+      10000
+    )
+      .then(({ res, json }) => {
+        if (!res.ok || !json?.ok) {
+          setPlanOptions([]);
+          return;
+        }
+        const plans = Array.isArray(json.config?.subscriptionPlans) ? json.config?.subscriptionPlans : [];
+        const labels = plans.map((x) => (typeof x?.label === "string" ? x.label : "")).filter(Boolean) as string[];
         setPlanOptions(labels);
       })
       .catch(() => setPlanOptions([]));
@@ -62,15 +68,27 @@ export default function AdminUsersPage() {
 
   const load = () => {
     setLoading(true);
-    fetch(`/admin/api/users${qs}`)
+    setLoadError(null);
+    const ctrl = new AbortController();
+    const timer = window.setTimeout(() => ctrl.abort(), 10000);
+    fetch(`/admin/api/users${qs}`, { signal: ctrl.signal, cache: "no-store" })
       .then((r) => r.json())
       .then((json) => {
         if (json?.ok && Array.isArray(json.users)) {
           setUsers(json.users);
+        } else {
+          setUsers([]);
+          setLoadError(String(t("admin.submitFailed")));
         }
       })
-      .catch(() => setUsers([]))
-      .finally(() => setLoading(false));
+      .catch(() => {
+        setUsers([]);
+        setLoadError(String(t("admin.networkError")));
+      })
+      .finally(() => {
+        window.clearTimeout(timer);
+        setLoading(false);
+      });
   };
 
   useEffect(() => {
@@ -193,6 +211,19 @@ export default function AdminUsersPage() {
           {t("admin.reset")}
         </button>
       </div>
+
+      {loadError ? (
+        <div className="mt-4 flex items-center justify-between rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <span>{loadError}</span>
+          <button
+            type="button"
+            onClick={load}
+            className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-100 hover:bg-red-500/20"
+          >
+            {t("admin.query")}
+          </button>
+        </div>
+      ) : null}
 
       <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-700/80 bg-zinc-900/50">
         {loading ? (

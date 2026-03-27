@@ -20,6 +20,7 @@ export default function AdminEpisodeManagementPage() {
   const { t } = useTranslation();
   const [series, setSeries] = useState<Series[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [origin, setOrigin] = useState("");
   const [draft, setDraft] = useState({ dramaId: "", originalName: "", title: "" });
   const [applied, setApplied] = useState({ dramaId: "", originalName: "", title: "" });
@@ -39,18 +40,26 @@ export default function AdminEpisodeManagementPage() {
   >({});
 
   const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
     try {
-      const { res, json } = await fetchAdminJson<{ ok?: boolean; series?: Series[] }>(
-        "/admin/api/series"
+      const { res, json } = await fetchAdminJson<{ ok?: boolean; series?: Series[]; errorKey?: string }>(
+        "/admin/api/series",
+        undefined,
+        10000
       );
       if (res.ok && json?.ok && Array.isArray(json.series)) setSeries(json.series);
-      else setSeries([]);
+      else {
+        setSeries([]);
+        setLoadError(translateAdminApiError(json, t));
+      }
     } catch {
       setSeries([]);
+      setLoadError(String(t("admin.networkError")));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -113,12 +122,13 @@ export default function AdminEpisodeManagementPage() {
     const ok = confirm(t("admin.confirmDeleteEpisode", { title: s.title, n: e.index }));
     if (!ok) return;
     try {
-      const res = await fetch(`/admin/api/series/${s.id}/episodes/${e.id}`, {
-        method: "DELETE"
-      });
-      const json = await res.json();
-      if (!json?.ok) {
-        showToast(translateAdminApiError(json, t, "admin.episodeDeleteFailed"));
+      const { res, json } = await fetchAdminJson<{ ok?: boolean; errorKey?: string }>(
+        `/admin/api/series/${s.id}/episodes/${e.id}`,
+        { method: "DELETE" },
+        10000
+      );
+      if (!res.ok || !json?.ok) {
+        showToast(translateAdminApiError(json, t, "admin.episodeDeleteFailed"), "error");
         return;
       }
       showToast(t("admin.episodeDeleted"), "success");
@@ -211,27 +221,31 @@ export default function AdminEpisodeManagementPage() {
   const checkEpisodeResources = async (s: Series, e: Episode) => {
     setCheckingEpisodeId(e.id);
     try {
-      const res = await fetch("/admin/api/video/check-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items: [
-            { kind: "cover", url: s.cover },
-            { kind: "videoUrl", url: e.videoUrl },
-            { kind: "videoPlaybackUrl", url: e.videoPlaybackUrl || e.videoUrl }
-          ]
-        })
-      });
-      const json = (await res.json()) as {
+      const { res, json } = await fetchAdminJson<{
         ok?: boolean;
         results?: Array<{
           kind: "cover" | "videoUrl" | "videoPlaybackUrl";
           ok: boolean;
           status: number;
         }>;
-      };
+        errorKey?: string;
+      }>(
+        "/admin/api/video/check-url",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items: [
+              { kind: "cover", url: s.cover },
+              { kind: "videoUrl", url: e.videoUrl },
+              { kind: "videoPlaybackUrl", url: e.videoPlaybackUrl || e.videoUrl }
+            ]
+          })
+        },
+        10000
+      );
       if (!res.ok || !json?.ok || !Array.isArray(json.results)) {
-        showToast(t("admin.videoHealthCheckFailed"));
+        showToast(translateAdminApiError(json, t, "admin.videoHealthCheckFailed"), "error");
         return;
       }
       const next = json.results.reduce(
@@ -271,25 +285,28 @@ export default function AdminEpisodeManagementPage() {
             if (!item) break;
             const { series: s, episode: e } = item;
             try {
-              const res = await fetch("/admin/api/video/check-url", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  items: [
-                    { kind: "cover", url: s.cover },
-                    { kind: "videoUrl", url: e.videoUrl },
-                    { kind: "videoPlaybackUrl", url: e.videoPlaybackUrl || e.videoUrl }
-                  ]
-                })
-              });
-              const json = (await res.json()) as {
+              const { res, json } = await fetchAdminJson<{
                 ok?: boolean;
                 results?: Array<{
                   kind: "cover" | "videoUrl" | "videoPlaybackUrl";
                   ok: boolean;
                   status: number;
                 }>;
-              };
+              }>(
+                "/admin/api/video/check-url",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    items: [
+                      { kind: "cover", url: s.cover },
+                      { kind: "videoUrl", url: e.videoUrl },
+                      { kind: "videoPlaybackUrl", url: e.videoPlaybackUrl || e.videoUrl }
+                    ]
+                  })
+                },
+                10000
+              );
               if (!res.ok || !json?.ok || !Array.isArray(json.results)) continue;
               const next = json.results.reduce(
                 (acc, x) => {
@@ -422,6 +439,19 @@ export default function AdminEpisodeManagementPage() {
           </button>
         </div>
       </section>
+
+      {loadError ? (
+        <div className="mt-4 flex items-center justify-between rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <span>{loadError}</span>
+          <button
+            type="button"
+            onClick={load}
+            className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-100 hover:bg-red-500/20"
+          >
+            {t("admin.query")}
+          </button>
+        </div>
+      ) : null}
 
       <section className="mt-6 overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/60">
         <div className="max-h-[calc(100vh-340px)] overflow-auto">
