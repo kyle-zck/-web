@@ -256,3 +256,89 @@ Supabase -> `Authentication` -> `Providers`：
 - Authorized redirect URIs:
   - `https://iqastxkcyfrwaimqczrj.supabase.co/auth/v1/callback`
 
+---
+
+## 11) 忘记密码（Reset password）完整配置（可直接照做）
+
+你要的“忘记密码 -> 邮箱验证码/链接 -> 设置新密码”，在 Supabase 里对应 **Reset password** 流程。
+
+> Supabase 默认是“发邮件链接”（链接里带 token，相当于验证码）。  
+> 你也可以在邮件里同时展示 token，但最稳的是让用户直接点链接完成。
+
+### 11.1 打开重置密码能力
+
+Supabase -> `Authentication` ->（左侧）`Authentication` 页面：
+
+- 点 `Reset password`
+  - 确保是启用状态（允许用户通过邮件重置密码）
+
+### 11.2 URL 配置（非常关键）
+
+Supabase -> `Authentication` -> `URL Configuration`：
+
+- `Site URL`: `https://www.popularreels.com`
+- `Redirect URLs` 至少包含：
+  - `https://www.popularreels.com/auth/callback`
+  - `https://www.popularreels.com/**`
+  - （可选）`https://popularreels.com/auth/callback`
+  - （可选）`https://popularreels.com/**`
+
+> 你项目里回调处理固定走：`/auth/callback`。  
+> 忘记密码邮件里跳转也会走到站点域名下的回调/重定向路径，所以这里必须放行。
+
+### 11.3 配置邮件模板（Reset Password）
+
+Supabase -> `Authentication` -> `Email Templates`：
+
+1. 找到模板：`Reset Password`（或类似名称：`Reset your password`）
+2. 将 Subject / Body 替换为下面推荐模板
+3. 点右下角 `Save changes`
+
+#### 推荐 Subject（主题）
+
+```text
+重置你的密码（PopularReels）
+```
+
+#### 推荐 Body（正文，HTML，可复制粘贴）
+
+```html
+<h2>重置你的密码</h2>
+<p>我们收到了你的“忘记密码”请求，请点击下面按钮设置新密码：</p>
+
+<p>
+  <a href="{{ .ConfirmationURL }}"
+     style="display:inline-block;padding:12px 18px;background:#111827;color:#fff;text-decoration:none;border-radius:10px;font-weight:700;">
+    点击重置密码
+  </a>
+</p>
+
+<p style="color:#777;font-size:12px;line-height:18px;">
+  如果按钮无法点击，请复制这段链接到浏览器打开：<br/>
+  {{ .ConfirmationURL }}
+</p>
+
+<p style="color:#999;font-size:12px;">
+  如果这不是你本人操作，请忽略此邮件。
+</p>
+```
+
+> 注意：这里同样 **不需要你手填真实 URL**，只要保留 `{{ .ConfirmationURL }}`。
+
+### 11.4 发送邮件能力（SMTP）
+
+若你发现邮件收不到/进垃圾箱，建议配置自定义 SMTP：
+
+- Supabase -> `Authentication` -> `SMTP`
+
+测试阶段可先用默认邮件通道，但生产强烈建议配 SMTP。
+
+### 11.5 站点侧如何验证（冒烟测试）
+
+1. 打开你站点登录弹窗
+2. 点击“忘记密码”（如果你前端还没做按钮，我可以下一步帮你补）
+3. 输入邮箱，触发发送
+4. 收到邮件后点击链接
+5. 在打开的页面完成设置新密码
+6. 回到站点，用新密码登录成功
+
