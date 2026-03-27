@@ -25,7 +25,6 @@ export function normalizeStripePriceId(raw: unknown): string {
 
 export function deriveStripePriceId(plan: {
   id?: string;
-  label?: string;
   paymentUrl?: string;
   stripePriceId?: string;
 }): string {
@@ -39,10 +38,19 @@ export function deriveStripePriceId(plan: {
   if (!mapRaw) return "";
   try {
     const parsed = JSON.parse(mapRaw) as Record<string, string>;
-    const byId = normalizeStripePriceId(parsed[String(plan.id ?? "")]);
+    const normalizeKey = (v: unknown) => String(v ?? "").trim().toLowerCase();
+    const getByKey = (k: unknown) => {
+      const key = normalizeKey(k);
+      if (!key) return "";
+      // 先精确，再大小写无关兜底
+      const exact = normalizeStripePriceId(parsed[String(k ?? "")]);
+      if (exact) return exact;
+      const hit = Object.entries(parsed).find(([pk]) => normalizeKey(pk) === key)?.[1];
+      return normalizeStripePriceId(hit);
+    };
+
+    const byId = getByKey(plan.id);
     if (byId) return byId;
-    const byLabel = normalizeStripePriceId(parsed[String(plan.label ?? "")]);
-    if (byLabel) return byLabel;
   } catch {
     return "";
   }

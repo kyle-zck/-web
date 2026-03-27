@@ -35,7 +35,6 @@ export async function POST(req: NextRequest) {
 
     const priceId = deriveStripePriceId({
       id: plan.id,
-      label: plan.label,
       paymentUrl: (plan as { paymentUrl?: string }).paymentUrl,
       stripePriceId: (plan as { stripePriceId?: string }).stripePriceId
     });

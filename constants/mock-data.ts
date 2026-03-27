@@ -37,6 +37,8 @@ export interface SubscriptionPlan {
   id: string;
   /** 模版名称：给运营区分用（不一定展示在前台） */
   templateName?: string;
+  /** Stripe Price ID（price_xxx）。优先级高于 STRIPE_PRICE_MAP_JSON */
+  stripePriceId?: string;
   label: string;
   priceUsd: number;
   durationDays: number;

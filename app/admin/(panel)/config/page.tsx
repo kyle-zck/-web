@@ -8,6 +8,14 @@ import { fetchAdminJson } from "@/lib/admin/fetch-admin-json";
 import { translateAdminApiError } from "@/lib/admin/api-error";
 import type { AppConfigStore } from "@/lib/app-config";
 
+function normalizePlanId(input: string): string {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9_-]/g, "");
+}
+
 export default function AdminConfigPage() {
   const { t } = useTranslation();
   const [loaded, setLoaded] = useState(false);
@@ -78,17 +86,19 @@ export default function AdminConfigPage() {
   };
 
   const addPlan = () => {
+    const nextId = `plan-${Date.now()}`;
     setPlansEdit([
       ...plansEdit,
       {
-        id: `plan-${Date.now()}`,
-        templateName: t("admin.newPlan"),
+        id: nextId,
+        templateName: nextId,
         label: t("admin.newPlan"),
         priceUsd: 9.99,
         durationDays: 30,
         discountPercent: 100,
         discountDays: 0,
-        paymentUrl: "/store"
+        paymentUrl: "/store",
+        stripePriceId: ""
       }
     ]);
   };
@@ -100,12 +110,16 @@ export default function AdminConfigPage() {
   const stagePlans = () => {
     const now = new Date().toISOString();
     const staged = plansEdit.map((p) => {
+      const normalizedId = normalizePlanId(String(p.id ?? p.templateName ?? ""));
       const dp = typeof p.discountPercent === "number" ? p.discountPercent : Number(p.discountPercent ?? 100);
       const dd = typeof p.discountDays === "number" ? p.discountDays : Number(p.discountDays ?? 0);
       const discountPercent = Number.isFinite(dp) ? Math.max(1, Math.min(100, Math.round(dp))) : 100;
       const discountDays = Number.isFinite(dd) ? Math.max(0, Math.floor(dd)) : 0;
       const next: SubscriptionPlan = {
         ...p,
+        id: normalizedId || `plan-${Date.now()}`,
+        templateName: normalizedId || `plan-${Date.now()}`,
+        stripePriceId: String((p as any).stripePriceId ?? "").trim(),
         discountPercent,
         discountDays
       };
@@ -235,10 +249,14 @@ export default function AdminConfigPage() {
               >
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
                 <label className="flex flex-col gap-1 text-xs text-zinc-400">
-                  Template name
+                  Plan ID (key)
                   <input
-                    value={plan.templateName ?? ""}
-                    onChange={(e) => updatePlan(i, { templateName: e.target.value })}
+                    value={plan.id ?? plan.templateName ?? ""}
+                    onChange={(e) => {
+                      const nextId = normalizePlanId(e.target.value);
+                      updatePlan(i, { id: nextId, templateName: nextId });
+                    }}
+                    placeholder="month / week / year"
                     className="rounded-lg border border-zinc-800 bg-black/50 px-3 py-2 text-zinc-100"
                   />
                 </label>
@@ -294,6 +312,17 @@ export default function AdminConfigPage() {
                       value={plan.paymentUrl ?? ""}
                       onChange={(e) => updatePlan(i, { paymentUrl: e.target.value || undefined })}
                       placeholder="/store"
+                      className="rounded-lg border border-zinc-800 bg-black/50 px-3 py-2 text-zinc-100"
+                    />
+                  </label>
+                  <label className="flex flex-1 flex-col gap-1 text-xs text-zinc-400">
+                    Stripe Price ID
+                    <input
+                      value={String((plan as any).stripePriceId ?? "")}
+                      onChange={(e) =>
+                        updatePlan(i, { stripePriceId: e.target.value.trim() || undefined } as Partial<SubscriptionPlan>)
+                      }
+                      placeholder="price_..."
                       className="rounded-lg border border-zinc-800 bg-black/50 px-3 py-2 text-zinc-100"
                     />
                   </label>
