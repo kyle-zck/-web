@@ -57,6 +57,7 @@ export default function ProfilePage() {
     isSubscribed,
     subscriptionTier,
     getDaysRemaining,
+    setSubscribed,
     progressSeconds,
     setEpisodeIndex,
     setSeries
@@ -88,6 +89,45 @@ export default function ProfilePage() {
   useEffect(() => {
     fetchUid().then(() => {});
   }, [isLoggedIn, userId, fetchUid]);
+
+  // 会员状态以服务端为准：避免“后台已删除会员，但前端仍显示 Active（persist 缓存）”
+  useEffect(() => {
+    const clientId = supabaseUserId ?? getOrCreateDeviceClientId();
+    if (!clientId) return;
+    const ctrl = new AbortController();
+    const timer = window.setTimeout(() => ctrl.abort(), 6000);
+    fetch(`/api/user/recharge?clientId=${encodeURIComponent(clientId)}`, {
+      signal: ctrl.signal,
+      cache: "no-store"
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        const list = (json?.records ?? []) as Array<{ tier?: string; remainingDays?: number }>;
+        if (!Array.isArray(list) || list.length === 0) {
+          setSubscribed(false);
+          return;
+        }
+        const active = list
+          .map((x) => ({
+            tier: String(x.tier ?? ""),
+            remainingDays: Number.isFinite(Number(x.remainingDays)) ? Number(x.remainingDays) : 0
+          }))
+          .sort((a, b) => b.remainingDays - a.remainingDays)[0];
+        if (!active || active.remainingDays <= 0) {
+          setSubscribed(false);
+          return;
+        }
+        setSubscribed(true, active.remainingDays, active.tier || "VIP");
+      })
+      .catch(() => {
+        // ignore
+      })
+      .finally(() => window.clearTimeout(timer));
+    return () => {
+      window.clearTimeout(timer);
+      ctrl.abort();
+    };
+  }, [supabaseUserId, setSubscribed]);
 
   // 同步本地数据到管理后台，并从管理后台拉取
   useEffect(() => {

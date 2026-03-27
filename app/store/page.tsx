@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AuthModal } from "@/components/ui/auth-modal";
 import { usePlayerStore } from "@/lib/store/player";
 import { useUserStore } from "@/lib/store/user";
@@ -87,6 +88,7 @@ function formatCountdown(ms: number): string {
 
 export default function StorePage() {
   const { t } = useTranslation();
+  const router = useRouter();
   const { isSubscribed } = usePlayerStore();
   const { isLoggedIn, supabaseUserId } = useUserStore();
 
@@ -97,6 +99,29 @@ export default function StorePage() {
   const [storeCfg, setStoreCfg] = useState<StoreConfig["store"]>({});
   const [paying, setPaying] = useState(false);
   const [agreeAutoRenew, setAgreeAutoRenew] = useState(true);
+  const [payResult, setPayResult] = useState<null | "success" | "cancel">(null);
+
+  const payResultTitle = useMemo(() => {
+    if (payResult === "success") return t("store.paySuccessTitle", "充值成功");
+    if (payResult === "cancel") return t("store.payCancelTitle", "已取消支付");
+    return "";
+  }, [payResult, t]);
+
+  const payResultDesc = useMemo(() => {
+    if (payResult === "success") {
+      return t(
+        "store.paySuccessDesc",
+        "本次充值已完成。关闭后你可以重新发起一次新的支付。"
+      );
+    }
+    if (payResult === "cancel") {
+      return t(
+        "store.payCancelDesc",
+        "你已取消本次支付。你可以重新选择套餐并再次支付。"
+      );
+    }
+    return "";
+  }, [payResult, t]);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -110,6 +135,16 @@ export default function StorePage() {
         setStoreCfg({});
       });
     return () => ctrl.abort();
+  }, []);
+
+  // Stripe 回跳：只展示一次结果弹窗；关闭后移除 query，恢复为“新一笔支付”的初始状态
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    const pay = (url.searchParams.get("pay") ?? "").trim();
+    if (pay === "success") setPayResult("success");
+    else if (pay === "cancel") setPayResult("cancel");
+    else return;
   }, []);
 
   const handleSubscribe = async (plan: SubscriptionPlan) => {
@@ -148,6 +183,21 @@ export default function StorePage() {
     }
   };
 
+  const closePayResult = () => {
+    setPayResult(null);
+    setPaying(false);
+    setSelectedPlan(null);
+    // 关闭后清理 query，避免刷新页面重复弹窗
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("pay");
+      url.searchParams.delete("session_id");
+      window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
+    } else {
+      router.replace("/store");
+    }
+  };
+
   return (
     <main className="flex min-h-screen flex-col">
       <header className="page-gutter-x pt-4">
@@ -174,13 +224,11 @@ export default function StorePage() {
               key={plan.id}
               type="button"
               onClick={() => setSelectedPlan(plan)}
-              disabled={isSubscribed}
               className={cn(
                 "relative overflow-hidden rounded-2xl p-5 text-left shadow-lg transition-all",
                 "bg-gradient-to-br from-amber-100 to-amber-200/90",
                 selectedPlan?.id === plan.id && "ring-2 ring-brand",
-                isSubscribed && "opacity-60 cursor-not-allowed",
-                !isSubscribed && "hover:scale-[1.02]"
+                "hover:scale-[1.02]"
               )}
             >
               {(() => {
@@ -335,6 +383,35 @@ export default function StorePage() {
           </button>
         </section>
       </div>
+
+      {payResult ? (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-800/80 bg-zinc-950 p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-base font-bold text-zinc-100">{payResultTitle}</h3>
+                <p className="mt-2 text-sm leading-6 text-zinc-400">{payResultDesc}</p>
+              </div>
+              <button
+                type="button"
+                onClick={closePayResult}
+                className="rounded-lg border border-zinc-700 bg-black/40 px-3 py-1.5 text-xs font-semibold text-zinc-200 hover:bg-zinc-900/60"
+              >
+                {t("admin.close", "Close")}
+              </button>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closePayResult}
+                className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-red-600"
+              >
+                {t("store.continue", "继续")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
     </main>

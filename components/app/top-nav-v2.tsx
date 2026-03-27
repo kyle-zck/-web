@@ -106,34 +106,62 @@ export function TopNavV2() {
   useEffect(() => {
     const clientId = supabaseUserId ?? getOrCreateDeviceClientId();
     if (!clientId) return;
-    const ctrl = new AbortController();
-    fetchJsonWithTimeout<{ records?: RechargeRecordLite[] }>(
-      `/api/user/recharge?clientId=${encodeURIComponent(clientId)}`,
-      6000,
-      ctrl.signal
-    )
-      .then((json) => {
-        const list = (json?.records ?? []) as RechargeRecordLite[];
-        if (!Array.isArray(list) || list.length === 0) {
-          setSubscribed(false);
-          return;
-        }
-        const active = list
-          .map((x) => ({
-            tier: x.tier,
-            remainingDays: Number.isFinite(Number(x.remainingDays)) ? Number(x.remainingDays) : 0
-          }))
-          .sort((a, b) => b.remainingDays - a.remainingDays)[0];
-        if (!active || active.remainingDays <= 0) {
-          setSubscribed(false);
-          return;
-        }
-        setSubscribed(true, active.remainingDays, active.tier || "VIP");
-      })
-      .catch(() => {
-        // ignore
-      });
-    return () => ctrl.abort();
+    let disposed = false;
+    let lastRunAt = 0;
+
+    const refresh = (reason: "mount" | "focus" | "visible") => {
+      const now = Date.now();
+      // 防止频繁触发（focus/visibility 可能连发）
+      if (reason !== "mount" && now - lastRunAt < 3000) return;
+      lastRunAt = now;
+
+      const ctrl = new AbortController();
+      fetchJsonWithTimeout<{ records?: RechargeRecordLite[] }>(
+        `/api/user/recharge?clientId=${encodeURIComponent(clientId)}`,
+        6000,
+        ctrl.signal
+      )
+        .then((json) => {
+          if (disposed) return;
+          const list = (json?.records ?? []) as RechargeRecordLite[];
+          if (!Array.isArray(list) || list.length === 0) {
+            setSubscribed(false);
+            return;
+          }
+          const active = list
+            .map((x) => ({
+              tier: x.tier,
+              remainingDays: Number.isFinite(Number(x.remainingDays)) ? Number(x.remainingDays) : 0
+            }))
+            .sort((a, b) => b.remainingDays - a.remainingDays)[0];
+          if (!active || active.remainingDays <= 0) {
+            setSubscribed(false);
+            return;
+          }
+          setSubscribed(true, active.remainingDays, active.tier || "VIP");
+        })
+        .catch(() => {
+          // ignore
+        });
+    };
+
+    refresh("mount");
+
+    const onFocus = () => refresh("focus");
+    const onVis = () => {
+      if (document.visibilityState === "visible") refresh("visible");
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVis);
+
+    const timer = window.setInterval(() => refresh("visible"), 60_000);
+
+    return () => {
+      disposed = true;
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVis);
+      window.clearInterval(timer);
+    };
   }, [supabaseUserId, setSubscribed]);
 
   const navItems = useMemo(() => {

@@ -1,9 +1,6 @@
 import { Pool } from "pg";
 import { getDatabaseUrl } from "@/lib/db/url";
 
-/** 与「剧目 / 用户」等并行建表时避免竞态 */
-const ADVISORY_LOCK_KEY = 8812342001;
-
 let pool: Pool | null = null;
 let initialized = false;
 let initPromise: Promise<void> | null = null;
@@ -23,6 +20,14 @@ function getPgTimeouts() {
   return { connectionTimeoutMillis, statement_timeout, query_timeout };
 }
 
+function envInt(name: string, fallback: number): number {
+  const raw = process.env[name]?.trim();
+  if (!raw) return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.floor(n);
+}
+
 function getPool(): Pool {
   if (pool) return pool;
   const url = getDatabaseUrl();
@@ -32,12 +37,16 @@ function getPool(): Pool {
     );
   }
   const timeouts = getPgTimeouts();
+  // Serverless 环境（Vercel）会高并发创建实例，默认 Pool=10 很容易打爆 Supabase 连接上限。
+  // 这里把默认连接数压到 2，并允许用环境变量覆盖。
+  const max = envInt("PG_POOL_MAX", 2);
   pool = new Pool({
     connectionString: url,
     connectionTimeoutMillis: timeouts.connectionTimeoutMillis,
     statement_timeout: timeouts.statement_timeout,
     query_timeout: timeouts.query_timeout,
     keepAlive: true,
+    max,
     ssl:
       url.includes("localhost") || url.includes("127.0.0.1")
         ? undefined
@@ -46,60 +55,23 @@ function getPool(): Pool {
   return pool;
 }
 
-function sslForUrl(url: string) {
-  return url.includes("localhost") || url.includes("127.0.0.1")
-    ? undefined
-    : { rejectUnauthorized: false };
-}
-
-type PgClient = {
-  connect(): Promise<void>;
-  query(sql: string, params?: unknown[]): Promise<unknown>;
-  end(): Promise<void>;
-};
-
-async function runInitDdlWithAdvisoryLock(): Promise<void> {
-  const url = getDatabaseUrl();
-  if (!url) {
-    throw new Error(
-      "Missing DATABASE_URL / SUPABASE_DB_URL / PG_URL for site_config_snapshot (pg)"
+async function runInitDdl(): Promise<void> {
+  // 这里不要使用 advisory lock：在 Vercel serverless 并发冷启动时容易排队导致首屏变慢/超时。
+  // `CREATE TABLE IF NOT EXISTS` 本身是幂等的，足以覆盖初始化需求。
+  const conn = getPool();
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS site_config_snapshot (
+      id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+      config_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+      updated_at BIGINT NOT NULL
     );
-  }
-  const timeouts = getPgTimeouts();
-  const pg = await import("pg");
-  const Client = (pg as unknown as { Client: new (config: object) => PgClient }).Client;
-  const client = new Client({
-    connectionString: url,
-    connectionTimeoutMillis: timeouts.connectionTimeoutMillis,
-    statement_timeout: timeouts.statement_timeout,
-    query_timeout: timeouts.query_timeout,
-    keepAlive: true,
-    ssl: sslForUrl(url)
-  });
-  await client.connect();
-  try {
-    await client.query("SELECT pg_advisory_lock($1)", [ADVISORY_LOCK_KEY]);
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS site_config_snapshot (
-        id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-        config_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-        updated_at BIGINT NOT NULL
-      );
-    `);
-  } finally {
-    try {
-      await client.query("SELECT pg_advisory_unlock($1)", [ADVISORY_LOCK_KEY]);
-    } catch {
-      /* ignore */
-    }
-    await client.end();
-  }
+  `);
 }
 
 export async function initAppSiteConfigTableIfNeeded(): Promise<void> {
   if (initialized) return;
   if (!initPromise) {
-    initPromise = runInitDdlWithAdvisoryLock().then(() => {
+    initPromise = runInitDdl().then(() => {
       initialized = true;
     });
   }
