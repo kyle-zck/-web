@@ -298,20 +298,20 @@ export default function StorePage() {
           </div>
 
           <div className="mt-4 rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-4">
-            <label className="flex cursor-pointer items-start gap-3 text-sm text-zinc-200">
+            <label className="flex cursor-pointer items-start gap-3 text-[10px] text-zinc-400">
               <input
                 type="checkbox"
                 checked={agreeAutoRenew}
                 onChange={(e) => setAgreeAutoRenew(e.target.checked)}
                 className="mt-1 h-4 w-4 accent-red-500"
               />
-              <span className="leading-6">
+              <span className="leading-4">
                 我已阅读并同意
                 <a
                   href="/legal/subscription-terms"
                   target="_blank"
                   rel="noreferrer"
-                  className="mx-1 font-semibold text-brand underline underline-offset-4"
+                  className="mx-1 font-semibold text-brand/90 underline underline-offset-4"
                 >
                   《自动续费与增值服务协议》
                 </a>
@@ -324,11 +324,11 @@ export default function StorePage() {
           <button
             type="button"
             onClick={handlePayNow}
-            disabled={!selectedPlan || isSubscribed || paying || !agreeAutoRenew}
+            disabled={!selectedPlan || paying || !agreeAutoRenew}
             className={cn(
               "mt-4 w-full rounded-xl px-4 py-3.5 text-base font-bold text-white transition-colors",
               "bg-brand shadow-soft-glow hover:bg-red-600",
-              (!selectedPlan || isSubscribed || paying || !agreeAutoRenew) && "cursor-not-allowed opacity-60"
+              (!selectedPlan || paying || !agreeAutoRenew) && "cursor-not-allowed opacity-60"
             )}
           >
             {paying ? t("auth.working", "Processing...") : t("store.payNow", "Pay Now")}

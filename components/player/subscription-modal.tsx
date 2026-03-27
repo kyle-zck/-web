@@ -5,6 +5,8 @@ import { useTranslation } from "react-i18next";
 import type { SubscriptionPlan } from "@/constants/mock-data";
 import { Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
+import { useUserStore } from "@/lib/store/user";
+import { getOrCreateDeviceClientId } from "@/lib/client/device-client-id";
 
 interface SubscriptionModalProps {
   open: boolean;
@@ -70,10 +72,12 @@ function formatCountdown(ms: number): string {
 
 export function SubscriptionModal({ open, onClose, plans }: SubscriptionModalProps) {
   const { t } = useTranslation();
+  const { isLoggedIn, supabaseUserId } = useUserStore();
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<string>("paypal");
   const [storeCfg, setStoreCfg] = useState<StoreConfig>({});
   const [agreeAutoRenew, setAgreeAutoRenew] = useState(true);
+  const [paying, setPaying] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -83,13 +87,34 @@ export function SubscriptionModal({ open, onClose, plans }: SubscriptionModalPro
       .catch(() => setStoreCfg({}));
   }, [open]);
 
-  const handlePayNow = () => {
+  const handlePayNow = async () => {
     if (!selectedPlan) return;
-    const plan = selectedPlan;
-    if (plan.paymentUrl) {
-      window.location.href = plan.paymentUrl;
+    if (!agreeAutoRenew) return;
+    if (!isLoggedIn) {
+      window.location.href = "/store";
+      return;
     }
-    onClose();
+    const clientId = supabaseUserId ?? getOrCreateDeviceClientId();
+    if (!clientId) return;
+    setPaying(true);
+    try {
+      const res = await fetch("/api/payments/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, planId: selectedPlan.id })
+      });
+      const json = (await res.json()) as { ok?: boolean; url?: string };
+      if (!res.ok || !json?.ok || !json.url) {
+        window.alert(t("store.paymentNotReady", "Payment is temporarily unavailable. Please try again."));
+        return;
+      }
+      window.location.href = json.url;
+    } catch {
+      window.alert(t("store.paymentNotReady", "Payment is temporarily unavailable. Please try again."));
+    } finally {
+      setPaying(false);
+      onClose();
+    }
   };
 
   return (
@@ -228,20 +253,20 @@ export function SubscriptionModal({ open, onClose, plans }: SubscriptionModalPro
           </div>
 
           <div className="mt-4 rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-4">
-            <label className="flex cursor-pointer items-start gap-3 text-sm text-zinc-200">
+            <label className="flex cursor-pointer items-start gap-3 text-[10px] text-zinc-400">
               <input
                 type="checkbox"
                 checked={agreeAutoRenew}
                 onChange={(e) => setAgreeAutoRenew(e.target.checked)}
                 className="mt-1 h-4 w-4 accent-red-500"
               />
-              <span className="leading-6">
+              <span className="leading-4">
                 我已阅读并同意
                 <a
                   href="/legal/subscription-terms"
                   target="_blank"
                   rel="noreferrer"
-                  className="mx-1 font-semibold text-brand underline underline-offset-4"
+                  className="mx-1 font-semibold text-brand/90 underline underline-offset-4"
                 >
                   《自动续费与增值服务协议》
                 </a>
@@ -253,14 +278,14 @@ export function SubscriptionModal({ open, onClose, plans }: SubscriptionModalPro
           <button
             type="button"
             onClick={handlePayNow}
-            disabled={!selectedPlan || !agreeAutoRenew}
+            disabled={!selectedPlan || !agreeAutoRenew || paying}
             className={cn(
               "mt-4 w-full rounded-xl px-4 py-3.5 text-base font-bold text-white transition-colors",
               "bg-brand shadow-soft-glow hover:bg-red-600",
-              (!selectedPlan || !agreeAutoRenew) && "cursor-not-allowed opacity-60"
+              (!selectedPlan || !agreeAutoRenew || paying) && "cursor-not-allowed opacity-60"
             )}
           >
-            {t("store.payNow", "Pay Now")}
+            {paying ? t("auth.working", "Processing...") : t("store.payNow", "Pay Now")}
           </button>
         </section>
       </div>
