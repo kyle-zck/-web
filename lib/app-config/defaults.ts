@@ -64,12 +64,6 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
       "VIP subscription unlocks all paid content.",
       "Refill and countdown days are equal value. Recharge does not support refund.",
       "Contact us if you have other problems."
-    ],
-    paymentMethods: [
-      { id: "paypal", label: "PayPal", icon: "PP" },
-      { id: "card", label: "Credit/Debit", icon: "💳" },
-      { id: "generic", label: "Card", icon: "💳" },
-      { id: "gpay", label: "Google Pay", icon: "G" }
     ]
   }
 };

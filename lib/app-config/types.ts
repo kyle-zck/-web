@@ -33,17 +33,10 @@ export interface AppConfigLegal {
   privacyUrl?: string;
 }
 
-export type StorePaymentMethod = {
-  id: string;
-  label: string;
-  icon: string;
-};
-
 export interface AppConfigStore {
   title?: string;
   subtitle?: string;
   tips?: string[];
-  paymentMethods?: StorePaymentMethod[];
 }
 
 /**

@@ -23,7 +23,6 @@ type StoreConfig = {
     title?: string;
     subtitle?: string;
     tips?: string[];
-    paymentMethods?: Array<{ id: string; label: string; icon: string }>;
   };
   subscriptionPlans?: SubscriptionPlan[];
 };
@@ -46,13 +45,6 @@ async function fetchJsonWithTimeout<T>(url: string, timeoutMs = 5000, signal?: A
     signal?.removeEventListener("abort", onAbort);
   }
 }
-
-const DEFAULT_PAYMENT_METHODS = [
-  { id: "paypal", label: "PayPal", icon: "PP" },
-  { id: "card", label: "Credit/Debit", icon: "💳" },
-  { id: "generic", label: "Card", icon: "💳" },
-  { id: "gpay", label: "Google Pay", icon: "G" }
-];
 
 function clampDiscountPercent(v: unknown): number {
   const n = typeof v === "number" ? v : Number(v);
@@ -120,7 +112,6 @@ export default function StorePage() {
   const [authOpen, setAuthOpen] = useState(false);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<string>("paypal");
   const [storeCfg, setStoreCfg] = useState<StoreConfig["store"]>({});
   const [paying, setPaying] = useState(false);
   const [agreeAutoRenew, setAgreeAutoRenew] = useState(true);
@@ -249,6 +240,10 @@ export default function StorePage() {
               key={plan.id}
               type="button"
               onClick={() => setSelectedPlan(plan)}
+              onDoubleClick={() => {
+                setSelectedPlan(plan);
+                void handleSubscribe(plan);
+              }}
               className={cn(
                 "relative overflow-hidden rounded-2xl p-5 text-left shadow-lg transition-all",
                 "bg-gradient-to-br from-amber-100 to-amber-200/90",
@@ -327,32 +322,9 @@ export default function StorePage() {
           ))}
         </div>
 
-        {/* 支付方式（图2 样式） */}
         <section className="mt-8 rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-4">
-          <h2 className="text-base font-bold text-zinc-100">
-            {t("store.paymentMethods", "Payment Methods")}
-          </h2>
-          <div className="mt-3 flex flex-wrap gap-3">
-            {(storeCfg?.paymentMethods?.length ? storeCfg.paymentMethods : DEFAULT_PAYMENT_METHODS).map((pm) => (
-              <button
-                key={pm.id}
-                type="button"
-                onClick={() => setPaymentMethod(pm.id)}
-                className={cn(
-                  "flex min-w-[100px] flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition-colors",
-                  paymentMethod === pm.id
-                    ? "border-brand bg-brand/10 text-brand"
-                    : "border-zinc-700/80 bg-zinc-900/50 text-zinc-300 hover:border-zinc-600"
-                )}
-              >
-                <span className="text-lg">{pm.icon}</span>
-                {pm.label}
-              </button>
-            ))}
-          </div>
-
           {/* Tips */}
-          <div className="mt-4 rounded-xl bg-black/30 p-4">
+          <div className="rounded-xl bg-black/30 p-4">
             <p className="text-xs font-semibold text-zinc-400">
               {t("store.tips", "Tips:")}
             </p>

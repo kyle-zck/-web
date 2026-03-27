@@ -4,8 +4,7 @@ export type {
   AppConfigNav,
   AppConfigHome,
   AppConfigLegal,
-  AppConfigStore,
-  StorePaymentMethod
+  AppConfigStore
 } from "./types";
 export { DEFAULT_APP_CONFIG } from "./defaults";
 export {

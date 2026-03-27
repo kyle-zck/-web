@@ -19,9 +19,6 @@ export default function AdminConfigPage() {
   const [storeTitleEdit, setStoreTitleEdit] = useState("");
   const [storeSubtitleEdit, setStoreSubtitleEdit] = useState("");
   const [tipsEdit, setTipsEdit] = useState<string[]>(["", "", "", ""]);
-  const [paymentMethodsEdit, setPaymentMethodsEdit] = useState<
-    Array<{ id: string; label: string; icon: string }>
-  >([]);
 
   // 已暂存（尚未应用到全站）
   const [draftPlans, setDraftPlans] = useState<SubscriptionPlan[]>([]);
@@ -52,13 +49,11 @@ export default function AdminConfigPage() {
       setStoreTitleEdit(store?.title ?? "");
       setStoreSubtitleEdit(store?.subtitle ?? "");
       setTipsEdit(Array.isArray(store?.tips) ? [...store.tips] : ["", "", "", ""]);
-      setPaymentMethodsEdit(Array.isArray(store?.paymentMethods) ? [...store.paymentMethods] : []);
 
       setDraftStore({
         title: store?.title ?? "",
         subtitle: store?.subtitle ?? "",
-        tips: Array.isArray(store?.tips) ? [...store.tips] : undefined,
-        paymentMethods: Array.isArray(store?.paymentMethods) ? [...store.paymentMethods] : undefined
+        tips: Array.isArray(store?.tips) ? [...store.tips] : undefined
       });
     } catch {
       setPlansEdit([]);
@@ -139,21 +134,6 @@ export default function AdminConfigPage() {
     setDraftStore((prev) => ({
       ...prev,
       tips: nextTips.length ? nextTips : []
-    }));
-    showToast(t("admin.saved"), "success");
-  };
-
-  const stagePaymentModes = () => {
-    const cleaned = paymentMethodsEdit
-      .map((x) => ({
-        id: String(x.id ?? "").trim(),
-        label: String(x.label ?? "").trim(),
-        icon: String(x.icon ?? "").trim()
-      }))
-      .filter((x) => x.id && x.label);
-    setDraftStore((prev) => ({
-      ...prev,
-      paymentMethods: cleaned
     }));
     showToast(t("admin.saved"), "success");
   };
@@ -394,88 +374,6 @@ export default function AdminConfigPage() {
         </div>
       </section>
 
-      {/* 图5：支付模式编辑 */}
-      <section className="mt-5 rounded-3xl border border-zinc-800/80 bg-zinc-950/60 p-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-zinc-100">{t("admin.storePaymentModesConfig")}</h2>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() =>
-                setPaymentMethodsEdit((prev) => [
-                  ...prev,
-                  { id: `pm-${Date.now()}`, label: "New", icon: "💳" }
-                ])
-              }
-              className="rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-semibold text-zinc-200 hover:bg-zinc-700"
-            >
-              {t("admin.addButton")}
-            </button>
-            <button
-              type="button"
-              onClick={stagePaymentModes}
-              className="rounded-full bg-brand/15 px-3 py-1.5 text-xs font-semibold text-brand ring-1 ring-brand/40 hover:bg-brand/20"
-            >
-              {t("admin.save")}
-            </button>
-          </div>
-        </div>
-        <div className="mt-3 space-y-3">
-          {paymentMethodsEdit.length === 0 ? (
-            <p className="text-xs text-zinc-500">{t("admin.noDataShort")}</p>
-          ) : (
-            paymentMethodsEdit.map((pm, idx) => (
-              <div key={pm.id} className="grid gap-3 sm:grid-cols-4">
-                <label className="flex flex-col gap-1 text-xs text-zinc-400">
-                  ID
-                  <input
-                    value={pm.id}
-                    onChange={(e) => {
-                      const next = [...paymentMethodsEdit];
-                      next[idx] = { ...next[idx], id: e.target.value };
-                      setPaymentMethodsEdit(next);
-                    }}
-                    className="rounded-lg border border-zinc-800 bg-black/50 px-3 py-2 text-zinc-100"
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-xs text-zinc-400">
-                  Label
-                  <input
-                    value={pm.label}
-                    onChange={(e) => {
-                      const next = [...paymentMethodsEdit];
-                      next[idx] = { ...next[idx], label: e.target.value };
-                      setPaymentMethodsEdit(next);
-                    }}
-                    className="rounded-lg border border-zinc-800 bg-black/50 px-3 py-2 text-zinc-100"
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-xs text-zinc-400">
-                  Icon
-                  <input
-                    value={pm.icon}
-                    onChange={(e) => {
-                      const next = [...paymentMethodsEdit];
-                      next[idx] = { ...next[idx], icon: e.target.value };
-                      setPaymentMethodsEdit(next);
-                    }}
-                    className="rounded-lg border border-zinc-800 bg-black/50 px-3 py-2 text-zinc-100"
-                  />
-                </label>
-                <div className="flex items-end">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethodsEdit((prev) => prev.filter((_, i) => i !== idx))}
-                    className="w-full rounded-lg border border-red-500/50 bg-red-500/10 px-2 py-2 text-xs font-semibold text-red-300 hover:bg-red-500/20"
-                  >
-                    {t("admin.delete")}
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
     </main>
   );
 }

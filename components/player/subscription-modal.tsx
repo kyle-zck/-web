@@ -18,7 +18,6 @@ type StoreConfig = {
   title?: string;
   subtitle?: string;
   tips?: string[];
-  paymentMethods?: Array<{ id: string; label: string; icon: string }>;
 };
 
 function formatUsd(n: number) {
@@ -27,13 +26,6 @@ function formatUsd(n: number) {
     currency: "USD"
   }).format(n);
 }
-
-const DEFAULT_PAYMENT_METHODS = [
-  { id: "paypal", label: "PayPal", icon: "PP" },
-  { id: "card", label: "Credit/Debit", icon: "💳" },
-  { id: "generic", label: "Card", icon: "💳" },
-  { id: "gpay", label: "Google Pay", icon: "G" }
-];
 
 function clampDiscountPercent(v: unknown): number {
   const n = typeof v === "number" ? v : Number(v);
@@ -74,7 +66,6 @@ export function SubscriptionModal({ open, onClose, plans }: SubscriptionModalPro
   const { t } = useTranslation();
   const { isLoggedIn, supabaseUserId } = useUserStore();
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<string>("paypal");
   const [storeCfg, setStoreCfg] = useState<StoreConfig>({});
   const [agreeAutoRenew, setAgreeAutoRenew] = useState(true);
   const [paying, setPaying] = useState(false);
@@ -87,8 +78,9 @@ export function SubscriptionModal({ open, onClose, plans }: SubscriptionModalPro
       .catch(() => setStoreCfg({}));
   }, [open]);
 
-  const handlePayNow = async () => {
-    if (!selectedPlan) return;
+  const handlePayNow = async (planOverride?: SubscriptionPlan) => {
+    const plan = planOverride ?? selectedPlan;
+    if (!plan) return;
     if (!agreeAutoRenew) return;
     if (!isLoggedIn) {
       window.location.href = "/store";
@@ -101,7 +93,7 @@ export function SubscriptionModal({ open, onClose, plans }: SubscriptionModalPro
       const res = await fetch("/api/payments/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, planId: selectedPlan.id })
+        body: JSON.stringify({ clientId, planId: plan.id })
       });
       const json = (await res.json()) as { ok?: boolean; url?: string };
       if (!res.ok || !json?.ok || !json.url) {
@@ -135,6 +127,10 @@ export function SubscriptionModal({ open, onClose, plans }: SubscriptionModalPro
               key={plan.id}
               type="button"
               onClick={() => setSelectedPlan(plan)}
+              onDoubleClick={() => {
+                setSelectedPlan(plan);
+                void handlePayNow(plan);
+              }}
               className={cn(
                 "relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-100 to-amber-200/90 p-5 text-left shadow-lg transition-transform hover:scale-[1.02]",
                 selectedPlan?.id === plan.id && "ring-2 ring-brand"
@@ -212,29 +208,7 @@ export function SubscriptionModal({ open, onClose, plans }: SubscriptionModalPro
         </div>
 
         <section className="rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-4">
-          <h2 className="text-base font-bold text-zinc-100">
-            {t("store.paymentMethods", "Payment Methods")}
-          </h2>
-          <div className="mt-3 flex flex-wrap gap-3">
-            {(storeCfg?.paymentMethods?.length ? storeCfg.paymentMethods : DEFAULT_PAYMENT_METHODS).map((pm) => (
-              <button
-                key={pm.id}
-                type="button"
-                onClick={() => setPaymentMethod(pm.id)}
-                className={cn(
-                  "flex min-w-[100px] flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition-colors",
-                  paymentMethod === pm.id
-                    ? "border-brand bg-brand/10 text-brand"
-                    : "border-zinc-700/80 bg-zinc-900/50 text-zinc-300 hover:border-zinc-600"
-                )}
-              >
-                <span className="text-lg">{pm.icon}</span>
-                {pm.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-4 rounded-xl bg-black/30 p-4">
+          <div className="rounded-xl bg-black/30 p-4">
             <p className="text-xs font-semibold text-zinc-400">
               {t("store.tips", "Tips:")}
             </p>
@@ -277,7 +251,9 @@ export function SubscriptionModal({ open, onClose, plans }: SubscriptionModalPro
 
           <button
             type="button"
-            onClick={handlePayNow}
+            onClick={() => {
+              void handlePayNow();
+            }}
             disabled={!selectedPlan || !agreeAutoRenew || paying}
             className={cn(
               "mt-4 w-full rounded-xl px-4 py-3.5 text-base font-bold text-white transition-colors",
