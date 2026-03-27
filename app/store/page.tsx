@@ -6,6 +6,7 @@ import { AuthModal } from "@/components/ui/auth-modal";
 import { usePlayerStore } from "@/lib/store/player";
 import { useUserStore } from "@/lib/store/user";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import type { SubscriptionPlan } from "@/constants/mock-data";
 import { cn } from "@/lib/utils";
 import { getOrCreateDeviceClientId } from "@/lib/client/device-client-id";
@@ -88,7 +89,7 @@ function formatCountdown(ms: number): string {
   return `${dd}天 ${hh}时 ${mm}分 ${sss}秒`;
 }
 
-function mapCheckoutErrorToMessage(error: string | undefined, t: (k: string, d?: string) => string): string {
+function mapCheckoutErrorToMessage(error: string | undefined, t: TFunction): string {
   switch ((error ?? "").trim()) {
     case "stripe_not_configured":
       return t("store.errStripeNotConfigured", "支付未配置：缺少 STRIPE_SECRET_KEY。");
