@@ -83,6 +83,13 @@ async function writeStoredRaw(data: Record<string, unknown>): Promise<void> {
       console.error("[app-config] write pg failed, fallback file:", e);
     }
   }
+  // 生产环境（尤其是 Vercel）文件系统通常只读：未配置数据库时不要回退写文件，以免 EROFS。
+  const isVercel = process.env.VERCEL === "1" || process.env.VERCEL === "true";
+  if (process.env.NODE_ENV === "production" || isVercel) {
+    throw new Error(
+      "app-config persistence is not configured: set DATABASE_URL (or SUPABASE_DB_URL/PG_URL) in production"
+    );
+  }
   await writeFileRaw(data);
 }
 

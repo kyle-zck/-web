@@ -8,6 +8,21 @@ let pool: Pool | null = null;
 let initialized = false;
 let initPromise: Promise<void> | null = null;
 
+function envMs(name: string, fallback: number): number {
+  const raw = process.env[name]?.trim();
+  if (!raw) return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.floor(n);
+}
+
+function getPgTimeouts() {
+  const connectionTimeoutMillis = envMs("PG_CONNECTION_TIMEOUT_MS", 60000);
+  const statement_timeout = envMs("PG_STATEMENT_TIMEOUT_MS", 60000);
+  const query_timeout = envMs("PG_QUERY_TIMEOUT_MS", 60000);
+  return { connectionTimeoutMillis, statement_timeout, query_timeout };
+}
+
 function getPool(): Pool {
   if (pool) return pool;
   const url = getDatabaseUrl();
@@ -16,11 +31,13 @@ function getPool(): Pool {
       "Missing DATABASE_URL / SUPABASE_DB_URL / PG_URL for site_config_snapshot (pg)"
     );
   }
+  const timeouts = getPgTimeouts();
   pool = new Pool({
     connectionString: url,
-    connectionTimeoutMillis: 15000,
-    statement_timeout: 15000,
-    query_timeout: 15000,
+    connectionTimeoutMillis: timeouts.connectionTimeoutMillis,
+    statement_timeout: timeouts.statement_timeout,
+    query_timeout: timeouts.query_timeout,
+    keepAlive: true,
     ssl:
       url.includes("localhost") || url.includes("127.0.0.1")
         ? undefined
@@ -48,13 +65,15 @@ async function runInitDdlWithAdvisoryLock(): Promise<void> {
       "Missing DATABASE_URL / SUPABASE_DB_URL / PG_URL for site_config_snapshot (pg)"
     );
   }
+  const timeouts = getPgTimeouts();
   const pg = await import("pg");
   const Client = (pg as unknown as { Client: new (config: object) => PgClient }).Client;
   const client = new Client({
     connectionString: url,
-    connectionTimeoutMillis: 15000,
-    statement_timeout: 15000,
-    query_timeout: 15000,
+    connectionTimeoutMillis: timeouts.connectionTimeoutMillis,
+    statement_timeout: timeouts.statement_timeout,
+    query_timeout: timeouts.query_timeout,
+    keepAlive: true,
     ssl: sslForUrl(url)
   });
   await client.connect();
