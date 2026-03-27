@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 type WatchEntry = {
@@ -22,7 +22,7 @@ export default function AdminViewsPage() {
   const [likesByClient, setLikesByClient] = useState<Record<string, string[]>>({});
   const [viewsByClient, setViewsByClient] = useState<Record<string, string[]>>({});
 
-  const loadAll = () => {
+  const loadAll = useCallback(() => {
     let cancelled = false;
     const ctrl = new AbortController();
     const timer = window.setTimeout(() => ctrl.abort(), 10000);
@@ -71,12 +71,12 @@ export default function AdminViewsPage() {
       cancelled = true;
       ctrl.abort();
     };
-  };
+  }, [t]);
 
   useEffect(() => {
     const cleanup = loadAll();
     return cleanup;
-  }, []);
+  }, [loadAll]);
 
   const historyRows = Object.entries(historyByClient).flatMap(([clientId, list]) =>
     (list ?? []).map((e) => ({ clientId, ...e }))

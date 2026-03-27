@@ -58,7 +58,7 @@ export default function AdminDramaDetailPage() {
   const [filter, setFilter] = useState(defaultFilter);
   const [appliedFilter, setAppliedFilter] = useState(defaultFilter);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
@@ -78,11 +78,11 @@ export default function AdminDramaDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const filtered = useMemo(() => {
     let list = [...series];

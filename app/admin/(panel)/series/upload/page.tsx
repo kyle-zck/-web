@@ -162,7 +162,8 @@ export default function AdminDramaUploadPage() {
         30000
       ).finally(() => globalThis.clearTimeout(timer));
       if (res.ok && json?.ok && json.coverUrl) {
-        setForm((f) => ({ ...f, coverUrl: json.coverUrl }));
+        const nextCover = json.coverUrl as string;
+        setForm((f) => ({ ...f, coverUrl: nextCover }));
       } else {
         showToast(translateAdminApiError(json, t, "admin.toastCoverUploadFail"), "error");
       }
