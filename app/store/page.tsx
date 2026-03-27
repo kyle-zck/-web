@@ -27,6 +27,8 @@ type StoreConfig = {
   subscriptionPlans?: SubscriptionPlan[];
 };
 
+type CheckoutResponse = { ok?: boolean; url?: string; error?: string };
+
 async function fetchJsonWithTimeout<T>(url: string, timeoutMs = 5000, signal?: AbortSignal): Promise<T> {
   const ctrl = new AbortController();
   const timer = window.setTimeout(() => ctrl.abort(), timeoutMs);
@@ -84,6 +86,28 @@ function formatCountdown(ms: number): string {
   const mm = String(m).padStart(2, "0");
   const sss = String(ss).padStart(2, "0");
   return `${dd}天 ${hh}时 ${mm}分 ${sss}秒`;
+}
+
+function mapCheckoutErrorToMessage(error: string | undefined, t: (k: string, d?: string) => string): string {
+  switch ((error ?? "").trim()) {
+    case "stripe_not_configured":
+      return t("store.errStripeNotConfigured", "支付未配置：缺少 STRIPE_SECRET_KEY。");
+    case "stripe_price_missing":
+      return t(
+        "store.errStripePriceMissing",
+        "套餐未绑定 Stripe Price。请在后台填写 stripePriceId 或 STRIPE_PRICE_MAP_JSON。"
+      );
+    case "stripe_price_invalid":
+      return t("store.errStripePriceInvalid", "Stripe Price 无效或不存在，请检查 price_xxx。");
+    case "stripe_secret_key_invalid":
+      return t("store.errStripeSecretInvalid", "Stripe Secret Key 无效，请检查生产环境密钥。");
+    case "plan_not_found":
+      return t("store.errPlanNotFound", "套餐不存在，请刷新页面后重试。");
+    case "clientId_and_planId_required":
+      return t("store.errMissingParams", "支付参数缺失，请重新选择套餐。");
+    default:
+      return t("store.paymentNotReady", "Payment is temporarily unavailable. Please try again.");
+  }
 }
 
 export default function StorePage() {
@@ -164,9 +188,9 @@ export default function StorePage() {
           planId: plan.id
         })
       });
-      const json = (await res.json()) as { ok?: boolean; url?: string };
+      const json = (await res.json()) as CheckoutResponse;
       if (!res.ok || !json?.ok || !json.url) {
-        window.alert(t("store.paymentNotReady", "Payment is temporarily unavailable. Please try again."));
+        window.alert(mapCheckoutErrorToMessage(json?.error, t));
         return;
       }
       window.location.href = json.url;
