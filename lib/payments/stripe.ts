@@ -2,12 +2,23 @@ import Stripe from "stripe";
 
 let stripeClient: Stripe | null = null;
 
+function cleanEnvSecret(raw: string | undefined): string {
+  const v = (raw ?? "").trim();
+  if (!v) return "";
+  // 容错：支持用户把 key 包在引号里粘贴到环境变量
+  const unquoted =
+    (v.startsWith("\"") && v.endsWith("\"")) || (v.startsWith("'") && v.endsWith("'"))
+      ? v.slice(1, -1).trim()
+      : v;
+  return unquoted.replace(/\r?\n/g, "").trim();
+}
+
 export function getStripeSecretKey(): string {
-  return process.env.STRIPE_SECRET_KEY?.trim() ?? "";
+  return cleanEnvSecret(process.env.STRIPE_SECRET_KEY);
 }
 
 export function getStripeWebhookSecret(): string {
-  return process.env.STRIPE_WEBHOOK_SECRET?.trim() ?? "";
+  return cleanEnvSecret(process.env.STRIPE_WEBHOOK_SECRET);
 }
 
 export function getStripeClient(): Stripe | null {
