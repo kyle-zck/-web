@@ -32,6 +32,14 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  if (process.env.ENABLE_FAKE_PAYMENT === "1") {
+    // allow in test mode
+  } else {
+    return NextResponse.json(
+      { ok: false, error: "direct_recharge_disabled" },
+      { status: 403 }
+    );
+  }
   const body = await req.json().catch(() => ({}));
   const { clientId, price, tier } = body;
   if (!clientId || typeof price !== "number" || !tier) {

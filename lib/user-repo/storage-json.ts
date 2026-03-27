@@ -9,9 +9,11 @@ const WATCH_HISTORY_PATH = path.join(DATA_DIR, "watch-history.json");
 const USER_FAVORITES_PATH = path.join(DATA_DIR, "user-favorites.json");
 const USER_LIKES_PATH = path.join(DATA_DIR, "user-likes.json");
 const USER_VIEWS_PATH = path.join(DATA_DIR, "user-series-views.json");
+const PAYMENT_EVENTS_PATH = path.join(DATA_DIR, "payment-events.json");
 
 type UsersStore = { users: Record<string, StoredUser> };
 type RechargeStore = { records: RechargeRecord[] };
+type PaymentEventsStore = { events: Array<{ provider: string; eventId: string; sessionId?: string; uid?: string; createdAt: string }> };
 
 function ensureDir() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -51,6 +53,45 @@ function readRecharge(): RechargeStore {
 function writeRecharge(store: RechargeStore) {
   ensureDir();
   fs.writeFileSync(RECHARGE_PATH, JSON.stringify(store, null, 2), "utf-8");
+}
+
+function readPaymentEvents(): PaymentEventsStore {
+  ensureDir();
+  if (!fs.existsSync(PAYMENT_EVENTS_PATH)) {
+    const initial: PaymentEventsStore = { events: [] };
+    fs.writeFileSync(PAYMENT_EVENTS_PATH, JSON.stringify(initial, null, 2), "utf-8");
+    return initial;
+  }
+  const raw = fs.readFileSync(PAYMENT_EVENTS_PATH, "utf-8");
+  return JSON.parse(raw) as PaymentEventsStore;
+}
+
+function writePaymentEvents(store: PaymentEventsStore) {
+  ensureDir();
+  fs.writeFileSync(PAYMENT_EVENTS_PATH, JSON.stringify(store, null, 2), "utf-8");
+}
+
+export function recordPaymentEventOnce(params: {
+  provider: string;
+  eventId: string;
+  sessionId?: string | null;
+  uid?: string | null;
+}): boolean {
+  const provider = (params.provider ?? "").trim();
+  const eventId = (params.eventId ?? "").trim();
+  if (!provider || !eventId) return false;
+  const store = readPaymentEvents();
+  const exists = store.events.some((e) => e.provider === provider && e.eventId === eventId);
+  if (exists) return false;
+  store.events.push({
+    provider,
+    eventId,
+    sessionId: (params.sessionId ?? "").trim() || undefined,
+    uid: (params.uid ?? "").trim() || undefined,
+    createdAt: new Date().toISOString()
+  });
+  writePaymentEvents(store);
+  return true;
 }
 
 export function getOrCreateUid(clientId: string): StoredUser {

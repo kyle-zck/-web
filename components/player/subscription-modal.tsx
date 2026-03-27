@@ -73,6 +73,7 @@ export function SubscriptionModal({ open, onClose, plans }: SubscriptionModalPro
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<string>("paypal");
   const [storeCfg, setStoreCfg] = useState<StoreConfig>({});
+  const [agreeAutoRenew, setAgreeAutoRenew] = useState(true);
 
   useEffect(() => {
     if (!open) return;
@@ -226,14 +227,37 @@ export function SubscriptionModal({ open, onClose, plans }: SubscriptionModalPro
             </ol>
           </div>
 
+          <div className="mt-4 rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-4">
+            <label className="flex cursor-pointer items-start gap-3 text-sm text-zinc-200">
+              <input
+                type="checkbox"
+                checked={agreeAutoRenew}
+                onChange={(e) => setAgreeAutoRenew(e.target.checked)}
+                className="mt-1 h-4 w-4 accent-red-500"
+              />
+              <span className="leading-6">
+                我已阅读并同意
+                <a
+                  href="/legal/subscription-terms"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mx-1 font-semibold text-brand underline underline-offset-4"
+                >
+                  《自动续费与增值服务协议》
+                </a>
+                ，并理解默认开启自动续费。若需停止续费，请在支付渠道内操作取消。
+              </span>
+            </label>
+          </div>
+
           <button
             type="button"
             onClick={handlePayNow}
-            disabled={!selectedPlan}
+            disabled={!selectedPlan || !agreeAutoRenew}
             className={cn(
               "mt-4 w-full rounded-xl px-4 py-3.5 text-base font-bold text-white transition-colors",
               "bg-brand shadow-soft-glow hover:bg-red-600",
-              !selectedPlan && "cursor-not-allowed opacity-60"
+              (!selectedPlan || !agreeAutoRenew) && "cursor-not-allowed opacity-60"
             )}
           >
             {t("store.payNow", "Pay Now")}

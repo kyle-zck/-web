@@ -87,7 +87,7 @@ function formatCountdown(ms: number): string {
 
 export default function StorePage() {
   const { t } = useTranslation();
-  const { isSubscribed, setSubscribed } = usePlayerStore();
+  const { isSubscribed } = usePlayerStore();
   const { isLoggedIn, supabaseUserId } = useUserStore();
 
   const [authOpen, setAuthOpen] = useState(false);
@@ -95,6 +95,8 @@ export default function StorePage() {
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<string>("paypal");
   const [storeCfg, setStoreCfg] = useState<StoreConfig["store"]>({});
+  const [paying, setPaying] = useState(false);
+  const [agreeAutoRenew, setAgreeAutoRenew] = useState(true);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -115,27 +117,28 @@ export default function StorePage() {
       setAuthOpen(true);
       return;
     }
-    if (plan.paymentUrl && !plan.paymentUrl.startsWith("/store")) {
-      window.location.href = plan.paymentUrl;
-    } else {
-      const priceToPay = effectivePriceUsd(plan);
-      setSubscribed(true, plan.durationDays, plan.label);
-      const clientId = supabaseUserId ?? getOrCreateDeviceClientId();
-      if (clientId) {
-        try {
-          await fetch("/api/user/recharge", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              clientId,
-              price: priceToPay,
-              tier: plan.label
-            })
-          });
-        } catch {
-          // ignore
-        }
+    const clientId = supabaseUserId ?? getOrCreateDeviceClientId();
+    if (!clientId) return;
+    setPaying(true);
+    try {
+      const res = await fetch("/api/payments/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId,
+          planId: plan.id
+        })
+      });
+      const json = (await res.json()) as { ok?: boolean; url?: string };
+      if (!res.ok || !json?.ok || !json.url) {
+        window.alert(t("store.paymentNotReady", "Payment is temporarily unavailable. Please try again."));
+        return;
       }
+      window.location.href = json.url;
+    } catch {
+      window.alert(t("store.paymentNotReady", "Payment is temporarily unavailable. Please try again."));
+    } finally {
+      setPaying(false);
     }
   };
 
@@ -294,18 +297,41 @@ export default function StorePage() {
             </ol>
           </div>
 
+          <div className="mt-4 rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-4">
+            <label className="flex cursor-pointer items-start gap-3 text-sm text-zinc-200">
+              <input
+                type="checkbox"
+                checked={agreeAutoRenew}
+                onChange={(e) => setAgreeAutoRenew(e.target.checked)}
+                className="mt-1 h-4 w-4 accent-red-500"
+              />
+              <span className="leading-6">
+                我已阅读并同意
+                <a
+                  href="/legal/subscription-terms"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mx-1 font-semibold text-brand underline underline-offset-4"
+                >
+                  《自动续费与增值服务协议》
+                </a>
+                ，并理解默认开启自动续费。若需停止续费，请在支付渠道（例如 PayPal/发卡行）内操作取消。
+              </span>
+            </label>
+          </div>
+
           {/* Pay Now */}
           <button
             type="button"
             onClick={handlePayNow}
-            disabled={!selectedPlan || isSubscribed}
+            disabled={!selectedPlan || isSubscribed || paying || !agreeAutoRenew}
             className={cn(
               "mt-4 w-full rounded-xl px-4 py-3.5 text-base font-bold text-white transition-colors",
               "bg-brand shadow-soft-glow hover:bg-red-600",
-              (!selectedPlan || isSubscribed) && "cursor-not-allowed opacity-60"
+              (!selectedPlan || isSubscribed || paying || !agreeAutoRenew) && "cursor-not-allowed opacity-60"
             )}
           >
-            {t("store.payNow", "Pay Now")}
+            {paying ? t("auth.working", "Processing...") : t("store.payNow", "Pay Now")}
           </button>
         </section>
       </div>

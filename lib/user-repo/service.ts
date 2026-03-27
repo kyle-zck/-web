@@ -116,6 +116,16 @@ export async function grantMembershipByUid(params: {
   return pg.grantMembershipByUid(params);
 }
 
+export async function recordPaymentEventOnce(params: {
+  provider: string;
+  eventId: string;
+  sessionId?: string | null;
+  uid?: string | null;
+}): Promise<boolean> {
+  if (shouldUsePgStorage()) return pg.recordPaymentEventOnce(params);
+  return Promise.resolve(json.recordPaymentEventOnce(params));
+}
+
 export async function getWatchHistory(clientId: string): Promise<WatchHistoryEntry[]> {
   if (shouldUsePgStorage()) return pg.getWatchHistory(clientId);
   return Promise.resolve(json.getWatchHistory(clientId));

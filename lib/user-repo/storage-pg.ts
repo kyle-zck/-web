@@ -200,8 +200,43 @@ async function initIfNeeded() {
       PRIMARY KEY (client_id, series_id)
     );
     CREATE INDEX IF NOT EXISTS idx_views_series ON user_series_views(series_id);
+
+    -- Stripe / payment webhook idempotency
+    CREATE TABLE IF NOT EXISTS payment_events (
+      provider TEXT NOT NULL,
+      event_id TEXT NOT NULL,
+      session_id TEXT NOT NULL DEFAULT '',
+      uid TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (provider, event_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_payment_events_uid ON payment_events(uid);
   `);
   initialized = true;
+}
+
+export async function recordPaymentEventOnce(params: {
+  provider: string;
+  eventId: string;
+  sessionId?: string | null;
+  uid?: string | null;
+}): Promise<boolean> {
+  await initIfNeeded();
+  const provider = (params.provider ?? "").trim();
+  const eventId = (params.eventId ?? "").trim();
+  if (!provider || !eventId) return false;
+  const sessionId = (params.sessionId ?? "").trim();
+  const uid = (params.uid ?? "").trim();
+  const r = await getPool().query(
+    `
+    INSERT INTO payment_events (provider, event_id, session_id, uid)
+    VALUES ($1, $2, $3, $4)
+    ON CONFLICT (provider, event_id) DO NOTHING
+    RETURNING provider
+    `,
+    [provider, eventId, sessionId, uid]
+  );
+  return Boolean(r.rowCount && r.rowCount > 0);
 }
 
 function rowToUser(row: {
