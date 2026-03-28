@@ -324,7 +324,7 @@ export function TopNavV2() {
 
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     <div className="rounded-2xl bg-black/40 p-3">
-                      <p className="text-[11px] font-semibold text-zinc-500">
+                      <p className="text-[11px] font-semibold text-zinc-400">
                         {t("subscription.status", "VIP Status")}
                       </p>
                       <p className="mt-2 text-xl font-extrabold text-white">
@@ -332,7 +332,7 @@ export function TopNavV2() {
                       </p>
                     </div>
                     <div className="rounded-2xl bg-black/40 p-3">
-                      <p className="text-[11px] font-semibold text-zinc-500">
+                      <p className="text-[11px] font-semibold text-zinc-400">
                         {t("subscription.daysRemaining", "Days Remaining")}
                       </p>
                       <p className="mt-2 text-xl font-extrabold text-white">{getDaysRemaining()}</p>
@@ -394,7 +394,7 @@ export function TopNavV2() {
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   placeholder={t("search.placeholder")}
-                  className="w-full bg-transparent text-sm font-semibold text-zinc-100 outline-none placeholder:text-zinc-500"
+                  className="w-full bg-transparent text-sm font-semibold text-zinc-100 outline-none placeholder:text-zinc-400"
                   onKeyDown={(e) => {
                     if (e.key === "Enter") submitSearch();
                   }}
@@ -420,7 +420,7 @@ export function TopNavV2() {
               >
                 {t("search.button")}
               </button>
-              <p className="text-[11px] text-zinc-500">{t("search.help")}</p>
+              <p className="text-[11px] text-zinc-400">{t("search.help")}</p>
             </div>
           </div>
         </div>

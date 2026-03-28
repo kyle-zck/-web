@@ -397,7 +397,7 @@ export function ImmersiveSeriesDetail({
                     onClick={() => setEpisodeTab(i)}
                     className={cn(
                       "pb-1.5 text-base font-medium transition-colors",
-                      episodeTab === i ? "border-b-2 border-brand text-brand" : "border-b-2 border-transparent text-zinc-500 hover:text-white"
+                      episodeTab === i ? "border-b-2 border-brand text-brand" : "border-b-2 border-transparent text-zinc-400 hover:text-white"
                     )}
                   >
                     {tab.label}
@@ -407,7 +407,7 @@ export function ImmersiveSeriesDetail({
                 <button
                   type="button"
                   onClick={() => setAllEpisodesOpen(true)}
-                  className="text-base font-medium text-zinc-500 hover:text-white"
+                  className="text-base font-medium text-zinc-400 hover:text-white"
                 >
                   {t("seriesDetail.allEpisodes")} &gt;
                 </button>

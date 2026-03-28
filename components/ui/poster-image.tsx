@@ -3,13 +3,10 @@
 import Image from "next/image";
 import { useCallback, useState } from "react";
 import { cn } from "@/lib/utils";
+import { resolvePosterSrcForOptimizer } from "@/lib/image/poster-src";
 
 function srcNeedsUnoptimized(src: string): boolean {
-  return (
-    /^(data:|blob:|file:)/i.test(src) ||
-    src.includes("/api/video/proxy") ||
-    /\.svg(\?|$)/i.test(src)
-  );
+  return /^(data:|blob:|file:)/i.test(src) || /\.svg(\?|$)/i.test(src);
 }
 
 export type PosterImageProps = {
@@ -36,15 +33,18 @@ export function PosterImage({ chain, alt, sizes, className, priority }: PosterIm
 
   if (!src) return null;
 
+  const imageSrc = resolvePosterSrcForOptimizer(src);
+
   return (
     <Image
       key={`${src}::${index}`}
-      src={src}
+      src={imageSrc}
       alt={alt}
       fill
       sizes={sizes}
       className={cn(className)}
       priority={priority}
+      decoding={priority ? "sync" : "async"}
       unoptimized={srcNeedsUnoptimized(src)}
       onError={onError}
     />

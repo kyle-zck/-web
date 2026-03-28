@@ -1,9 +1,7 @@
 import { HeroCarousel } from "@/components/player/hero-carousel";
-import { SeriesRow } from "@/components/ui/series-row";
 import { getAllSeries } from "@/lib/series-repo";
 import type { Series } from "@/constants/mock-data";
 import { SERIES_LIST } from "@/constants/mock-data";
-import { MoreMoviesLink } from "@/components/home/more-movies-link";
 import dynamic from "next/dynamic";
 import { getCachedAppConfig } from "@/lib/app-config/service";
 
@@ -11,6 +9,23 @@ const ContinueWatching = dynamic(
   () =>
     import("@/components/home/continue-watching").then((m) => m.ContinueWatching),
   { loading: () => null, ssr: false }
+);
+
+/** 首屏下方类目行按需加载，减轻主线程解析与未使用 JS（Lighthouse） */
+const SeriesRow = dynamic(
+  () => import("@/components/ui/series-row").then((m) => m.SeriesRow),
+  {
+    loading: () => (
+      <div
+        className="mb-6 h-36 animate-pulse rounded-2xl bg-zinc-900/30 lg:mb-10"
+        aria-hidden
+      />
+    )
+  }
+);
+
+const MoreMoviesLink = dynamic(() =>
+  import("@/components/home/more-movies-link").then((m) => m.MoreMoviesLink)
 );
 import { slimSeriesListForPublic } from "@/lib/series/slim-public";
 import { getEngagementCountsBatch } from "@/lib/user-repo";

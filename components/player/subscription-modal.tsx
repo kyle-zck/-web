@@ -114,7 +114,7 @@ export function SubscriptionModal({ open, onClose, plans }: SubscriptionModalPro
           <h2 className="text-xl font-bold text-white">
             {storeCfg?.title ?? t("subscription.title", "VIP Unlock all series for free")}
           </h2>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-zinc-400">
             {storeCfg?.subtitle ?? t("subscription.subtitle", "Auto renew. Cancel anytime.")}
           </p>
         </div>
@@ -210,7 +210,7 @@ export function SubscriptionModal({ open, onClose, plans }: SubscriptionModalPro
             <p className="text-xs font-semibold text-zinc-400">
               {t("store.tips", "Tips:")}
             </p>
-            <ol className="mt-2 space-y-1 text-xs leading-5 text-zinc-500">
+            <ol className="mt-2 space-y-1 text-xs leading-5 text-zinc-400">
               {(storeCfg?.tips?.length ? storeCfg.tips : [
                 t("store.tip1", "Free and paid content available. You decide which to unlock."),
                 t("store.tip2", "VIP subscription unlocks all paid content."),

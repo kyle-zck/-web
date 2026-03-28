@@ -53,7 +53,23 @@ export async function GET(req: Request) {
 
     const headers = new Headers();
     headers.set("Accept-Ranges", "bytes");
-    headers.set("Cache-Control", "public, max-age=600");
+    const ct = object.ContentType ?? "";
+    const isImage = ct.startsWith("image/");
+    const isVideo = ct.startsWith("video/");
+    // 海报/静态图：长缓存（R2 对象键通常随版本变）；视频：支持 Range，中等缓存
+    if (isImage) {
+      headers.set(
+        "Cache-Control",
+        "public, max-age=2592000, stale-while-revalidate=604800, immutable"
+      );
+    } else if (isVideo) {
+      headers.set(
+        "Cache-Control",
+        "public, max-age=86400, stale-while-revalidate=604800"
+      );
+    } else {
+      headers.set("Cache-Control", "public, max-age=604800, stale-while-revalidate=86400");
+    }
     if (object.ContentType) headers.set("Content-Type", object.ContentType);
     if (object.ContentLength !== undefined) headers.set("Content-Length", String(object.ContentLength));
     if (object.ETag) headers.set("ETag", object.ETag);

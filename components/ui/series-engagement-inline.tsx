@@ -31,7 +31,7 @@ export function SeriesEngagementInline({
   const icon = dense ? "h-3.5 w-3.5 shrink-0" : "h-4 w-4 shrink-0";
   const text = dense
     ? "text-[11px] font-medium tabular-nums text-zinc-400 lg:text-xs"
-    : "text-sm font-medium tabular-nums text-zinc-500";
+    : "text-sm font-medium tabular-nums text-zinc-400";
 
   return (
     <div

@@ -31,8 +31,8 @@ export function SiteFooter() {
   const displayBrand = brand || "ReelShorts";
 
   return (
-    <footer className="mt-auto border-t border-zinc-800/50 bg-black/50 py-6">
-      <div className="page-gutter-x mx-auto flex max-w-[1400px] flex-col items-center justify-between gap-4 text-xs text-zinc-500 sm:flex-row">
+    <footer className="mt-auto border-t border-zinc-800/50 bg-black py-6">
+      <div className="page-gutter-x mx-auto flex max-w-[1400px] flex-col items-center justify-between gap-4 text-xs text-zinc-300 sm:flex-row">
         <p>
           {t("footer.rights", {
             year,
@@ -45,7 +45,7 @@ export function SiteFooter() {
               href={legal.terms}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium text-zinc-400 underline-offset-4 hover:text-brand hover:underline"
+              className="font-medium text-zinc-300 underline-offset-4 hover:text-brand hover:underline"
             >
               {t("footer.terms")}
             </Link>
@@ -55,7 +55,7 @@ export function SiteFooter() {
               href={legal.privacy}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium text-zinc-400 underline-offset-4 hover:text-brand hover:underline"
+              className="font-medium text-zinc-300 underline-offset-4 hover:text-brand hover:underline"
             >
               {t("footer.privacy")}
             </Link>

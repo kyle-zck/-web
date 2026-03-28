@@ -2,6 +2,17 @@
   "name": "short-drama-platform",
   "version": "0.1.0",
   "private": true,
+  "browserslist": {
+    "production": [
+      "chrome >= 92",
+      "edge >= 92",
+      "firefox >= 90",
+      "safari >= 15",
+      "ios >= 15",
+      "not dead"
+    ],
+    "development": ["last 1 chrome version", "last 1 firefox version", "last 1 safari version"]
+  },
   "scripts": {
     "clean": "rm -rf .next",
     "dev:kill": "bash -c 'for p in 3000 3001 3002 3003 3010; do lsof -ti:$p 2>/dev/null | xargs kill -9 2>/dev/null; done; true'",
