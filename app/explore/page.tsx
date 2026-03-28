@@ -251,7 +251,7 @@ function ExploreContent() {
                       <PosterImage
                         chain={artworkChain}
                         alt={localized.title}
-                        sizes="176px"
+                        sizes="(max-width:640px) min(46vw, 176px), 176px"
                         className="poster-card-drama__img"
                         priority={cardIdx === 0}
                       />

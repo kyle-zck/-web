@@ -100,7 +100,7 @@ export function ContinueWatching() {
                 <PosterImage
                   chain={artworkChain}
                   alt={getSeriesI18nText(row.series, lang).title}
-                  sizes="(max-width:640px) 40vw, (max-width:1024px) 150px, 170px"
+                  sizes="(max-width:1023px) 120px, min(18vw, 200px)"
                   className="poster-card-drama__img"
                 />
                 <div

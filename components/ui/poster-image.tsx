@@ -44,7 +44,6 @@ export function PosterImage({ chain, alt, sizes, className, priority }: PosterIm
       sizes={sizes}
       className={cn(className)}
       priority={priority}
-      placeholder="empty"
       decoding={priority ? "sync" : "async"}
       unoptimized={srcNeedsUnoptimized(src)}
       onError={onError}

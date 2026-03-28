@@ -4,28 +4,13 @@ import type { Series } from "@/constants/mock-data";
 import { SERIES_LIST } from "@/constants/mock-data";
 import dynamic from "next/dynamic";
 import { getCachedAppConfig } from "@/lib/app-config/service";
+import { MoreMoviesLink } from "@/components/home/more-movies-link";
+import { SeriesRow } from "@/components/ui/series-row";
 
 const ContinueWatching = dynamic(
   () =>
     import("@/components/home/continue-watching").then((m) => m.ContinueWatching),
   { loading: () => null, ssr: false }
-);
-
-/** 首屏下方类目行按需加载，减轻主线程解析与未使用 JS（Lighthouse） */
-const SeriesRow = dynamic(
-  () => import("@/components/ui/series-row").then((m) => m.SeriesRow),
-  {
-    loading: () => (
-      <div
-        className="mb-6 h-36 animate-pulse rounded-2xl bg-zinc-900/30 lg:mb-10"
-        aria-hidden
-      />
-    )
-  }
-);
-
-const MoreMoviesLink = dynamic(() =>
-  import("@/components/home/more-movies-link").then((m) => m.MoreMoviesLink)
 );
 import { slimSeriesListForPublic } from "@/lib/series/slim-public";
 import { getEngagementCountsBatch } from "@/lib/user-repo";
@@ -121,20 +106,10 @@ export default async function HomePage() {
           {c.showContinue ? <ContinueWatching /> : null}
 
           {c.showNewRow ? (
-            <SeriesRow
-              titleKey="home.newRelease"
-              items={c.newReleaseItems}
-              eagerFirst={c.newReleaseItems.length > 0}
-            />
+            <SeriesRow titleKey="home.newRelease" items={c.newReleaseItems} />
           ) : null}
           {c.showTrendingRow ? (
-            <SeriesRow
-              titleKey="home.trendingDramas"
-              items={c.trending}
-              eagerFirst={
-                (!c.showNewRow || c.newReleaseItems.length === 0) && c.trending.length > 0
-              }
-            />
+            <SeriesRow titleKey="home.trendingDramas" items={c.trending} />
           ) : null}
 
           {c.showCategories ? (

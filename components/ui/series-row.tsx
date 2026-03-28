@@ -14,17 +14,19 @@ import { PosterImage } from "@/components/ui/poster-image";
 interface SeriesRowProps {
   titleKey: string;
   items: Series[];
-  /** 首条海报优先解码，减轻 LCP「元素渲染延迟」（仅首页首行建议开启） */
-  eagerFirst?: boolean;
 }
 
-export function SeriesRow({ titleKey, items, eagerFirst }: SeriesRowProps) {
+/** 与 globals.css `.home-poster-cell` 一致：小屏最小 7.5rem(120px)，lg+ 约 1/7 栅格 */
+const HOME_RAIL_POSTER_SIZES =
+  "(max-width:1023px) 120px, min(18vw, 200px)";
+
+export function SeriesRow({ titleKey, items }: SeriesRowProps) {
   const router = useRouter();
   const { t, i18n } = useTranslation();
   const lang = i18n.language as AppLanguage;
 
   return (
-    <section className="mb-6 lg:mb-10">
+    <section className="home-row-cv mb-6 lg:mb-10">
       <div className="mb-4 flex items-end justify-between px-1">
         <h2 className="section-title-fluid font-extrabold tracking-tight text-zinc-50">
           {t(titleKey)}
@@ -43,7 +45,7 @@ export function SeriesRow({ titleKey, items, eagerFirst }: SeriesRowProps) {
             items.length <= 7 && "home-poster-rail--fit"
           )}
         >
-          {items.map((s, idx) => {
+          {items.map((s) => {
             const { title } = getSeriesI18nText(s, lang);
             const categoryLabel = tagLabel(s.category, t);
             const artworkChain = getSeriesArtworkChain(s);
@@ -59,9 +61,8 @@ export function SeriesRow({ titleKey, items, eagerFirst }: SeriesRowProps) {
                     <PosterImage
                       chain={artworkChain}
                       alt={title}
-                      sizes="(max-width:640px) min(36vw, 210px), (max-width:1024px) 160px, 180px"
+                      sizes={HOME_RAIL_POSTER_SIZES}
                       className="poster-card-drama__img"
-                      priority={Boolean(eagerFirst && idx === 0)}
                     />
                     <div
                       className="poster-card-drama__overlay absolute inset-0 z-[1]"

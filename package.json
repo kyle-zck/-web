@@ -4,14 +4,18 @@
   "private": true,
   "browserslist": {
     "production": [
-      "chrome >= 109",
-      "edge >= 109",
+      "chrome >= 111",
+      "edge >= 111",
       "firefox >= 115",
-      "safari >= 16",
-      "ios >= 16",
+      "safari >= 16.4",
+      "ios >= 16.4",
       "not dead"
     ],
-    "development": ["last 1 chrome version", "last 1 firefox version", "last 1 safari version"]
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
   },
   "scripts": {
     "clean": "rm -rf .next",
@@ -22,6 +26,7 @@
     "dev:turbo": "WATCHPACK_POLLING=true PORT=3000 next dev --turbo",
     "health:local": "node scripts/health-check-local.mjs",
     "build": "next build",
+    "analyze": "ANALYZE=true next build",
     "start": "next start",
     "lint": "next lint",
     "check:series-pg": "node --env-file=.env.local scripts/check-series-pg.mjs",
@@ -50,11 +55,13 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^16.2.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "autoprefixer": "^10.4.20",
+    "critters": "^0.0.23",
     "eslint": "^8.57.1",
     "eslint-config-next": "14.2.35",
     "postcss": "^8.4.49",

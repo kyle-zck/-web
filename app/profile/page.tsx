@@ -370,7 +370,7 @@ export default function ProfilePage() {
                       <PosterImage
                         chain={artworkChain}
                         alt={getSeriesI18nText(row.series, lang).title}
-                        sizes="(max-width:640px) 45vw, (max-width:1024px) 30vw, 200px"
+                        sizes="(max-width:640px) min(46vw, 200px), (max-width:1024px) min(28vw, 180px), 200px"
                         className="h-full w-full object-cover object-[center_22%]"
                       />
                       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent" />
@@ -426,7 +426,7 @@ export default function ProfilePage() {
                       <PosterImage
                         chain={artworkChain}
                         alt={getSeriesI18nText(series, lang).title}
-                        sizes="(max-width:640px) 45vw, (max-width:1024px) 30vw, 200px"
+                        sizes="(max-width:640px) min(46vw, 200px), (max-width:1024px) min(28vw, 180px), 200px"
                         className="h-full w-full object-cover object-[center_22%]"
                       />
                       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent" />

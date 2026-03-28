@@ -116,7 +116,7 @@ export function HeroCarousel({ items, countsBySeriesId }: HeroCarouselProps) {
                   <PosterImage
                     chain={artworkChain}
                     alt={title}
-                    sizes="(max-width:640px) min(46vw, 280px), (max-width:1024px) 240px, 280px"
+                    sizes="(max-width:640px) 240px, (max-width:1024px) 280px, 340px"
                     className="poster-card-drama__img"
                     priority={index === 0}
                   />

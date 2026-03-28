@@ -288,6 +288,14 @@ body {
   }
 }
 
+/**
+ * 首屏 Hero 以下类目行：跳过早期的布局/绘制，减轻主线程长任务与 Speed Index（Lighthouse「优化 DOM」辅助）
+ */
+.home-row-cv {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 420px;
+}
+
 /* 播放中“音量跳动”指示条 */
 .eq-bars {
   display: inline-flex;
