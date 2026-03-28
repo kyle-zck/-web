@@ -45,11 +45,17 @@ export default async function RootLayout({
   const cfg = await getCachedAppConfig();
   const lang = cfg.seo?.defaultLocale === "en" ? "en" : "zh-CN";
 
+  const skipToMain =
+    lang === "en" ? "Skip to main content" : "跳转至正文内容";
+
   return (
     <html lang={lang} className={`dark ${inter.variable}`}>
       <body
         className={`${inter.className} min-h-screen bg-black text-white antialiased safe-area`}
       >
+        <a href="#main-content" className="skip-link">
+          {skipToMain}
+        </a>
         <div className="app-shell mx-auto flex min-h-screen flex-col bg-black">
           <I18nAppShell>{children}</I18nAppShell>
         </div>

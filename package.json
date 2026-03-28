@@ -4,11 +4,11 @@
   "private": true,
   "browserslist": {
     "production": [
-      "chrome >= 92",
-      "edge >= 92",
-      "firefox >= 90",
-      "safari >= 15",
-      "ios >= 15",
+      "chrome >= 109",
+      "edge >= 109",
+      "firefox >= 115",
+      "safari >= 16",
+      "ios >= 16",
       "not dead"
     ],
     "development": ["last 1 chrome version", "last 1 firefox version", "last 1 safari version"]

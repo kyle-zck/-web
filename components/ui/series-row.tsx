@@ -14,9 +14,11 @@ import { PosterImage } from "@/components/ui/poster-image";
 interface SeriesRowProps {
   titleKey: string;
   items: Series[];
+  /** 首条海报优先解码，减轻 LCP「元素渲染延迟」（仅首页首行建议开启） */
+  eagerFirst?: boolean;
 }
 
-export function SeriesRow({ titleKey, items }: SeriesRowProps) {
+export function SeriesRow({ titleKey, items, eagerFirst }: SeriesRowProps) {
   const router = useRouter();
   const { t, i18n } = useTranslation();
   const lang = i18n.language as AppLanguage;
@@ -41,7 +43,7 @@ export function SeriesRow({ titleKey, items }: SeriesRowProps) {
             items.length <= 7 && "home-poster-rail--fit"
           )}
         >
-          {items.map((s) => {
+          {items.map((s, idx) => {
             const { title } = getSeriesI18nText(s, lang);
             const categoryLabel = tagLabel(s.category, t);
             const artworkChain = getSeriesArtworkChain(s);
@@ -57,8 +59,9 @@ export function SeriesRow({ titleKey, items }: SeriesRowProps) {
                     <PosterImage
                       chain={artworkChain}
                       alt={title}
-                      sizes="(max-width:640px) 42vw, (max-width:1024px) 160px, 180px"
+                      sizes="(max-width:640px) min(36vw, 210px), (max-width:1024px) 160px, 180px"
                       className="poster-card-drama__img"
+                      priority={Boolean(eagerFirst && idx === 0)}
                     />
                     <div
                       className="poster-card-drama__overlay absolute inset-0 z-[1]"

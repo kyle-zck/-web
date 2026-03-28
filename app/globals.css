@@ -13,6 +13,27 @@ html {
   text-rendering: optimizeLegibility;
 }
 
+/* 键盘用户：跳过导航直达正文（无障碍） */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0.75rem;
+  z-index: 10000;
+  border-radius: 0.5rem;
+  background: #e50914;
+  padding: 0.65rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: white;
+  text-decoration: none;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+}
+.skip-link:focus {
+  left: 0.75rem;
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
 body {
   @apply bg-black text-white antialiased;
   font-family: "Inter", "Poppins", ui-sans-serif, system-ui, -apple-system,

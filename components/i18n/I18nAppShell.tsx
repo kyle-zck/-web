@@ -12,7 +12,13 @@ export default function I18nAppShell({ children }: { children: React.ReactNode }
       <SupabaseProvider>
         <div className="flex min-h-0 flex-1 flex-col">
           <TopNavV2 />
-          <div className="min-h-0 flex-1">{children}</div>
+          <div
+            id="main-content"
+            tabIndex={-1}
+            className="min-h-0 flex-1 scroll-mt-[72px] outline-none focus:outline-none"
+          >
+            {children}
+          </div>
           <SiteFooter />
         </div>
       </SupabaseProvider>

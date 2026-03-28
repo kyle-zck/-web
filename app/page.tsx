@@ -121,10 +121,20 @@ export default async function HomePage() {
           {c.showContinue ? <ContinueWatching /> : null}
 
           {c.showNewRow ? (
-            <SeriesRow titleKey="home.newRelease" items={c.newReleaseItems} />
+            <SeriesRow
+              titleKey="home.newRelease"
+              items={c.newReleaseItems}
+              eagerFirst={c.newReleaseItems.length > 0}
+            />
           ) : null}
           {c.showTrendingRow ? (
-            <SeriesRow titleKey="home.trendingDramas" items={c.trending} />
+            <SeriesRow
+              titleKey="home.trendingDramas"
+              items={c.trending}
+              eagerFirst={
+                (!c.showNewRow || c.newReleaseItems.length === 0) && c.trending.length > 0
+              }
+            />
           ) : null}
 
           {c.showCategories ? (

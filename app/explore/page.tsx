@@ -235,7 +235,7 @@ function ExploreContent() {
                   </div>
                 </div>
               ))
-            : filtered.slice(0, visibleCount).map((s) => {
+            : filtered.slice(0, visibleCount).map((s, cardIdx) => {
                 const localized = getSeriesI18nText(s, lang);
                 const artworkChain = getSeriesArtworkChain(s);
                 return (
@@ -250,9 +250,10 @@ function ExploreContent() {
                     <div className="poster-card-drama relative aspect-[2/3] w-44 shrink-0 overflow-hidden transition-transform duration-200 group-hover:scale-[1.03]">
                       <PosterImage
                         chain={artworkChain}
-                        alt=""
+                        alt={localized.title}
                         sizes="176px"
                         className="poster-card-drama__img"
+                        priority={cardIdx === 0}
                       />
                       <div
                         className="poster-card-drama__overlay poster-card-drama__overlay--hero absolute inset-0 z-[1]"
