@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import I18nAppShell from "@/components/i18n/I18nAppShell";
-import { ResourceHints } from "@/components/resource-hints";
 import { getCachedAppConfig } from "@/lib/app-config/service";
 
 const inter = Inter({
@@ -51,9 +50,6 @@ export default async function RootLayout({
 
   return (
     <html lang={lang} className={`dark ${inter.variable}`}>
-      <head>
-        <ResourceHints />
-      </head>
       <body
         className={`${inter.className} min-h-screen bg-black text-white antialiased safe-area`}
       >

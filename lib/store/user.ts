@@ -1,7 +1,7 @@
 import type { User } from "@supabase/supabase-js";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { getSupabaseBrowserClientAsync } from "@/lib/supabase/browser";
 import { getOrCreateDeviceClientId } from "@/lib/client/device-client-id";
 
 interface UserState {
@@ -67,7 +67,7 @@ export const useUserStore = create<UserState>()(
       },
 
       signInWithEmail: async (email, password) => {
-        const supabase = getSupabaseBrowserClient();
+        const supabase = await getSupabaseBrowserClientAsync();
         if (!supabase) return { error: "not_configured" };
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) return { error: error.message };
@@ -75,7 +75,7 @@ export const useUserStore = create<UserState>()(
       },
 
       signUpWithEmail: async (email, password) => {
-        const supabase = getSupabaseBrowserClient();
+        const supabase = await getSupabaseBrowserClientAsync();
         if (!supabase) return { error: "not_configured" };
         const redirect =
           typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined;
@@ -90,7 +90,7 @@ export const useUserStore = create<UserState>()(
       },
 
       signInWithOAuth: async (provider) => {
-        const supabase = getSupabaseBrowserClient();
+        const supabase = await getSupabaseBrowserClientAsync();
         if (!supabase) return { error: "not_configured" };
         const { error } = await supabase.auth.signInWithOAuth({
           provider,
@@ -106,7 +106,7 @@ export const useUserStore = create<UserState>()(
       },
 
       logout: async () => {
-        const supabase = getSupabaseBrowserClient();
+        const supabase = await getSupabaseBrowserClientAsync();
         if (supabase) await supabase.auth.signOut();
         set({
           isLoggedIn: false,
