@@ -16,12 +16,15 @@ export default function AdminLoginPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    const ctrl = new AbortController();
+    const tid = window.setTimeout(() => ctrl.abort(), 20_000);
     try {
       const res = await fetch("/admin/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key }),
-        credentials: "include"
+        credentials: "include",
+        signal: ctrl.signal
       });
       if (!res.ok) {
         setError(t("admin.invalidKey"));
@@ -34,9 +37,16 @@ export default function AdminLoginPage() {
       }
       router.replace("/admin");
       router.refresh();
-    } catch {
-      setError(t("admin.networkError"));
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") {
+        setError(
+          t("admin.requestTimeout", "Request timed out. Check your network and try again.")
+        );
+      } else {
+        setError(t("admin.networkError"));
+      }
     } finally {
+      window.clearTimeout(tid);
       setLoading(false);
     }
   };

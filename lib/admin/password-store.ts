@@ -6,7 +6,10 @@ import { getAdminPgPool } from "./admin-pg";
 
 const FILE = path.join(process.cwd(), "data", "admin-password.json");
 
+let adminCredentialsTableEnsured = false;
+
 async function ensureTable(conn: Pool) {
+  if (adminCredentialsTableEnsured) return;
   await conn.query(`
     CREATE TABLE IF NOT EXISTS admin_credentials (
       id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
@@ -14,6 +17,7 @@ async function ensureTable(conn: Pool) {
       updated_at BIGINT NOT NULL
     );
   `);
+  adminCredentialsTableEnsured = true;
 }
 
 export async function getStoredPasswordHash(): Promise<string | null> {

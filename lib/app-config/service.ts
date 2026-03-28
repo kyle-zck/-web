@@ -98,10 +98,38 @@ export async function getAppConfig(): Promise<AppConfig> {
   return deepMerge(cloneDefault(), raw) as unknown as AppConfig;
 }
 
+/** 进程内短缓存：减轻 PG/磁盘读与 deepMerge；与 GET /api/app-config 的 s-maxage 协同 */
+let appConfigMem:
+  | { payload: string; expiresAt: number }
+  | null = null;
+
+function appConfigCacheTtlMs(): number {
+  const raw = process.env.APP_CONFIG_CACHE_MS?.trim();
+  if (raw === "0") return 0;
+  if (raw != null && raw !== "") {
+    const n = Number(raw);
+    if (Number.isFinite(n) && n >= 0) return Math.min(n, 300_000);
+  }
+  return 25_000;
+}
+
+export function invalidateAppConfigMemoryCache(): void {
+  appConfigMem = null;
+}
+
 /** 读配置失败时回退默认，避免根 layout / metadata 抛错导致白屏与 “missing required error components” */
 export async function getAppConfigOrDefault(): Promise<AppConfig> {
+  const ttl = appConfigCacheTtlMs();
+  const now = Date.now();
+  if (ttl > 0 && appConfigMem && appConfigMem.expiresAt > now) {
+    return JSON.parse(appConfigMem.payload) as AppConfig;
+  }
   try {
-    return await getAppConfig();
+    const cfg = await getAppConfig();
+    if (ttl > 0) {
+      appConfigMem = { payload: JSON.stringify(cfg), expiresAt: now + ttl };
+    }
+    return cfg;
   } catch (e) {
     console.error("[app-config] getAppConfig failed, using DEFAULT_APP_CONFIG", e);
     return JSON.parse(JSON.stringify(DEFAULT_APP_CONFIG)) as AppConfig;
@@ -112,6 +140,7 @@ export async function saveAppConfig(patch: Partial<AppConfig>): Promise<AppConfi
   const raw = await readStoredRaw();
   const nextRaw = deepMerge(raw, patch as Record<string, unknown>);
   await writeStoredRaw(nextRaw);
+  invalidateAppConfigMemoryCache();
   return getAppConfigOrDefault();
 }
 

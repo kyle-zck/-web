@@ -2,6 +2,18 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+/**
+ * 公开只读 API 不依赖 Supabase 会话；跳过 getUser() 可省一次边缘往返（常见于首屏与列表轮询）。
+ * 需刷新的路由仍走下方 supabaseMiddleware。
+ */
+function shouldSkipSupabaseSessionRefresh(req: NextRequest): boolean {
+  if (req.method !== "GET") return false;
+  const p = req.nextUrl.pathname;
+  if (p === "/api/app-config" || p === "/api/tag-catalog") return true;
+  if (p === "/api/series" || p.startsWith("/api/series/")) return true;
+  return false;
+}
+
 /** 前台：刷新 Supabase Auth Cookie；失败时放行，避免整站 404/白屏 */
 async function supabaseMiddleware(request: NextRequest): Promise<NextResponse> {
   try {
@@ -61,6 +73,10 @@ export async function middleware(request: NextRequest) {
       console.error("[middleware] admin 鉴权模块加载失败", e);
       return NextResponse.next();
     }
+  }
+
+  if (shouldSkipSupabaseSessionRefresh(request)) {
+    return NextResponse.next();
   }
 
   return await supabaseMiddleware(request);

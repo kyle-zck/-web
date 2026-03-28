@@ -25,7 +25,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const cfg = await getAppConfigOrDefault();
+    const [cfg, user] = await Promise.all([
+      getAppConfigOrDefault(),
+      getOrCreateUid(clientId)
+    ]);
+
     const plan =
       cfg.subscriptionPlans.find((p) => p.id === planIdOrLabel) ??
       cfg.subscriptionPlans.find((p) => p.label === planIdOrLabel);
@@ -44,8 +48,6 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-
-    const user = await getOrCreateUid(clientId);
     const origin =
       req.headers.get("origin")?.trim() ||
       process.env.NEXT_PUBLIC_SITE_URL?.trim() ||

@@ -7,6 +7,13 @@ import { showToast } from "@/components/ui/toast";
 import { fetchAdminJson } from "@/lib/admin/fetch-admin-json";
 import { translateAdminApiError } from "@/lib/admin/api-error";
 import type { AppConfigStore } from "@/lib/app-config";
+import {
+  assignClientRowKeys,
+  CLIENT_ROW_KEY,
+  newClientRowKey,
+  stripClientRowKey,
+  type WithClientRowKey
+} from "@/lib/admin/client-row-key";
 
 function normalizePlanId(input: string): string {
   return input
@@ -23,7 +30,7 @@ export default function AdminConfigPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // 正在编辑（未暂存）
-  const [plansEdit, setPlansEdit] = useState<SubscriptionPlan[]>([]);
+  const [plansEdit, setPlansEdit] = useState<WithClientRowKey<SubscriptionPlan>[]>([]);
   const [storeTitleEdit, setStoreTitleEdit] = useState("");
   const [storeSubtitleEdit, setStoreSubtitleEdit] = useState("");
   const [tipsEdit, setTipsEdit] = useState<string[]>(["", "", "", ""]);
@@ -51,7 +58,7 @@ export default function AdminConfigPage() {
       const plans = (cfg?.subscriptionPlans ?? []) as SubscriptionPlan[];
       const store = (cfg?.store ?? {}) as AppConfigStore;
 
-      setPlansEdit(plans);
+      setPlansEdit(assignClientRowKeys(plans));
       setDraftPlans(plans);
 
       setStoreTitleEdit(store?.title ?? "");
@@ -98,7 +105,8 @@ export default function AdminConfigPage() {
         discountPercent: 100,
         discountDays: 0,
         paymentUrl: "/store",
-        stripePriceId: ""
+        stripePriceId: "",
+        [CLIENT_ROW_KEY]: newClientRowKey()
       }
     ]);
   };
@@ -110,16 +118,18 @@ export default function AdminConfigPage() {
   const stagePlans = () => {
     const now = new Date().toISOString();
     const staged = plansEdit.map((p) => {
-      const normalizedId = normalizePlanId(String(p.id ?? p.templateName ?? ""));
-      const dp = typeof p.discountPercent === "number" ? p.discountPercent : Number(p.discountPercent ?? 100);
-      const dd = typeof p.discountDays === "number" ? p.discountDays : Number(p.discountDays ?? 0);
+      const row = stripClientRowKey(p);
+      const normalizedId = normalizePlanId(String(row.id ?? row.templateName ?? ""));
+      const dp =
+        typeof row.discountPercent === "number" ? row.discountPercent : Number(row.discountPercent ?? 100);
+      const dd = typeof row.discountDays === "number" ? row.discountDays : Number(row.discountDays ?? 0);
       const discountPercent = Number.isFinite(dp) ? Math.max(1, Math.min(100, Math.round(dp))) : 100;
       const discountDays = Number.isFinite(dd) ? Math.max(0, Math.floor(dd)) : 0;
       const next: SubscriptionPlan = {
-        ...p,
+        ...row,
         id: normalizedId || `plan-${Date.now()}`,
         templateName: normalizedId || `plan-${Date.now()}`,
-        stripePriceId: String((p as any).stripePriceId ?? "").trim(),
+        stripePriceId: String((row as { stripePriceId?: string }).stripePriceId ?? "").trim(),
         discountPercent,
         discountDays
       };
@@ -244,7 +254,7 @@ export default function AdminConfigPage() {
           ) : (
             plansEdit.map((plan, i) => (
               <div
-                key={plan.id}
+                key={plan[CLIENT_ROW_KEY] ?? `plan-fallback-${i}`}
                 className="rounded-2xl border border-zinc-800/80 bg-black/35 p-3"
               >
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-7">

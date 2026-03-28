@@ -7,6 +7,11 @@ import { Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
 import { useUserStore } from "@/lib/store/user";
 import { getOrCreateDeviceClientId } from "@/lib/client/device-client-id";
+import {
+  checkoutResultToUserMessage,
+  fetchJsonWithTimeout,
+  postStripeCheckoutSession
+} from "@/lib/client/api-fetch";
 
 interface SubscriptionModalProps {
   open: boolean;
@@ -72,10 +77,11 @@ export function SubscriptionModal({ open, onClose, plans }: SubscriptionModalPro
 
   useEffect(() => {
     if (!open) return;
-    fetch("/api/app-config")
-      .then((r) => r.json())
+    const ctrl = new AbortController();
+    fetchJsonWithTimeout<{ store?: StoreConfig }>("/api/app-config", 8000, ctrl.signal)
       .then((json) => setStoreCfg((json?.store ?? {}) as StoreConfig))
       .catch(() => setStoreCfg({}));
+    return () => ctrl.abort();
   }, [open]);
 
   const handlePayNow = async (planOverride?: SubscriptionPlan) => {
@@ -90,22 +96,14 @@ export function SubscriptionModal({ open, onClose, plans }: SubscriptionModalPro
     if (!clientId) return;
     setPaying(true);
     try {
-      const res = await fetch("/api/payments/stripe/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, planId: plan.id })
-      });
-      const json = (await res.json()) as { ok?: boolean; url?: string };
-      if (!res.ok || !json?.ok || !json.url) {
-        window.alert(t("store.paymentNotReady", "Payment is temporarily unavailable. Please try again."));
+      const result = await postStripeCheckoutSession({ clientId, planId: plan.id });
+      if (!result.ok) {
+        window.alert(checkoutResultToUserMessage(result, t));
         return;
       }
-      window.location.href = json.url;
-    } catch {
-      window.alert(t("store.paymentNotReady", "Payment is temporarily unavailable. Please try again."));
+      window.location.href = result.url;
     } finally {
       setPaying(false);
-      onClose();
     }
   };
 
