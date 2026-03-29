@@ -6,9 +6,16 @@ export async function validateTagsAgainstCatalog(
 ): Promise<{ ok: true } | { ok: false; invalid: string[] }> {
   const { items } = await readCatalog();
   if (items.length === 0) return { ok: true };
-  const allowed = new Set(items.map((i) => i.name.trim()));
-  const normalized = tags.map((t) => t.trim()).filter(Boolean);
-  const invalid = normalized.filter((t) => !allowed.has(t));
+
+  const allowedLower = new Set(
+    items
+      .map((i) => i.name.trim().toLowerCase())
+      .filter(Boolean)
+  );
+
+  const normalizedOriginal = tags.map((t) => t.trim()).filter(Boolean);
+  const invalid = normalizedOriginal.filter((t) => !allowedLower.has(t.toLowerCase()));
+
   if (invalid.length) return { ok: false, invalid };
   return { ok: true };
 }

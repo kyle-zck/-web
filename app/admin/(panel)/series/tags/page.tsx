@@ -45,7 +45,12 @@ export default function AdminSeriesTagsPage() {
         "/admin/api/drama-tag-catalog"
       );
       if (res.ok && json?.ok && Array.isArray(json.items)) {
-        setCatalogNames(json.items.map((x) => x.name));
+        setCatalogNames(
+          json.items
+            .map((x) => x.name.trim())
+            .filter(Boolean)
+            .sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }))
+        );
         return true;
       }
       setCatalogNames([]);
@@ -86,24 +91,32 @@ export default function AdminSeriesTagsPage() {
 
   const filteredSeries = useMemo(() => {
     let list = [...series];
-    if (applied.title) {
-      const q = applied.title.toLowerCase();
+    const titleQ = applied.title.trim().toLowerCase();
+    const tagQ = applied.tag.trim().toLowerCase();
+
+    if (titleQ) {
       list = list.filter(
         (s) =>
-          s.title.toLowerCase().includes(q) ||
-          (s.originalName ?? "").toLowerCase().includes(q)
+          s.title.toLowerCase().includes(titleQ) ||
+          (s.originalName ?? "").toLowerCase().includes(titleQ)
       );
     }
-    if (applied.tag) {
-      const exact = applied.tag;
-      list = list.filter((s) => (s.tags ?? []).some((tg) => tg === exact));
+
+    if (tagQ) {
+      list = list.filter((s) =>
+        (s.tags ?? []).some((tg) => tg.trim().toLowerCase().includes(tagQ))
+      );
     }
     return list;
   }, [series, applied]);
 
   const startEdit = (s: Series) => {
     setEditingSeries(s);
-    setEditingTags((s.tags ?? []).filter(Boolean));
+    const allowed = new Set(catalogNames.map((x) => x.trim()).filter(Boolean));
+    const next = (s.tags ?? [])
+      .map((x) => x.trim())
+      .filter((x) => Boolean(x) && allowed.has(x));
+    setEditingTags(next);
   };
 
   const closeEdit = () => {
@@ -129,12 +142,15 @@ export default function AdminSeriesTagsPage() {
     }
     setSavingEdit(true);
     try {
+      const normalized = Array.from(
+        new Set(editingTags.map((x) => x.trim()).filter(Boolean))
+      );
       const { res, json } = await fetchAdminJson<{ ok?: boolean; errorKey?: string }>(
         `/admin/api/series/${editingSeries.id}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tags: editingTags })
+          body: JSON.stringify({ tags: normalized })
         },
         10000
       );
@@ -144,7 +160,7 @@ export default function AdminSeriesTagsPage() {
       }
       showToast(t("admin.tagSaved"), "success");
       setSeries((prev) =>
-        prev.map((x) => (x.id === editingSeries.id ? { ...x, tags: [...editingTags] } : x))
+        prev.map((x) => (x.id === editingSeries.id ? { ...x, tags: [...normalized] } : x))
       );
       closeEdit();
     } catch {

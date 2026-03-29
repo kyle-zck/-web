@@ -39,22 +39,6 @@ function PlayGlyph({ className }: { className?: string }) {
   );
 }
 
-function ChevronLeft() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M15 18l-6-6 6-6" />
-    </svg>
-  );
-}
-
-function ChevronRight() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M9 18l6-6-6-6" />
-    </svg>
-  );
-}
-
 export function HeroCarousel({ items, countsBySeriesId }: HeroCarouselProps) {
   const router = useRouter();
   const [activeIndex, setActiveIndex] = useState(0);
@@ -91,7 +75,7 @@ export function HeroCarousel({ items, countsBySeriesId }: HeroCarouselProps) {
   return (
     <section className="relative mb-6 pt-6 pb-8 sm:pt-8 sm:pb-10 md:pb-12">
       <div
-        className="flex items-center justify-center gap-4 overflow-x-visible scrollbar-thin snap-x snap-mandatory scroll-smooth md:gap-6"
+        className="mx-auto flex w-[82%] items-center justify-center gap-4 overflow-x-visible scrollbar-thin snap-x snap-mandatory scroll-smooth md:w-[76%] md:gap-6"
         ref={scrollRef}
       >
         {items.map((item, index) => {
