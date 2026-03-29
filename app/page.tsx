@@ -17,6 +17,10 @@ import { getEngagementCountsBatch } from "@/lib/user-repo";
 
 export const revalidate = 60;
 
+function seriesCreatedSortTime(s: Series): number {
+  return s.listedAt ?? s.completedAt ?? s.createdAt ?? 0;
+}
+
 async function buildHomeContent() {
   const [appConfig, rawSeries] = await Promise.all([
     getCachedAppConfig(),
@@ -28,83 +32,38 @@ async function buildHomeContent() {
   const homeCfg = appConfig.home;
 
   const all = slimSeriesListForPublic(rawSeries);
-
   const series = all.filter((s) => s.listed !== false);
-  const trending = series.filter((s) => s.isTrending);
-  const newArrivals = series.filter((s) => s.isNew);
-  const allForFill = [...newArrivals, ...trending, ...series];
-
-  const dedupFill: Series[] = [];
-  const seenFill = new Set<string>();
-  for (const s of allForFill) {
-    if (seenFill.has(s.id)) continue;
-    seenFill.add(s.id);
-    dedupFill.push(s);
-  }
-  const newReleaseItems =
-    newArrivals.length >= 5 ? newArrivals.slice(0, 5) : dedupFill.slice(0, 5);
-
-  const featuredIds = (homeCfg?.featuredSeriesIds ?? []).map((id) => id.trim()).filter(Boolean);
   const byId = new Map(series.map((s) => [s.id, s]));
 
-  let heroItems: Series[];
-  if (featuredIds.length > 0) {
-    const picked = featuredIds
-      .map((id) => byId.get(id))
-      .filter((x): x is Series => Boolean(x));
-    if (picked.length > 0) {
-      const used = new Set(picked.map((s) => s.id));
-      const filler = allForFill.filter((s) => !used.has(s.id));
-      heroItems = [...picked, ...filler].slice(0, 5);
-    } else {
-      heroItems = newReleaseItems;
-    }
-  } else {
-    heroItems = newReleaseItems;
-  }
+  const heroIds = (homeCfg?.featuredSeriesIds ?? []).map((id) => id.trim()).filter(Boolean);
+  const heroPicked = heroIds
+    .map((id) => byId.get(id))
+    .filter((x): x is Series => Boolean(x));
 
-  const heroIds = heroItems.map((s) => s.id);
-  const heroCountsBySeriesId = await getEngagementCountsBatch(heroIds);
+  const fallbackNew = [...series].sort((a, b) => seriesCreatedSortTime(b) - seriesCreatedSortTime(a));
+  const heroFallback = fallbackNew.slice(0, 5);
+  const heroItems = (heroPicked.length > 0 ? heroPicked : heroFallback).slice(0, 5);
 
-  const byTag = (tag: string) => series.filter((s) => s.tags.includes(tag)).slice(0, 12);
+  const heroCountsBySeriesId = await getEngagementCountsBatch(heroItems.map((s) => s.id));
 
-  const hiddenIdentity = byTag("Revenge");
-  const loveAtFirstSight = byTag("Romance");
-  const magicAndMates = byTag("Fantasy");
-  const secondChance = byTag("Time Travel");
+  const newReleaseItems = fallbackNew.slice(0, 7);
 
-  const showContinue = homeCfg?.showContinueWatching !== false;
-  const showNewRow = homeCfg?.showNewRelease !== false;
-  const showTrendingRow = homeCfg?.showTrending !== false;
-  const showCategories = homeCfg?.showCategoryRows !== false;
-
-  const customRows = (homeCfg?.titleRows ?? [])
-    .map((row) => {
-      const items = row.seriesIds
-        .map((id) => byId.get(id))
-        .filter((x): x is Series => Boolean(x));
-      return {
-        id: row.id,
-        title: row.title,
-        items
-      };
-    })
-    .filter((row) => row.title.trim().length > 0 && row.items.length > 0);
+  const configuredRows = (homeCfg?.titleRows ?? [])
+    .map((r) => ({
+      id: r.id,
+      title: r.title,
+      kind: r.kind ?? "custom",
+      hidden: r.hidden === true,
+      seriesIds: r.seriesIds ?? []
+    }))
+    .filter((r) => r.title.trim().length > 0);
 
   return {
     heroItems,
     heroCountsBySeriesId,
     newReleaseItems,
-    trending,
-    hiddenIdentity,
-    loveAtFirstSight,
-    magicAndMates,
-    secondChance,
-    customRows,
-    showContinue,
-    showNewRow,
-    showTrendingRow,
-    showCategories
+    configuredRows,
+    byId
   };
 }
 
@@ -113,35 +72,27 @@ export default async function HomePage() {
     const c = await buildHomeContent();
     return (
       <main className="flex min-h-screen flex-col">
-        <div className="page-gutter-x flex-1 space-y-8 pb-24 pt-10 lg:space-y-10 lg:pb-28 lg:pt-16">
+        <div className="page-gutter-x flex-1 space-y-6 pb-20 pt-8 md:space-y-8 md:pb-24 md:pt-12">
           <HeroCarousel items={c.heroItems} countsBySeriesId={c.heroCountsBySeriesId} />
 
-          {c.showContinue ? <ContinueWatching /> : null}
+          {c.configuredRows.map((row) => {
+            if (row.hidden) return null;
+            if (row.kind === "continue") {
+              return <ContinueWatching key={row.id} />;
+            }
 
-          {c.showNewRow ? (
-            <SeriesRow titleKey="home.newRelease" items={c.newReleaseItems} />
-          ) : null}
-          {c.showTrendingRow ? (
-            <SeriesRow titleKey="home.trendingDramas" items={c.trending} />
-          ) : null}
+            if (row.kind === "newRelease") {
+              return <SeriesRow key={row.id} titleText={row.title} items={c.newReleaseItems} />;
+            }
 
-          {c.showCategories ? (
-            <>
-              <SeriesRow titleKey="home.hiddenIdentity" items={c.hiddenIdentity} />
-              <SeriesRow
-                titleKey="home.loveAtFirstSight"
-                items={c.loveAtFirstSight}
-              />
-              <SeriesRow titleKey="home.magicAndMates" items={c.magicAndMates} />
-              <SeriesRow titleKey="home.secondChance" items={c.secondChance} />
-            </>
-          ) : null}
+            const items = row.seriesIds
+              .map((id) => c.byId.get(id))
+              .filter((x): x is Series => Boolean(x));
 
-          {c.customRows.map((row) => (
-            <SeriesRow key={row.id} titleText={row.title} items={row.items} />
-          ))}
+            return <SeriesRow key={row.id} titleText={row.title} items={items} />;
+          })}
 
-          <div className="pt-2">
+          <div className="pt-1 md:pt-2">
             <MoreMoviesLink />
           </div>
         </div>

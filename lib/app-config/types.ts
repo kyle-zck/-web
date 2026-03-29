@@ -21,6 +21,8 @@ export interface AppConfigHomeRow {
   id: string;
   title: string;
   seriesIds: string[];
+  kind?: "custom" | "continue" | "newRelease";
+  hidden?: boolean;
 }
 
 export interface AppConfigHome {
