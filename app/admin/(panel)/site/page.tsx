@@ -289,6 +289,134 @@ export default function AdminSiteSettingsPage() {
             />
           </label>
         </div>
+
+        <div className="mt-6 border-t border-zinc-800/70 pt-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-zinc-100">Homepage custom title rows</h3>
+            <button
+              type="button"
+              onClick={() => setHomeRows((prev) => [...prev, newHomeRow()])}
+              className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500"
+            >
+              + Add row
+            </button>
+          </div>
+
+          <div className="mt-3 space-y-3">
+            {homeRows.length === 0 ? (
+              <div className="rounded-xl border border-zinc-800/80 bg-black/30 p-4 text-sm text-zinc-500">
+                No custom rows yet.
+              </div>
+            ) : null}
+
+            {homeRows.map((row) => {
+              const filter = rowFilterMap[row.id] ?? "";
+              const filteredSeries = seriesList.filter((s) =>
+                !filter
+                  ? true
+                  : `${s.title} ${(s.originalName ?? "")} ${s.id}`
+                      .toLowerCase()
+                      .includes(filter.toLowerCase())
+              );
+              return (
+                <div
+                  key={row.id}
+                  draggable
+                  onDragStart={() => setDraggingRowId(row.id)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => {
+                    if (draggingRowId) moveRow(draggingRowId, row.id);
+                    setDraggingRowId(null);
+                  }}
+                  className="rounded-2xl border border-zinc-800/80 bg-black/40 p-3"
+                >
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="cursor-grab select-none text-xs text-zinc-500" title="Drag to reorder">
+                      ↕
+                    </span>
+                    <input
+                      value={row.title}
+                      onChange={(e) => updateHomeRow(row.id, { title: e.target.value })}
+                      placeholder="Row title"
+                      className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900/50 px-3 py-2 text-sm text-zinc-100"
+                    />
+                    <span className="text-xs text-zinc-400">{row.seriesIds.length} selected</span>
+                    <button
+                      type="button"
+                      onClick={() => removeHomeRow(row.id)}
+                      className="rounded-lg border border-red-500/40 px-2 py-1 text-xs text-red-300 hover:bg-red-500/15"
+                    >
+                      Delete
+                    </button>
+                  </div>
+
+                  <input
+                    value={filter}
+                    onChange={(e) => setRowFilterMap((prev) => ({ ...prev, [row.id]: e.target.value }))}
+                    placeholder="Filter series by title / id"
+                    className="mb-2 w-full rounded-lg border border-zinc-800 bg-black/50 px-3 py-2 text-xs text-zinc-200"
+                  />
+
+                  <div className="max-h-44 overflow-auto rounded-lg border border-zinc-800/80 bg-zinc-900/40 p-2">
+                    <div className="grid gap-1">
+                      {filteredSeries.map((s) => {
+                        const checked = row.seriesIds.includes(s.id);
+                        return (
+                          <label key={`${row.id}-${s.id}`} className="flex items-center gap-2 text-xs text-zinc-200">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => toggleSeriesInRow(row.id, s.id, e.target.checked)}
+                            />
+                            <span className="truncate">{s.title}</span>
+                            <span className="text-zinc-500">({s.id})</span>
+                          </label>
+                        );
+                      })}
+                      {filteredSeries.length === 0 ? (
+                        <p className="text-xs text-zinc-500">No series matched.</p>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {row.seriesIds.length > 0 ? (
+                    <div className="mt-2 rounded-lg border border-zinc-800/80 bg-zinc-900/35 p-2">
+                      <p className="mb-1 text-[11px] text-zinc-500">Selected order</p>
+                      <div className="space-y-1.5">
+                        {row.seriesIds.map((id, index) => (
+                          <div
+                            key={`${row.id}-picked-${id}`}
+                            className="flex items-center justify-between rounded-md border border-zinc-700/70 bg-zinc-900/70 px-2 py-1 text-[11px] text-zinc-200"
+                          >
+                            <span className="truncate">{seriesById.get(id)?.title ?? id}</span>
+                            <div className="ml-2 flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => moveSeriesInRow(row.id, id, "up")}
+                                disabled={index === 0}
+                                className="rounded border border-zinc-600 px-1.5 py-0.5 text-[10px] text-zinc-200 hover:bg-zinc-800 disabled:opacity-40"
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveSeriesInRow(row.id, id, "down")}
+                                disabled={index === row.seriesIds.length - 1}
+                                className="rounded border border-zinc-600 px-1.5 py-0.5 text-[10px] text-zinc-200 hover:bg-zinc-800 disabled:opacity-40"
+                              >
+                                ↓
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </section>
 
       <section className="rounded-3xl border border-zinc-800/80 bg-zinc-950/60 p-4">
@@ -424,133 +552,6 @@ export default function AdminSiteSettingsPage() {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-zinc-800/80 bg-zinc-950/60 p-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-zinc-100">Homepage custom title rows</h2>
-          <button
-            type="button"
-            onClick={() => setHomeRows((prev) => [...prev, newHomeRow()])}
-            className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500"
-          >
-            + Add row
-          </button>
-        </div>
-
-        <div className="mt-3 space-y-3">
-          {homeRows.length === 0 ? (
-            <div className="rounded-xl border border-zinc-800/80 bg-black/30 p-4 text-sm text-zinc-500">
-              No custom rows yet.
-            </div>
-          ) : null}
-
-          {homeRows.map((row) => {
-            const filter = rowFilterMap[row.id] ?? "";
-            const filteredSeries = seriesList.filter((s) =>
-              !filter
-                ? true
-                : `${s.title} ${(s.originalName ?? "")} ${s.id}`
-                    .toLowerCase()
-                    .includes(filter.toLowerCase())
-            );
-            return (
-              <div
-                key={row.id}
-                draggable
-                onDragStart={() => setDraggingRowId(row.id)}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => {
-                  if (draggingRowId) moveRow(draggingRowId, row.id);
-                  setDraggingRowId(null);
-                }}
-                className="rounded-2xl border border-zinc-800/80 bg-black/40 p-3"
-              >
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="cursor-grab select-none text-xs text-zinc-500" title="Drag to reorder">
-                    ↕
-                  </span>
-                  <input
-                    value={row.title}
-                    onChange={(e) => updateHomeRow(row.id, { title: e.target.value })}
-                    placeholder="Row title"
-                    className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900/50 px-3 py-2 text-sm text-zinc-100"
-                  />
-                  <span className="text-xs text-zinc-400">{row.seriesIds.length} selected</span>
-                  <button
-                    type="button"
-                    onClick={() => removeHomeRow(row.id)}
-                    className="rounded-lg border border-red-500/40 px-2 py-1 text-xs text-red-300 hover:bg-red-500/15"
-                  >
-                    Delete
-                  </button>
-                </div>
-
-                <input
-                  value={filter}
-                  onChange={(e) => setRowFilterMap((prev) => ({ ...prev, [row.id]: e.target.value }))}
-                  placeholder="Filter series by title / id"
-                  className="mb-2 w-full rounded-lg border border-zinc-800 bg-black/50 px-3 py-2 text-xs text-zinc-200"
-                />
-
-                <div className="max-h-44 overflow-auto rounded-lg border border-zinc-800/80 bg-zinc-900/40 p-2">
-                  <div className="grid gap-1">
-                    {filteredSeries.map((s) => {
-                      const checked = row.seriesIds.includes(s.id);
-                      return (
-                        <label key={`${row.id}-${s.id}`} className="flex items-center gap-2 text-xs text-zinc-200">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(e) => toggleSeriesInRow(row.id, s.id, e.target.checked)}
-                          />
-                          <span className="truncate">{s.title}</span>
-                          <span className="text-zinc-500">({s.id})</span>
-                        </label>
-                      );
-                    })}
-                    {filteredSeries.length === 0 ? (
-                      <p className="text-xs text-zinc-500">No series matched.</p>
-                    ) : null}
-                  </div>
-                </div>
-
-                {row.seriesIds.length > 0 ? (
-                  <div className="mt-2 rounded-lg border border-zinc-800/80 bg-zinc-900/35 p-2">
-                    <p className="mb-1 text-[11px] text-zinc-500">Selected order</p>
-                    <div className="space-y-1.5">
-                      {row.seriesIds.map((id, index) => (
-                        <div
-                          key={`${row.id}-picked-${id}`}
-                          className="flex items-center justify-between rounded-md border border-zinc-700/70 bg-zinc-900/70 px-2 py-1 text-[11px] text-zinc-200"
-                        >
-                          <span className="truncate">{seriesById.get(id)?.title ?? id}</span>
-                          <div className="ml-2 flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => moveSeriesInRow(row.id, id, "up")}
-                              disabled={index === 0}
-                              className="rounded border border-zinc-600 px-1.5 py-0.5 text-[10px] text-zinc-200 hover:bg-zinc-800 disabled:opacity-40"
-                            >
-                              ↑
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => moveSeriesInRow(row.id, id, "down")}
-                              disabled={index === row.seriesIds.length - 1}
-                              className="rounded border border-zinc-600 px-1.5 py-0.5 text-[10px] text-zinc-200 hover:bg-zinc-800 disabled:opacity-40"
-                            >
-                              ↓
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-      </section>
     </main>
   );
 }
