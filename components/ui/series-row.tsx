@@ -12,24 +12,25 @@ import { getSeriesArtworkChain } from "@/lib/series/artwork";
 import { PosterImage } from "@/components/ui/poster-image";
 
 interface SeriesRowProps {
-  titleKey: string;
+  titleKey?: string;
+  titleText?: string;
   items: Series[];
 }
 
-/** 与 globals.css `.home-poster-cell` 一致：小屏最小 7.5rem(120px)，lg+ 约 1/7 栅格 */
 const HOME_RAIL_POSTER_SIZES =
   "(max-width:1023px) 120px, min(18vw, 200px)";
 
-export function SeriesRow({ titleKey, items }: SeriesRowProps) {
+export function SeriesRow({ titleKey, titleText, items }: SeriesRowProps) {
   const router = useRouter();
   const { t, i18n } = useTranslation();
   const lang = i18n.language as AppLanguage;
+  const title = titleText ?? (titleKey ? t(titleKey) : "");
 
   return (
     <section className="home-row-cv mb-6 lg:mb-10">
       <div className="mb-4 flex items-end justify-between px-1">
         <h2 className="section-title-fluid font-extrabold tracking-tight text-zinc-50">
-          {t(titleKey)}
+          {title}
         </h2>
         <Link
           href="/explore"

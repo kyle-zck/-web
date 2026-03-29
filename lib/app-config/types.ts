@@ -17,6 +17,12 @@ export interface AppConfigNav {
 }
 
 /** 首页模块开关与置顶剧目 */
+export interface AppConfigHomeRow {
+  id: string;
+  title: string;
+  seriesIds: string[];
+}
+
 export interface AppConfigHome {
   showContinueWatching?: boolean;
   showNewRelease?: boolean;
@@ -25,6 +31,8 @@ export interface AppConfigHome {
   showCategoryRows?: boolean;
   /** 轮播优先展示的剧目 ID，顺序即轮播顺序；空则按「新上线」逻辑 */
   featuredSeriesIds?: string[];
+  /** 首页自定义大标题行（按顺序渲染） */
+  titleRows?: AppConfigHomeRow[];
 }
 
 /** 页脚法务外链 */

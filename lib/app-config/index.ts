@@ -3,6 +3,7 @@ export type {
   AppConfigSeo,
   AppConfigNav,
   AppConfigHome,
+  AppConfigHomeRow,
   AppConfigLegal,
   AppConfigStore
 } from "./types";

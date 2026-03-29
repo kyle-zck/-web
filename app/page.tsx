@@ -15,7 +15,6 @@ const ContinueWatching = dynamic(
 import { slimSeriesListForPublic } from "@/lib/series/slim-public";
 import { getEngagementCountsBatch } from "@/lib/user-repo";
 
-/** 生产环境首页可缓存，减轻 DB/磁盘压力；开发模式仍按需渲染 */
 export const revalidate = 60;
 
 async function buildHomeContent() {
@@ -79,6 +78,19 @@ async function buildHomeContent() {
   const showTrendingRow = homeCfg?.showTrending !== false;
   const showCategories = homeCfg?.showCategoryRows !== false;
 
+  const customRows = (homeCfg?.titleRows ?? [])
+    .map((row) => {
+      const items = row.seriesIds
+        .map((id) => byId.get(id))
+        .filter((x): x is Series => Boolean(x));
+      return {
+        id: row.id,
+        title: row.title,
+        items
+      };
+    })
+    .filter((row) => row.title.trim().length > 0 && row.items.length > 0);
+
   return {
     heroItems,
     heroCountsBySeriesId,
@@ -88,6 +100,7 @@ async function buildHomeContent() {
     loveAtFirstSight,
     magicAndMates,
     secondChance,
+    customRows,
     showContinue,
     showNewRow,
     showTrendingRow,
@@ -123,6 +136,10 @@ export default async function HomePage() {
               <SeriesRow titleKey="home.secondChance" items={c.secondChance} />
             </>
           ) : null}
+
+          {c.customRows.map((row) => (
+            <SeriesRow key={row.id} titleText={row.title} items={row.items} />
+          ))}
 
           <div className="pt-2">
             <MoreMoviesLink />

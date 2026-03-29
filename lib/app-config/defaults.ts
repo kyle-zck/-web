@@ -51,6 +51,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     showTrending: true,
     showCategoryRows: true,
     featuredSeriesIds: [],
+    titleRows: []
   },
   legal: {
     termsUrl: "",
