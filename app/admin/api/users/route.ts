@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin/auth";
-import { adminQueryUsers, getAllRechargeRecords } from "@/lib/user-repo";
+import { adminQueryUsers, deleteUsersByUids, getAllRechargeRecords } from "@/lib/user-repo";
 
 export const dynamic = "force-dynamic";
 
@@ -63,4 +63,16 @@ export async function GET(req: Request) {
     };
   });
   return NextResponse.json({ ok: true, users: usersWithRecharge });
+}
+
+export async function DELETE(req: Request) {
+  const unauth = await requireAdminSession();
+  if (unauth) return unauth;
+  const body = await req.json().catch(() => ({}));
+  const uids = Array.isArray(body?.uids) ? (body.uids as string[]) : [];
+  if (uids.length === 0) {
+    return NextResponse.json({ ok: false, error: "uids required" }, { status: 400 });
+  }
+  const removed = await deleteUsersByUids(uids);
+  return NextResponse.json({ ok: true, removed });
 }

@@ -34,6 +34,7 @@ export default function AdminRechargePage() {
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editing, setEditing] = useState<RechargeRecord | null>(null);
+  const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(new Set());
 
   const [form, setForm] = useState({
     uid: "",
@@ -176,6 +177,52 @@ export default function AdminRechargePage() {
     }));
   };
 
+  const toggleRechargeRow = (id: string, checked: boolean) => {
+    setSelectedRecordIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const toggleAllRechargeRows = (checked: boolean) => {
+    setSelectedRecordIds((prev) => {
+      const next = new Set(prev);
+      if (checked) records.forEach((r) => next.add(r.id));
+      else records.forEach((r) => next.delete(r.id));
+      return next;
+    });
+  };
+
+  const batchDeleteRecharge = async () => {
+    const rows = records.filter((r) => selectedRecordIds.has(r.id));
+    if (rows.length === 0) return;
+    if (!confirm(t("admin.confirmDeleteSelectedRecharge", { count: rows.length }))) return;
+
+    let okCount = 0;
+    for (const r of rows) {
+      const { res, json } = await fetchAdminJson<{ ok?: boolean; errorKey?: string }>(
+        "/admin/api/recharge",
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: r.id, uid: r.uid })
+        }
+      );
+      if (res.ok && json?.ok) okCount += 1;
+    }
+
+    if (okCount > 0) {
+      setSelectedRecordIds((prev) => {
+        const next = new Set(prev);
+        rows.forEach((r) => next.delete(r.id));
+        return next;
+      });
+      await load();
+    }
+  };
+
   return (
     <div>
       <h1 className="text-xl font-bold text-zinc-100">{t("admin.rechargeTitle")}</h1>
@@ -223,6 +270,14 @@ export default function AdminRechargePage() {
           className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-red-600"
         >
           {t("admin.addRecord")}
+        </button>
+        <button
+          type="button"
+          onClick={batchDeleteRecharge}
+          disabled={records.filter((r) => selectedRecordIds.has(r.id)).length === 0}
+          className="rounded-lg border border-red-700/70 bg-red-950/30 px-4 py-2 text-sm font-semibold text-red-200 hover:bg-red-900/40 disabled:opacity-50"
+        >
+          {t("admin.batchDeleteWithCount", { count: records.filter((r) => selectedRecordIds.has(r.id)).length })}
         </button>
       </div>
 
@@ -407,6 +462,14 @@ export default function AdminRechargePage() {
           <table className="w-full min-w-[980px]">
             <thead>
               <tr className="border-b border-zinc-700/80">
+                <th className="px-3 py-3 text-left text-xs font-semibold text-zinc-400">
+                  <input
+                    type="checkbox"
+                    checked={records.length > 0 && records.every((r) => selectedRecordIds.has(r.id))}
+                    onChange={(e) => toggleAllRechargeRows(e.target.checked)}
+                    aria-label="Select all"
+                  />
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">UID</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.date")}</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.amount")}</th>
@@ -419,6 +482,14 @@ export default function AdminRechargePage() {
             <tbody>
               {records.map((r) => (
                 <tr key={r.id} className="border-b border-zinc-800/60 last:border-0">
+                  <td className="px-3 py-3 text-sm text-zinc-300">
+                    <input
+                      type="checkbox"
+                      checked={selectedRecordIds.has(r.id)}
+                      onChange={(e) => toggleRechargeRow(r.id, e.target.checked)}
+                      aria-label={`Select record ${r.id}`}
+                    />
+                  </td>
                   <td className="px-4 py-3 text-sm font-mono text-brand">{r.uid}</td>
                   <td className="px-4 py-3 text-sm text-white">{r.date}</td>
                   <td className="px-4 py-3 text-sm font-semibold text-white">

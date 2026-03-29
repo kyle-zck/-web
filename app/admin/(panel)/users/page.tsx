@@ -35,6 +35,7 @@ export default function AdminUsersPage() {
   const [membershipPlan, setMembershipPlan] = useState("");
   const [remainingSort, setRemainingSort] = useState<"" | "remainingAsc" | "remainingDesc">("");
   const [planOptions, setPlanOptions] = useState<string[]>([]);
+  const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set());
 
   const qs = useMemo(() => {
     const p = new URLSearchParams();
@@ -112,6 +113,46 @@ export default function AdminUsersPage() {
     const days = Math.floor(abs / (24 * 3600 * 1000));
     const hours = Math.floor((abs % (24 * 3600 * 1000)) / (3600 * 1000));
     return `${sign}${days}d ${hours}h`;
+  };
+
+  const toggleUserRow = (uidValue: string, checked: boolean) => {
+    setSelectedUids((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(uidValue);
+      else next.delete(uidValue);
+      return next;
+    });
+  };
+
+  const toggleAllUsers = (checked: boolean) => {
+    setSelectedUids((prev) => {
+      const next = new Set(prev);
+      if (checked) users.forEach((u) => next.add(u.uid));
+      else users.forEach((u) => next.delete(u.uid));
+      return next;
+    });
+  };
+
+  const batchDeleteUsers = async () => {
+    const uids = users.map((u) => u.uid).filter((uidValue) => selectedUids.has(uidValue));
+    if (uids.length === 0) return;
+    if (!confirm(t("admin.confirmDeleteSelectedUsers", { count: uids.length }))) return;
+    const { res, json } = await fetchAdminJson<{ ok?: boolean; removed?: number; error?: string }>(
+      "/admin/api/users",
+      {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uids })
+      },
+      10000
+    );
+    if (!res.ok || !json?.ok) return;
+    setSelectedUids((prev) => {
+      const next = new Set(prev);
+      uids.forEach((u) => next.delete(u));
+      return next;
+    });
+    load();
   };
 
   return (
@@ -210,6 +251,14 @@ export default function AdminUsersPage() {
         >
           {t("admin.reset")}
         </button>
+        <button
+          type="button"
+          onClick={batchDeleteUsers}
+          disabled={users.filter((u) => selectedUids.has(u.uid)).length === 0}
+          className="rounded-lg border border-red-500/50 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-200 hover:bg-red-500/20 disabled:opacity-50"
+        >
+          {t("admin.batchDeleteWithCount", { count: users.filter((u) => selectedUids.has(u.uid)).length })}
+        </button>
       </div>
 
       {loadError ? (
@@ -234,6 +283,14 @@ export default function AdminUsersPage() {
           <table className="w-full min-w-[1100px]">
             <thead>
               <tr className="border-b border-zinc-700/80">
+                <th className="px-3 py-3 text-left text-xs font-semibold text-zinc-400">
+                  <input
+                    type="checkbox"
+                    checked={users.length > 0 && users.every((u) => selectedUids.has(u.uid))}
+                    onChange={(e) => toggleAllUsers(e.target.checked)}
+                    aria-label="Select all"
+                  />
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">UID</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.name")}</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">Email</th>
@@ -253,6 +310,14 @@ export default function AdminUsersPage() {
             <tbody>
               {users.map((u) => (
                 <tr key={u.uid} className="border-b border-zinc-800/60 last:border-0">
+                  <td className="px-3 py-3 text-sm text-zinc-300">
+                    <input
+                      type="checkbox"
+                      checked={selectedUids.has(u.uid)}
+                      onChange={(e) => toggleUserRow(u.uid, e.target.checked)}
+                      aria-label={`Select user ${u.uid}`}
+                    />
+                  </td>
                   <td className="px-4 py-3 text-sm font-mono font-semibold text-brand">{u.uid}</td>
                   <td className="px-4 py-3 text-sm text-white">{u.name || "-"}</td>
                   <td className="px-4 py-3 text-sm text-zinc-300">{u.email || "-"}</td>

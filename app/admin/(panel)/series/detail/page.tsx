@@ -42,6 +42,7 @@ export default function AdminDramaDetailPage() {
   const [hotMinViews, setHotMinViews] = useState(500);
   const [hotMaxSeries, setHotMaxSeries] = useState(20);
   const [firstNEpisodesPerSeries, setFirstNEpisodesPerSeries] = useState(0);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const defaultFilter = {
     taskName: "",
@@ -144,12 +145,70 @@ export default function AdminDramaDetailPage() {
       );
       if (res.ok && json?.ok) {
         showToast(t("admin.deleteSuccess"), "success");
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(s.id);
+          return next;
+        });
         load();
       } else {
         showToast(translateAdminApiError(json, t, "admin.deleteFailed"), "error");
       }
     } catch {
       showToast(t("admin.networkErrorShort"));
+    }
+  };
+
+  const toggleRowSelected = (id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const toggleAllFiltered = (checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) filtered.forEach((s) => next.add(s.id));
+      else filtered.forEach((s) => next.delete(s.id));
+      return next;
+    });
+  };
+
+  const handleBatchDelete = async () => {
+    const ids = filtered.map((s) => s.id).filter((id) => selectedIds.has(id));
+    if (ids.length === 0) {
+      showToast(t("admin.noDataShort"), "info");
+      return;
+    }
+    if (!confirm(t("admin.confirmDeleteSelectedDramas", { count: ids.length }))) return;
+
+    let okCount = 0;
+    for (const id of ids) {
+      try {
+        const { res, json } = await fetchAdminJson<{ ok?: boolean; errorKey?: string }>(
+          `/admin/api/series/${id}`,
+          { method: "DELETE" },
+          10000
+        );
+        if (res.ok && json?.ok) okCount += 1;
+      } catch {
+        // continue
+      }
+    }
+
+    if (okCount > 0) {
+      showToast(t("admin.batchDeleteSuccess", { ok: okCount, total: ids.length }), "success");
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.delete(id));
+        return next;
+      });
+      await load();
+    } else {
+      showToast(t("admin.deleteFailed"), "error");
     }
   };
 
@@ -381,6 +440,14 @@ export default function AdminDramaDetailPage() {
             >
               {t("admin.query")}
             </button>
+            <button
+              type="button"
+              onClick={handleBatchDelete}
+              disabled={filtered.filter((s) => selectedIds.has(s.id)).length === 0}
+              className="rounded-lg border border-red-500/50 px-4 py-2 text-sm font-semibold text-red-300 hover:bg-red-500/20 disabled:opacity-50"
+            >
+              {t("admin.batchDeleteWithCount", { count: filtered.filter((s) => selectedIds.has(s.id)).length })}
+            </button>
           </div>
           <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-2">
             <button
@@ -460,6 +527,14 @@ export default function AdminDramaDetailPage() {
               <table className="w-full min-w-[1000px] border-collapse">
                 <thead className="sticky top-0 z-10 border-b border-zinc-700/80 bg-zinc-900/95 backdrop-blur">
                   <tr className="text-left text-xs text-zinc-400">
+                    <th className="px-2 py-2 font-semibold">
+                      <input
+                        type="checkbox"
+                        checked={filtered.length > 0 && filtered.every((s) => selectedIds.has(s.id))}
+                        onChange={(e) => toggleAllFiltered(e.target.checked)}
+                        aria-label="Select all"
+                      />
+                    </th>
                     <th className="px-3 py-2 font-semibold">{t("admin.colTaskName")}</th>
                     <th className="px-3 py-2 font-semibold">{t("admin.colDramaId")}</th>
                     <th className="px-2 py-2 font-semibold">{t("admin.colCoverShort")}</th>
@@ -486,6 +561,14 @@ export default function AdminDramaDetailPage() {
                       key={s.id}
                       className="border-b border-zinc-800/60 last:border-0 hover:bg-zinc-900/40"
                     >
+                      <td className="px-2 py-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(s.id)}
+                          onChange={(e) => toggleRowSelected(s.id, e.target.checked)}
+                          aria-label={`Select ${s.title}`}
+                        />
+                      </td>
                       <td className="min-w-[180px] px-3 py-2 text-sm text-zinc-200">
                         <span className="whitespace-nowrap" title={taskLabel(s)}>
                           {taskLabel(s)}

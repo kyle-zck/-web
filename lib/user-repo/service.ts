@@ -49,6 +49,13 @@ export async function adminQueryUsers(query: AdminUserQuery): Promise<AdminUserS
   return pg.adminQueryUsers(query);
 }
 
+export async function deleteUsersByUids(uids: string[]): Promise<number> {
+  const unique = [...new Set(uids.map((x) => x.trim()).filter(Boolean))];
+  if (unique.length === 0) return 0;
+  if (shouldUsePgStorage()) return pg.deleteUsersByUids(unique);
+  return Promise.resolve(json.deleteUsersByUids(unique));
+}
+
 export async function touchGuestLogin(params: {
   clientId: string;
   ip?: string | null;

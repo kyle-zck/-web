@@ -58,17 +58,18 @@ function ChevronRight() {
 export function HeroCarousel({ items, countsBySeriesId }: HeroCarouselProps) {
   const router = useRouter();
   const [activeIndex, setActiveIndex] = useState(0);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { t, i18n } = useTranslation();
   const lang = i18n.language as AppLanguage;
 
   useEffect(() => {
-    if (items.length <= 1) return;
+    if (items.length <= 1 || hoveredIndex !== null) return;
     const id = window.setInterval(() => {
       setActiveIndex((i) => (i + 1) % items.length);
     }, 5000);
     return () => window.clearInterval(id);
-  }, [items.length]);
+  }, [items.length, hoveredIndex]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -94,8 +95,9 @@ export function HeroCarousel({ items, countsBySeriesId }: HeroCarouselProps) {
         ref={scrollRef}
       >
         {items.map((item, index) => {
-          const isActive = index === activeIndex;
-          const scaleClass = isActive ? "scale-[1.3] z-20" : "scale-100 z-10";
+          const isHovered = hoveredIndex === index;
+          const isActive = hoveredIndex === null && index === activeIndex;
+          const scaleClass = isHovered || isActive ? "scale-[1.3] z-20" : "scale-100 z-10";
           const { title, description } = getSeriesI18nText(item, lang);
           const categoryLabel = tagLabel(item.category, t);
           const eng = countsBySeriesId?.[item.id];
@@ -109,7 +111,11 @@ export function HeroCarousel({ items, countsBySeriesId }: HeroCarouselProps) {
               <Link
                 href={`/series/${item.id}`}
                 prefetch={false}
-                onMouseEnter={() => router.prefetch(`/series/${item.id}`)}
+                onMouseEnter={() => {
+                  setHoveredIndex(index);
+                  router.prefetch(`/series/${item.id}`);
+                }}
+                onMouseLeave={() => setHoveredIndex(null)}
                 className="group block"
               >
                 <div className="poster-card-drama relative aspect-[3/4] w-full overflow-hidden">

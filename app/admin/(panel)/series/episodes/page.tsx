@@ -28,6 +28,7 @@ export default function AdminEpisodeManagementPage() {
   const [batchRefreshing, setBatchRefreshing] = useState(false);
   const [checkingEpisodeId, setCheckingEpisodeId] = useState<string | null>(null);
   const [batchChecking, setBatchChecking] = useState(false);
+  const [selectedEpisodeKeys, setSelectedEpisodeKeys] = useState<Set<string>>(new Set());
   const [resourceHealth, setResourceHealth] = useState<
     Record<
       string,
@@ -118,6 +119,8 @@ export default function AdminEpisodeManagementPage() {
     [rows]
   );
 
+  const episodeKey = (s: Series, e: Episode) => `${s.id}::${e.id}`;
+
   const deleteEpisode = async (s: Series, e: Episode) => {
     const ok = confirm(t("admin.confirmDeleteEpisode", { title: s.title, n: e.index }));
     if (!ok) return;
@@ -131,10 +134,68 @@ export default function AdminEpisodeManagementPage() {
         showToast(translateAdminApiError(json, t, "admin.episodeDeleteFailed"), "error");
         return;
       }
+      setSelectedEpisodeKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(episodeKey(s, e));
+        return next;
+      });
       showToast(t("admin.episodeDeleted"), "success");
       await load();
     } catch {
       showToast(t("admin.networkErrorShort"));
+    }
+  };
+
+  const toggleEpisodeRow = (key: string, checked: boolean) => {
+    setSelectedEpisodeKeys((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  };
+
+  const toggleAllRows = (checked: boolean) => {
+    setSelectedEpisodeKeys((prev) => {
+      const next = new Set(prev);
+      if (checked) rows.forEach(({ series: s, episode: e }) => next.add(episodeKey(s, e)));
+      else rows.forEach(({ series: s, episode: e }) => next.delete(episodeKey(s, e)));
+      return next;
+    });
+  };
+
+  const batchDeleteEpisodes = async () => {
+    const selectedRows = rows.filter(({ series: s, episode: e }) => selectedEpisodeKeys.has(episodeKey(s, e)));
+    if (selectedRows.length === 0) {
+      showToast(t("admin.noEpisodeRows"), "info");
+      return;
+    }
+    if (!confirm(t("admin.confirmDeleteSelectedEpisodes", { count: selectedRows.length }))) return;
+
+    let okCount = 0;
+    for (const { series: s, episode: e } of selectedRows) {
+      try {
+        const { res, json } = await fetchAdminJson<{ ok?: boolean }>(
+          `/admin/api/series/${s.id}/episodes/${e.id}`,
+          { method: "DELETE" },
+          10000
+        );
+        if (res.ok && json?.ok) okCount += 1;
+      } catch {
+        // continue
+      }
+    }
+
+    if (okCount > 0) {
+      showToast(t("admin.batchDeleteEpisodesDone", { ok: okCount, total: selectedRows.length }), "success");
+      setSelectedEpisodeKeys((prev) => {
+        const next = new Set(prev);
+        selectedRows.forEach(({ series: s, episode: e }) => next.delete(episodeKey(s, e)));
+        return next;
+      });
+      await load();
+    } else {
+      showToast(t("admin.episodeDeleteFailed"), "error");
     }
   };
 
@@ -405,6 +466,16 @@ export default function AdminEpisodeManagementPage() {
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
+            onClick={batchDeleteEpisodes}
+            disabled={rows.filter(({ series: s, episode: e }) => selectedEpisodeKeys.has(episodeKey(s, e))).length === 0}
+            className="rounded-lg border border-red-500/50 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-300 hover:bg-red-500/20 disabled:opacity-50"
+          >
+            {t("admin.batchDeleteWithCount", {
+              count: rows.filter(({ series: s, episode: e }) => selectedEpisodeKeys.has(episodeKey(s, e))).length
+            })}
+          </button>
+          <button
+            type="button"
             disabled={batchRefreshing || batchChecking}
             onClick={checkVisibleResources}
             className="rounded-lg border border-cyan-500/50 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-300 hover:bg-cyan-500/20 disabled:opacity-50"
@@ -462,6 +533,14 @@ export default function AdminEpisodeManagementPage() {
               <table className="w-full min-w-[1180px] border-collapse">
                 <thead className="sticky top-0 z-10 border-b border-zinc-700/80 bg-zinc-900/95 backdrop-blur">
                   <tr className="text-left text-xs text-zinc-400">
+                    <th className="px-2 py-2 font-semibold">
+                      <input
+                        type="checkbox"
+                        checked={rows.length > 0 && rows.every(({ series: s, episode: e }) => selectedEpisodeKeys.has(episodeKey(s, e)))}
+                        onChange={(e) => toggleAllRows(e.target.checked)}
+                        aria-label="Select all"
+                      />
+                    </th>
                     <th className="whitespace-nowrap px-3 py-2 font-semibold">{t("admin.episodeColDramaId")}</th>
                     <th className="whitespace-nowrap px-3 py-2 font-semibold">{t("admin.episodeColIndex")}</th>
                     <th className="min-w-[100px] px-3 py-2 font-semibold">{t("admin.colOriginalName")}</th>
@@ -476,7 +555,7 @@ export default function AdminEpisodeManagementPage() {
                 <tbody>
                   {rows.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-4 py-12 text-center text-sm text-zinc-500">
+                      <td colSpan={10} className="px-4 py-12 text-center text-sm text-zinc-500">
                         {t("admin.noEpisodeRows")}
                       </td>
                     </tr>
@@ -486,6 +565,14 @@ export default function AdminEpisodeManagementPage() {
                         key={`${s.id}-${e.id}`}
                         className="border-b border-zinc-800/60 last:border-0 hover:bg-zinc-900/40"
                       >
+                        <td className="px-2 py-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedEpisodeKeys.has(episodeKey(s, e))}
+                            onChange={(ev) => toggleEpisodeRow(episodeKey(s, e), ev.target.checked)}
+                            aria-label={`Select episode ${e.index}`}
+                          />
+                        </td>
                         <td className="whitespace-nowrap px-3 py-2 text-sm font-mono text-zinc-200">
                           {s.dramaId ?? "—"}
                         </td>

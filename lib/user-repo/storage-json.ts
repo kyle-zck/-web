@@ -118,6 +118,10 @@ export function getAllUsers(): StoredUser[] {
   return Object.values(readUsers().users);
 }
 
+export function deleteUsersByUids(_uids: string[]): number {
+  return 0;
+}
+
 export function addRechargeRecord(
   record: Omit<RechargeRecord, "id" | "createdAt">
 ): RechargeRecord {

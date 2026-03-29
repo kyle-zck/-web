@@ -8,8 +8,6 @@ import { fetchAdminJson } from "@/lib/admin/fetch-admin-json";
 import { translateAdminApiError } from "@/lib/admin/api-error";
 import type { Series } from "@/constants/mock-data";
 
-type Row = { series: Series; tag: string | null };
-
 export default function AdminSeriesTagsPage() {
   const { t } = useTranslation();
   const [series, setSeries] = useState<Series[]>([]);
@@ -19,6 +17,10 @@ export default function AdminSeriesTagsPage() {
   const [manageOpen, setManageOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [editingSeries, setEditingSeries] = useState<Series | null>(null);
+  const [editingTags, setEditingTags] = useState<string[]>([]);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const loadSeries = useCallback(async () => {
     try {
@@ -94,48 +96,61 @@ export default function AdminSeriesTagsPage() {
     }
     if (applied.tag) {
       const exact = applied.tag;
-      list = list.filter((s) => (s.tags ?? []).some((t) => t === exact));
+      list = list.filter((s) => (s.tags ?? []).some((tg) => tg === exact));
     }
     return list;
   }, [series, applied]);
 
-  const rows: Row[] = useMemo(() => {
-    const out: Row[] = [];
-    for (const s of filteredSeries) {
-      const tags = s.tags ?? [];
-      if (tags.length === 0) {
-        out.push({ series: s, tag: null });
-      } else {
-        for (const tag of tags) {
-          out.push({ series: s, tag });
-        }
-      }
-    }
-    return out;
-  }, [filteredSeries]);
+  const startEdit = (s: Series) => {
+    setEditingSeries(s);
+    setEditingTags((s.tags ?? []).filter(Boolean));
+  };
 
-  const removeTagFromSeries = async (s: Series, tag: string) => {
-    const ok = confirm(t("admin.confirmRemoveTagFromDrama", { title: s.title, tag }));
-    if (!ok) return;
-    const nextTags = (s.tags ?? []).filter((tg) => tg !== tag);
+  const closeEdit = () => {
+    setEditingSeries(null);
+    setEditingTags([]);
+  };
+
+  const toggleEditTag = (tag: string, checked: boolean) => {
+    setEditingTags((prev) => {
+      if (checked) {
+        if (prev.includes(tag)) return prev;
+        return [...prev, tag];
+      }
+      return prev.filter((x) => x !== tag);
+    });
+  };
+
+  const saveEdit = async () => {
+    if (!editingSeries) return;
+    if (editingTags.length === 0) {
+      showToast(t("admin.valTagsRequired"), "error");
+      return;
+    }
+    setSavingEdit(true);
     try {
       const { res, json } = await fetchAdminJson<{ ok?: boolean; errorKey?: string }>(
-        `/admin/api/series/${s.id}`,
+        `/admin/api/series/${editingSeries.id}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tags: nextTags })
+          body: JSON.stringify({ tags: editingTags })
         },
         10000
       );
       if (!res.ok || !json?.ok) {
-        showToast(translateAdminApiError(json, t, "admin.tagRemoveFailed"), "error");
+        showToast(translateAdminApiError(json, t, "admin.tagSaveFailed"), "error");
         return;
       }
-      showToast(t("admin.tagRemoved"), "success");
-      await loadSeries();
+      showToast(t("admin.tagSaved"), "success");
+      setSeries((prev) =>
+        prev.map((x) => (x.id === editingSeries.id ? { ...x, tags: [...editingTags] } : x))
+      );
+      closeEdit();
     } catch {
       showToast(t("admin.networkErrorShort"));
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -147,7 +162,6 @@ export default function AdminSeriesTagsPage() {
         {t("admin.tagManagementIntro")}
       </p>
 
-      {/* 筛选 */}
       <section className="mt-5 flex flex-wrap items-end gap-3 rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-4">
         <div>
           <label className="block text-xs font-semibold text-zinc-400">{t("admin.tags")}</label>
@@ -221,65 +235,70 @@ export default function AdminSeriesTagsPage() {
         onCatalogChange={loadCatalog}
       />
 
-      {/* 剧目 × 标签 明细表 */}
       <section className="mt-6 overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/60">
         <div className="max-h-[calc(100vh-320px)] overflow-auto">
           {loading ? (
             <div className="py-12 text-center text-zinc-500">{t("admin.tableLoading")}</div>
           ) : (
             <div className="overflow-x-auto scrollbar-thin">
-              <table className="w-full min-w-[520px] border-collapse">
+              <table className="w-full min-w-[700px] border-collapse">
                 <thead className="sticky top-0 z-10 border-b border-zinc-700/80 bg-zinc-900/95 backdrop-blur">
                   <tr className="text-left text-xs text-zinc-400">
-                    <th className="min-w-[200px] px-4 py-3 font-semibold">{t("admin.tagColDramaTitle")}</th>
-                    <th className="min-w-[160px] px-4 py-3 font-semibold">{t("admin.tagColTag")}</th>
-                    <th className="w-28 whitespace-nowrap px-4 py-3 font-semibold">
+                    <th className="min-w-[260px] px-4 py-3 font-semibold">{t("admin.tagColDramaTitle")}</th>
+                    <th className="min-w-[280px] px-4 py-3 font-semibold">{t("admin.tagColTag")}</th>
+                    <th className="w-40 whitespace-nowrap px-4 py-3 font-semibold">
                       {t("admin.action")}
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.length === 0 ? (
+                  {filteredSeries.length === 0 ? (
                     <tr>
                       <td colSpan={3} className="px-4 py-12 text-center text-sm text-zinc-500">
                         {t("admin.noDataShort")}
                       </td>
                     </tr>
                   ) : (
-                    rows.map((row, idx) => (
-                      <tr
-                        key={`${row.series.id}-${row.tag ?? "none"}-${idx}`}
-                        className="border-b border-zinc-800/60 last:border-0 hover:bg-zinc-900/40"
-                      >
-                        <td className="px-4 py-3 text-sm text-zinc-200">
-                          <span className="whitespace-nowrap" title={row.series.title}>
-                            {row.series.title}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-zinc-300">
-                          {row.tag ? (
-                            <span className="inline-flex rounded-full border border-zinc-600/80 bg-zinc-900/60 px-2.5 py-0.5 text-xs whitespace-nowrap">
-                              {row.tag}
+                    filteredSeries.map((s) => {
+                      const displayTags = (s.tags ?? []).filter(Boolean);
+                      return (
+                        <tr
+                          key={s.id}
+                          className="border-b border-zinc-800/60 align-top last:border-0 hover:bg-zinc-900/40"
+                        >
+                          <td className="px-4 py-3 text-sm text-zinc-200">
+                            <span className="whitespace-nowrap" title={s.title}>
+                              {s.title}
                             </span>
-                          ) : (
-                            <span className="text-zinc-500">—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          {row.tag ? (
+                          </td>
+                          <td className="px-4 py-3 text-sm text-zinc-300">
+                            <div className="flex flex-wrap gap-1.5">
+                              {displayTags.length > 0 ? (
+                                displayTags.map((tag) => (
+                                  <span
+                                    key={`${s.id}-${tag}`}
+                                    className="inline-flex rounded-full border border-zinc-600/80 bg-zinc-900/60 px-2.5 py-0.5 text-xs whitespace-nowrap"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-red-300">{t("admin.valTagsRequired")}</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
                             <button
                               type="button"
-                              onClick={() => removeTagFromSeries(row.series, row.tag!)}
-                              className="rounded-lg border border-red-500/50 px-3 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/15"
+                              onClick={() => startEdit(s)}
+                              className="rounded-lg border border-blue-500/50 px-3 py-1.5 text-xs font-semibold text-blue-300 hover:bg-blue-500/15"
                             >
-                              {t("admin.delete")}
+                              {t("admin.edit")}
                             </button>
-                          ) : (
-                            <span className="text-xs text-zinc-600">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -287,6 +306,72 @@ export default function AdminSeriesTagsPage() {
           )}
         </div>
       </section>
+
+      {editingSeries ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-2xl rounded-2xl border border-zinc-800/80 bg-zinc-950 p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-bold text-zinc-100">{t("admin.edit")}</h2>
+                <p className="mt-1 text-xs text-zinc-500">{editingSeries.title}</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeEdit}
+                className="rounded-lg border border-zinc-700 bg-black/40 px-3 py-1.5 text-xs font-semibold text-zinc-200"
+              >
+                {t("admin.close")}
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              <p className="text-xs text-zinc-400">{t("admin.tagsPickHint")}</p>
+              <div className="max-h-48 overflow-auto rounded-lg border border-zinc-700/80 bg-zinc-900/50 p-3">
+                <div className="flex flex-wrap gap-2">
+                  {catalogNames.map((tag) => {
+                    const checked = editingTags.includes(tag);
+                    return (
+                      <label
+                        key={`catalog-${tag}`}
+                        className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-zinc-600/80 px-2 py-1 text-xs text-zinc-200"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => toggleEditTag(tag, e.target.checked)}
+                        />
+                        <span>{tag}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+              {editingTags.length === 0 ? (
+                <p className="text-xs text-red-300">{t("admin.valTagsRequired")}</p>
+              ) : null}
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeEdit}
+                disabled={savingEdit}
+                className="rounded-lg border border-zinc-600 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-700/50 disabled:opacity-50"
+              >
+                {t("admin.cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={saveEdit}
+                disabled={savingEdit}
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+              >
+                {savingEdit ? t("admin.savingShort") : t("admin.save")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

@@ -536,6 +536,14 @@ export async function adminQueryUsers(query: AdminUserQuery): Promise<AdminUserS
   );
 }
 
+export async function deleteUsersByUids(uids: string[]): Promise<number> {
+  await initIfNeeded();
+  const unique = [...new Set(uids.map((x) => x.trim()).filter(Boolean))];
+  if (unique.length === 0) return 0;
+  const res = await getPool().query(`DELETE FROM app_users WHERE uid = ANY($1::text[])`, [unique]);
+  return res.rowCount ?? 0;
+}
+
 export async function getUidByClientId(clientId: string): Promise<string | null> {
   await initIfNeeded();
   const r = await getPool().query(`SELECT uid FROM app_user_profiles WHERE client_id = $1`, [

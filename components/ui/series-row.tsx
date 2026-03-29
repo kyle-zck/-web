@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
@@ -24,6 +25,20 @@ export function SeriesRow({ titleKey, items }: SeriesRowProps) {
   const router = useRouter();
   const { t, i18n } = useTranslation();
   const lang = i18n.language as AppLanguage;
+  const railRef = useRef<HTMLDivElement>(null);
+
+  const scrollByStep = (direction: "left" | "right") => {
+    const el = railRef.current;
+    if (!el) return;
+    const firstCell = el.querySelector<HTMLElement>(".home-poster-cell");
+    const step = firstCell?.offsetWidth ?? 140;
+    const gap = 12;
+    const delta = step + gap;
+    el.scrollBy({
+      left: direction === "left" ? -delta * 2 : delta * 2,
+      behavior: "smooth",
+    });
+  };
 
   return (
     <section className="home-row-cv mb-6 lg:mb-10">
@@ -38,11 +53,58 @@ export function SeriesRow({ titleKey, items }: SeriesRowProps) {
           {t("home.viewAll")}
         </Link>
       </div>
-      <div className="px-1">
+      <div className="relative px-1">
+        <div className="pointer-events-none absolute inset-y-0 left-2 z-20 hidden items-center lg:flex">
+          <button
+            type="button"
+            onClick={() => scrollByStep("left")}
+            className="pointer-events-auto inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/75 text-white shadow-lg ring-1 ring-zinc-600/80 transition-all hover:bg-brand hover:ring-brand/50"
+            aria-label="Scroll posters left"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+        </div>
+        <div className="pointer-events-none absolute inset-y-0 right-2 z-20 hidden items-center lg:flex">
+          <button
+            type="button"
+            onClick={() => scrollByStep("right")}
+            className="pointer-events-auto inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/75 text-white shadow-lg ring-1 ring-zinc-600/80 transition-all hover:bg-brand hover:ring-brand/50"
+            aria-label="Scroll posters right"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
+        </div>
+
         <div
+          ref={railRef}
           className={cn(
             "home-poster-rail scrollbar-thin [-webkit-overflow-scrolling:touch]",
-            items.length <= 7 && "home-poster-rail--fit"
+            items.length <= 7 && "home-poster-rail--fit",
+            "px-10"
           )}
         >
           {items.map((s) => {
@@ -57,7 +119,7 @@ export function SeriesRow({ titleKey, items }: SeriesRowProps) {
                   onMouseEnter={() => router.prefetch(`/series/${s.id}`)}
                   className="group block"
                 >
-                  <div className="poster-card-drama relative poster-aspect transition-transform duration-200 group-hover:scale-[1.02] group-hover:shadow-[0_0_36px_rgba(229,9,20,0.22)]">
+                  <div className="poster-card-drama relative poster-aspect transition-transform duration-250 group-hover:z-20 group-hover:scale-[1.1] group-hover:shadow-[0_0_44px_rgba(229,9,20,0.35)]">
                     <PosterImage
                       chain={artworkChain}
                       alt={title}

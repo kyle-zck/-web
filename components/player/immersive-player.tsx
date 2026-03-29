@@ -332,6 +332,7 @@ export function ImmersivePlayer({
             {t("loading")}
           </div>
         ) : null}
+
       </div>
 
       <SubscriptionModal
