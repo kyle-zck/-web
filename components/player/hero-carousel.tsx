@@ -39,6 +39,22 @@ function PlayGlyph({ className }: { className?: string }) {
   );
 }
 
+function ChevronLeft() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+  );
+}
+
+function ChevronRight() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M9 18l6-6-6-6" />
+    </svg>
+  );
+}
+
 export function HeroCarousel({ items, countsBySeriesId }: HeroCarouselProps) {
   const router = useRouter();
   const [activeIndex, setActiveIndex] = useState(0);
