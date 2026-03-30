@@ -342,7 +342,7 @@ export default function StorePage() {
                 onClick={closePayResult}
                 className="rounded-lg border border-zinc-700 bg-black/40 px-3 py-1.5 text-xs font-semibold text-zinc-200 hover:bg-zinc-900/60"
               >
-                {t("admin.close", "Close")}
+                {t("common.close", "Close")}
               </button>
             </div>
             <div className="mt-4 flex justify-end gap-2">

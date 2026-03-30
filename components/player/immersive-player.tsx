@@ -4,10 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Episode, Series } from "@/constants/mock-data";
 import { usePlayerStore, isEpisodeLocked } from "@/lib/store/player";
 import { LockedOverlay } from "@/components/player/locked-overlay";
-import { SubscriptionModal } from "@/components/player/subscription-modal";
 import { useTranslation } from "react-i18next";
 import type { AppLanguage } from "@/lib/i18n/languages";
-import type { SubscriptionPlan } from "@/constants/mock-data";
 import {
   buildEpisodePlaybackCandidates,
   getEpisodePlaybackUrl,
@@ -29,8 +27,6 @@ export function ImmersivePlayer({
   const initialSeekAppliedKeyRef = useRef<string>("");
   const [ready, setReady] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
-  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
-  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const { t, i18n } = useTranslation();
   const lang = i18n.language as AppLanguage;
 
@@ -44,22 +40,6 @@ export function ImmersivePlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [series.id, episode.index, sessionKey]
   );
-
-  /** 延后拉订阅套餐，避免与首帧视频抢带宽/主线程 */
-  useEffect(() => {
-    const run = () => {
-      fetch("/api/app-config")
-        .then((r) => r.json())
-        .then((json) => setPlans(json.subscriptionPlans ?? []))
-        .catch(() => setPlans([]));
-    };
-    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-      const id = window.requestIdleCallback(run, { timeout: 2000 });
-      return () => window.cancelIdleCallback(id);
-    }
-    const t = globalThis.setTimeout(run, 300);
-    return () => globalThis.clearTimeout(t);
-  }, []);
 
   useEffect(() => {
     setReady(false);
@@ -299,14 +279,14 @@ export function ImmersivePlayer({
           onEnded={handleEnded}
           style={locked ? { pointerEvents: "none" } : undefined}
         />
-        {locked && (
-          <LockedOverlay onUnlock={() => setSubscriptionModalOpen(true)} />
-        )}
+      {locked && (
+        <LockedOverlay onUnlock={() => { window.location.href = "/store"; }} />
+      )}
 
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-20 bg-gradient-to-b from-black/80 via-black/30 to-transparent" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-20 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
 
-        <div className="pointer-events-none absolute left-3 top-3 z-20 rounded-full bg-black/65 px-3 py-1 text-[11px] font-medium text-zinc-200 ring-1 ring-zinc-800/80">
+        <div className="pointer-events-none absolute right-3 top-3 z-20 rounded-full bg-black/65 px-3 py-1 text-[11px] font-medium text-zinc-200 ring-1 ring-zinc-800/80">
           {episodeLabel} · {hint}
         </div>
 
@@ -334,12 +314,6 @@ export function ImmersivePlayer({
         ) : null}
 
       </div>
-
-      <SubscriptionModal
-        open={subscriptionModalOpen}
-        onClose={() => setSubscriptionModalOpen(false)}
-        plans={plans}
-      />
 
       <input type="hidden" value={episodeIndex} readOnly />
     </section>

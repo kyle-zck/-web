@@ -49,7 +49,7 @@ function ShareButton({ title, compact }: { title: string; compact?: boolean }) {
       if (nav.share) {
         await nav.share({
           title,
-          text: `${title} - 精彩短剧，快来观看`,
+          text: `${title} - ${t("seriesDetail.shareDrama", "Watch this amazing short drama now!")}`,
           url
         });
         return;
@@ -144,36 +144,55 @@ export function ImmersiveSeriesDetail({
     setSeries(series.id);
   }, [series.id, setSeries]);
 
+  /** 获取互动计数（收藏、点赞、观看数）- 延迟执行避免抢占视频带宽 */
   useEffect(() => {
     if (initialEngagement != null) return;
-    fetch(`/api/series/${series.id}/counts`)
-      .then((r) => r.json())
-      .then((json) => {
-        if (json?.ok) {
-          setCollectionCount(json.collectionCount ?? 0);
-          setLikesCount(json.likesCount ?? 0);
-          setViewsCount(json.viewsCount ?? 0);
-        }
-      })
-      .catch(() => {});
+    const fetchCounts = () => {
+      fetch(`/api/series/${series.id}/counts`)
+        .then((r) => r.json())
+        .then((json) => {
+          if (json?.ok) {
+            setCollectionCount(json.collectionCount ?? 0);
+            setLikesCount(json.likesCount ?? 0);
+            setViewsCount(json.viewsCount ?? 0);
+          }
+        })
+        .catch(() => {});
+    };
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      const id = window.requestIdleCallback(fetchCounts, { timeout: 3000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const t = globalThis.setTimeout(fetchCounts, 2000);
+    return () => globalThis.clearTimeout(t);
   }, [series.id, initialEngagement]);
 
-  /** 首次进入播放页记录观看（每用户每剧一条，与收藏/点赞同源 clientId 体系） */
+  /** 首次进入播放页记录观看（每用户每剧一条，与收藏/点赞同源 clientId 体系）
+   * 使用 requestIdleCallback 延迟执行，避免与视频加载抢占带宽
+   */
   useEffect(() => {
     const clientId = userId ?? supabaseUserId ?? getOrCreateDeviceClientId();
     if (!clientId) return;
-    fetch("/api/user/views", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId, seriesId: series.id })
-    })
-      .then((r) => r.json())
-      .then((json: { ok?: boolean; viewsCount?: number }) => {
-        if (json?.ok && typeof json.viewsCount === "number") {
-          setViewsCount(json.viewsCount);
-        }
+    const recordView = () => {
+      fetch("/api/user/views", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, seriesId: series.id })
       })
-      .catch(() => {});
+        .then((r) => r.json())
+        .then((json: { ok?: boolean; viewsCount?: number }) => {
+          if (json?.ok && typeof json.viewsCount === "number") {
+            setViewsCount(json.viewsCount);
+          }
+        })
+        .catch(() => {});
+    };
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      const id = window.requestIdleCallback(recordView, { timeout: 3000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const t = globalThis.setTimeout(recordView, 2000);
+    return () => globalThis.clearTimeout(t);
   }, [series.id, userId, supabaseUserId]);
 
   const episode = useMemo<Episode>(() => {
@@ -228,14 +247,7 @@ export function ImmersiveSeriesDetail({
         <aside className="immersive-player-shell relative z-10 mb-6 flex w-full shrink-0 justify-center bg-black lg:fixed lg:left-0 lg:top-20 lg:mb-0 lg:h-[calc(100dvh-5rem)] lg:w-[65vw] lg:overflow-hidden lg:border-r lg:border-zinc-900">
         <div className="relative flex h-full w-full items-center justify-center px-3 py-4 lg:px-4 lg:py-0">
           <div className="relative h-full w-auto max-w-full shrink-0 aspect-[9/16]">
-              <button
-                type="button"
-                onClick={() => (window.location.href = "/")}
-                className="absolute left-2 top-2 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-base text-zinc-100 backdrop-blur-sm ring-1 ring-white/15 hover:bg-black/80"
-                aria-label={t("backHome")}
-              >
-                ←
-              </button>
+              {/* 返回按钮 - 移除以避免遮挡，web端用户可使用浏览器返回 */}
               <ImmersivePlayer
                 series={series}
                 episode={episode}

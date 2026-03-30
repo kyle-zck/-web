@@ -168,7 +168,12 @@ export const resources: Record<AppLanguage, any> = {
         tip2: "VIP subscription unlocks all paid content.",
         tip3: "Refill and countdown days are equal value. Recharge does not support refund.",
         tip4: "Contact us if you have other problems.",
-        payNow: "Pay Now"
+        payNow: "Pay Now",
+        paySuccessTitle: "Payment Successful",
+        payCancelTitle: "Payment Cancelled",
+        paySuccessDesc: "Your payment has been completed. Close this dialog to start a new payment if needed.",
+        payCancelDesc: "You have cancelled this payment. You can select a plan and try again.",
+        continue: "Continue"
       },
       seriesDetail: {
         selectEpisodes: "Select Episodes",
@@ -187,7 +192,8 @@ export const resources: Record<AppLanguage, any> = {
         favorites: "Favorites",
         collection: "Collection",
         views: "Views",
-        share: "Share"
+        share: "Share",
+        shareDrama: "Watch this amazing short drama now!"
       },
       locked: {
         title: "This episode is locked",
@@ -207,7 +213,17 @@ export const resources: Record<AppLanguage, any> = {
         daysRemaining: "Days Remaining",
         autoRenew: "Auto-renew. Cancel anytime.",
         unlimited: "Unlimited Viewing",
-        hd: "1080p High Quality"
+        hd: "1080p High Quality",
+        limitedTime: "Limited",
+        agreeTermsPrefix: "I have read and agree to the",
+        autoRenewTerms: "Auto-renewal & Premium Services Agreement",
+        agreeTermsSuffix: ", and understand that auto-renewal is enabled by default. To cancel, please cancel in your payment channel."
+      },
+      countdown: {
+        day: "d",
+        hour: "h",
+        min: "m",
+        sec: "s"
       },
       admin: {
         dashboard: "Dashboard",
@@ -922,7 +938,12 @@ export const resources: Record<AppLanguage, any> = {
         tip2: "VIP 订阅可解锁全部付费内容。",
         tip3: "充值与倒数天数等值。充值不支持退款。",
         tip4: "如有其他问题请联系我们。",
-        payNow: "立即支付"
+        payNow: "立即支付",
+        paySuccessTitle: "充值成功",
+        payCancelTitle: "已取消支付",
+        paySuccessDesc: "本次充值已完成。关闭后你可以重新发起一次新的支付。",
+        payCancelDesc: "你已取消本次支付。你可以重新选择套餐并再次支付。",
+        continue: "继续"
       },
       seriesDetail: {
         selectEpisodes: "选集",
@@ -941,7 +962,8 @@ export const resources: Record<AppLanguage, any> = {
         favorites: "收藏",
         collection: "收藏",
         views: "观看",
-        share: "分享"
+        share: "分享",
+        shareDrama: "精彩短剧，快来观看！"
       },
       locked: {
         title: "该集已锁定",
@@ -961,7 +983,17 @@ export const resources: Record<AppLanguage, any> = {
         daysRemaining: "倒数天数",
         autoRenew: "自动续订，随时取消。",
         unlimited: "无限观看",
-        hd: "1080p 高清"
+        hd: "1080p 高清",
+        limitedTime: "限时",
+        agreeTermsPrefix: "我已阅读并同意",
+        autoRenewTerms: "《自动续费与增值服务协议》",
+        agreeTermsSuffix: "，并理解默认开启自动续费。若需停止续费，请在支付渠道内操作取消。"
+      },
+      countdown: {
+        day: "天",
+        hour: "时",
+        min: "分",
+        sec: "秒"
       },
       admin: {
         dashboard: "仪表盘",
