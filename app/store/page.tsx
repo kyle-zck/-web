@@ -53,7 +53,7 @@ function discountEndMs(plan: SubscriptionPlan): number | null {
   return start + Math.floor(days) * 24 * 60 * 60 * 1000;
 }
 
-function formatCountdown(ms: number): string {
+function formatCountdown(ms: number, t: (key: string, opts?: any) => string): string {
   const s = Math.max(0, Math.floor(ms / 1000));
   const d = Math.floor(s / 86400);
   const h = Math.floor((s % 86400) / 3600);
@@ -63,7 +63,7 @@ function formatCountdown(ms: number): string {
   const hh = String(h).padStart(2, "0");
   const mm = String(m).padStart(2, "0");
   const sss = String(ss).padStart(2, "0");
-  return `${dd}天 ${hh}时 ${mm}分 ${sss}秒`;
+  return `${dd}${t("countdown.day", "d")} ${hh}${t("countdown.hour", "h")} ${mm}${t("countdown.min", "m")} ${sss}${t("countdown.sec", "s")}`;
 }
 
 export default function StorePage() {
@@ -81,8 +81,8 @@ export default function StorePage() {
   const [payResult, setPayResult] = useState<null | "success" | "cancel">(null);
 
   const payResultTitle = useMemo(() => {
-    if (payResult === "success") return t("store.paySuccessTitle", "充值成功");
-    if (payResult === "cancel") return t("store.payCancelTitle", "已取消支付");
+    if (payResult === "success") return t("store.paySuccessTitle", "Payment Successful");
+    if (payResult === "cancel") return t("store.payCancelTitle", "Payment Cancelled");
     return "";
   }, [payResult, t]);
 
@@ -90,13 +90,13 @@ export default function StorePage() {
     if (payResult === "success") {
       return t(
         "store.paySuccessDesc",
-        "本次充值已完成。关闭后你可以重新发起一次新的支付。"
+        "Your payment has been completed. Close this dialog to start a new payment if needed."
       );
     }
     if (payResult === "cancel") {
       return t(
         "store.payCancelDesc",
-        "你已取消本次支付。你可以重新选择套餐并再次支付。"
+        "You have cancelled this payment. You can select a plan and try again."
       );
     }
     return "";
@@ -116,7 +116,6 @@ export default function StorePage() {
     return () => ctrl.abort();
   }, []);
 
-  // Stripe 回跳：只展示一次结果弹窗；关闭后移除 query，恢复为“新一笔支付”的初始状态
   useEffect(() => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
@@ -156,7 +155,6 @@ export default function StorePage() {
     setPayResult(null);
     setPaying(false);
     setSelectedPlan(null);
-    // 关闭后清理 query，避免刷新页面重复弹窗
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       url.searchParams.delete("pay");
@@ -186,7 +184,6 @@ export default function StorePage() {
       </header>
 
       <div className="page-gutter-x flex-1 pb-24 pt-6 sm:pb-28">
-        {/* VIP 套餐卡片 */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {plans.map((plan) => (
             <button
@@ -210,14 +207,14 @@ export default function StorePage() {
                 if (dp >= 100) return null;
                 const now = Date.now();
                 const remaining = end ? end - now : null;
-                const countdown = remaining != null ? formatCountdown(remaining) : null;
+                const countdown = remaining != null ? formatCountdown(remaining, t) : null;
                 return (
                   <div className="absolute right-4 top-4 z-10">
                     <div className="rounded-xl bg-red-600 px-4 py-3 text-white shadow-lg ring-1 ring-red-300/40">
                       <div className="text-lg font-extrabold leading-none">
                         <span className="mr-2">{dp}%</span>
                         <span className="mr-2">OFF</span>
-                        <span>限时</span>
+                        <span>{t("subscription.limitedTime", "Limited")}</span>
                       </div>
                     </div>
                     {countdown ? (
@@ -276,7 +273,6 @@ export default function StorePage() {
         </div>
 
         <section className="mt-8 rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-4">
-          {/* Tips */}
           <div className="rounded-xl bg-black/30 p-4">
             <p className="text-xs font-semibold text-zinc-400">
               {t("store.tips", "Tips:")}
@@ -304,21 +300,20 @@ export default function StorePage() {
                 className="mt-1 h-4 w-4 accent-red-500"
               />
               <span className="leading-4">
-                我已阅读并同意
+                {t("subscription.agreeTermsPrefix", "I have read and agree to the")}
                 <a
                   href="/legal/subscription-terms"
                   target="_blank"
                   rel="noreferrer"
                   className="mx-1 font-semibold text-brand/90 underline underline-offset-4"
                 >
-                  《自动续费与增值服务协议》
+                  {t("subscription.autoRenewTerms", "Auto-renewal & Premium Services Agreement")}
                 </a>
-                ，并理解默认开启自动续费。若需停止续费，请在支付渠道（例如 PayPal/发卡行）内操作取消。
+                {t("subscription.agreeTermsSuffix", ", and understand that auto-renewal is enabled by default. To cancel, please cancel in your payment channel.")}
               </span>
             </label>
           </div>
 
-          {/* Pay Now */}
           <button
             type="button"
             onClick={handlePayNow}
@@ -356,7 +351,7 @@ export default function StorePage() {
                 onClick={closePayResult}
                 className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-red-600"
               >
-                {t("store.continue", "继续")}
+                {t("store.continue", "Continue")}
               </button>
             </div>
           </div>

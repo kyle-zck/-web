@@ -54,19 +54,6 @@ function discountEndMs(plan: SubscriptionPlan): number | null {
   return start + Math.floor(days) * 24 * 60 * 60 * 1000;
 }
 
-function formatCountdown(ms: number): string {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const ss = s % 60;
-  const dd = String(d);
-  const hh = String(h).padStart(2, "0");
-  const mm = String(m).padStart(2, "0");
-  const sss = String(ss).padStart(2, "0");
-  return `${dd}天 ${hh}时 ${mm}分 ${sss}秒`;
-}
-
 export function SubscriptionModal({ open, onClose, plans }: SubscriptionModalProps) {
   const { t } = useTranslation();
   const { isLoggedIn, supabaseUserId } = useUserStore();
@@ -74,6 +61,19 @@ export function SubscriptionModal({ open, onClose, plans }: SubscriptionModalPro
   const [storeCfg, setStoreCfg] = useState<StoreConfig>({});
   const [agreeAutoRenew, setAgreeAutoRenew] = useState(true);
   const [paying, setPaying] = useState(false);
+
+  const formatCountdown = (ms: number): string => {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    const d = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const ss = s % 60;
+    const dd = String(d);
+    const hh = String(h).padStart(2, "0");
+    const mm = String(m).padStart(2, "0");
+    const sss = String(ss).padStart(2, "0");
+    return `${dd}${t("countdown.day", "d")} ${hh}${t("countdown.hour", "h")} ${mm}${t("countdown.min", "m")} ${sss}${t("countdown.sec", "s")}`;
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -147,7 +147,7 @@ export function SubscriptionModal({ open, onClose, plans }: SubscriptionModalPro
                       <div className="text-lg font-extrabold leading-none">
                         <span className="mr-2">{dp}%</span>
                         <span className="mr-2">OFF</span>
-                        <span>限时</span>
+                        <span>{t("subscription.limitedTime", "Limited")}</span>
                       </div>
                     </div>
                     {countdown ? (
@@ -233,16 +233,16 @@ export function SubscriptionModal({ open, onClose, plans }: SubscriptionModalPro
                 className="mt-1 h-4 w-4 accent-red-500"
               />
               <span className="leading-4">
-                我已阅读并同意
+                {t("subscription.agreeTermsPrefix", "I have read and agree to the")}
                 <a
                   href="/legal/subscription-terms"
                   target="_blank"
                   rel="noreferrer"
                   className="mx-1 font-semibold text-brand/90 underline underline-offset-4"
                 >
-                  《自动续费与增值服务协议》
+                  {t("subscription.autoRenewTerms", "Auto-renewal & Premium Services Agreement")}
                 </a>
-                ，并理解默认开启自动续费。若需停止续费，请在支付渠道内操作取消。
+                {t("subscription.agreeTermsSuffix", ", and understand that auto-renewal is enabled by default. To cancel, please cancel in your payment channel.")}
               </span>
             </label>
           </div>

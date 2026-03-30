@@ -64,25 +64,25 @@ export async function postStripeCheckoutSession(
 export function mapCheckoutErrorToMessage(error: string | undefined, t: TFunction): string {
   switch ((error ?? "").trim()) {
     case "stripe_not_configured":
-      return t("store.errStripeNotConfigured", "支付未配置：缺少 STRIPE_SECRET_KEY。");
+      return t("store.errStripeNotConfigured", "Payment not configured: STRIPE_SECRET_KEY is missing.");
     case "stripe_price_missing":
       return t(
         "store.errStripePriceMissing",
-        "套餐未绑定 Stripe Price。请在后台填写 stripePriceId 或 STRIPE_PRICE_MAP_JSON。"
+        "Plan is not linked to a Stripe Price. Please configure stripePriceId or STRIPE_PRICE_MAP_JSON in admin."
       );
     case "stripe_price_invalid":
-      return t("store.errStripePriceInvalid", "Stripe Price 无效或不存在，请检查 price_xxx。");
+      return t("store.errStripePriceInvalid", "Stripe Price is invalid or does not exist. Please check price_xxx.");
     case "stripe_secret_key_invalid":
-      return t("store.errStripeSecretInvalid", "Stripe Secret Key 无效，请检查生产环境密钥。");
+      return t("store.errStripeSecretInvalid", "Stripe Secret Key is invalid. Please check production environment keys.");
     case "stripe_checkout_failed":
       return t(
         "store.errStripeCheckoutFailed",
-        "Stripe 创建结账会话失败，请稍后重试或联系管理员查看日志。"
+        "Failed to create Stripe checkout session. Please try again later or contact administrator."
       );
     case "plan_not_found":
-      return t("store.errPlanNotFound", "套餐不存在，请刷新页面后重试。");
+      return t("store.errPlanNotFound", "Plan not found. Please refresh the page and try again.");
     case "clientId_and_planId_required":
-      return t("store.errMissingParams", "支付参数缺失，请重新选择套餐。");
+      return t("store.errMissingParams", "Payment parameters missing. Please select a plan again.");
     default:
       return t("store.paymentNotReady", "Payment is temporarily unavailable. Please try again.");
   }
