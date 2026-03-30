@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 export function Dialog({
@@ -15,12 +16,14 @@ export function Dialog({
   children: React.ReactNode;
   footer?: React.ReactNode;
 }) {
+  const { t } = useTranslation();
+
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50">
       <button
-        aria-label="关闭"
+        aria-label={t("common.close", "Close")}
         className="absolute inset-0 bg-black/70"
         onClick={onClose}
       />
@@ -33,6 +36,7 @@ export function Dialog({
           </div>
           <button
             onClick={onClose}
+            aria-label={t("common.close", "Close")}
             className={cn(
               "inline-flex h-8 w-8 items-center justify-center rounded-full",
               "bg-zinc-900 text-zinc-300 ring-1 ring-zinc-800/80"

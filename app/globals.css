@@ -238,9 +238,9 @@ body {
 }
 
 /**
- * 首页 Hero 以下：每行 7 张等宽海报（分类行 / Continue Watching 同一套宽高）
- * - 条数 ≤7：lg+ 用 grid 七列铺满；小屏横向滑动，单卡宽度与桌面单格一致
- * - 条数 >7：始终横向滑动，单卡宽度 = 容器宽度的 1/7（与上同尺）
+ * 首页 Hero 以下：每行最多 7 张等宽海报（分类行 / Continue Watching 同一套宽高）
+ * - 条数 ≤7：lg+ 用 grid；列数 = min(7, 条数)（--hp-cols），避免 1 张卡只占一行 1/7
+ * - 条数 >7：始终横向滑动，单卡宽度 = 容器宽度的 1/7
  */
 .home-poster-rail {
   --hp-gap: 0.75rem;
@@ -269,7 +269,8 @@ body {
 @media (min-width: 1024px) {
   .home-poster-rail--fit {
     display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
+    /* 条数 <7 时由 SeriesRow / ContinueWatching 注入 --hp-cols，避免单卡只占 1/7 宽 */
+    grid-template-columns: repeat(var(--hp-cols, 7), minmax(0, 1fr));
     overflow-x: visible;
     padding-bottom: 0;
   }

@@ -23,7 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const title = (cfg.seo?.siteTitle?.trim() || cfg.brandName || "ReelShorts").trim();
   const description = (
     cfg.seo?.siteDescription ||
-    "移动优先的海外短剧在线观看平台"
+    "Mobile-first overseas short drama streaming platform"
   ).trim();
   const og = cfg.seo?.ogImageUrl?.trim();
   return {

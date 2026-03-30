@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Episode, Series } from "@/constants/mock-data";
-import { usePlayerStore, isEpisodeLocked } from "@/lib/store/player";
-import { LockedOverlay } from "@/components/player/locked-overlay";
+import { usePlayerStore } from "@/lib/store/player";
+import { SubscriptionModal } from "@/components/player/subscription-modal";
 import { useTranslation } from "react-i18next";
 import type { AppLanguage } from "@/lib/i18n/languages";
+import { cn } from "@/lib/utils";
 import {
   buildEpisodePlaybackCandidates,
   getEpisodePlaybackUrl,
@@ -33,7 +34,6 @@ export function ImmersivePlayer({
   const { isEpisodeUnlocked, episodeIndex, setEpisodeIndex, saveProgress, getProgress, resetProgress } =
     usePlayerStore();
 
-  const locked = isEpisodeLocked(series, episode);
   const unlocked = isEpisodeUnlocked(series, episode);
   const initialSeek = useMemo(
     () => getProgress(series.id, episode.index),
@@ -46,6 +46,11 @@ export function ImmersivePlayer({
     setLoadFailed(false);
     initialSeekAppliedKeyRef.current = "";
   }, [episode.id, sessionKey]);
+
+  useEffect(() => {
+    if (!unlocked) setSubscriptionModalOpen(true);
+    else setSubscriptionModalOpen(false);
+  }, [unlocked, episode.id, series.id]);
 
   useEffect(() => {
     const syncFullscreen = () => {
@@ -113,10 +118,6 @@ export function ImmersivePlayer({
     lang === "zh-CN"
       ? t("series.episodeLabelZh", { index: episode.index })
       : t("series.episodeLabel", { index: episode.index });
-
-  const hint = unlocked
-    ? t("locked.hintFree", "FREE")
-    : t("locked.hintLocked", "Subscribe to unlock");
   const [runtimePlaybackUrl, setRuntimePlaybackUrl] = useState<string>(() =>
     getEpisodePlaybackUrl(episode)
   );
@@ -124,6 +125,7 @@ export function ImmersivePlayer({
   const [runtimeVideoStatus, setRuntimeVideoStatus] = useState<
     "processing" | "ready" | "failed"
   >(episode.videoStatus ?? "ready");
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
   const playbackCandidates = useMemo(
     () => buildEpisodePlaybackCandidates(episode),
     [episode]
@@ -203,7 +205,18 @@ export function ImmersivePlayer({
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !unlocked) return;
+    if (!video) return;
+
+    if (!unlocked) {
+      try {
+        video.pause();
+        video.removeAttribute("src");
+        video.load();
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
 
     if (!hls) {
       video.src = playbackUrl;
@@ -265,7 +278,7 @@ export function ImmersivePlayer({
         <video
           ref={videoRef}
           className="immersive-video-el h-full w-full object-cover"
-          src={hls ? undefined : playbackUrl}
+          src={unlocked && !hls ? playbackUrl : undefined}
           controls={unlocked}
           playsInline
           muted
@@ -277,17 +290,33 @@ export function ImmersivePlayer({
           onCanPlay={handleReady}
           onError={handleLoadError}
           onEnded={handleEnded}
-          style={locked ? { pointerEvents: "none" } : undefined}
+          style={
+            !unlocked && !subscriptionModalOpen
+              ? { pointerEvents: "none" as const }
+              : undefined
+          }
         />
-      {locked && (
-        <LockedOverlay onUnlock={() => { window.location.href = "/store"; }} />
-      )}
+        {!unlocked && (
+          <SubscriptionModal
+            open={subscriptionModalOpen}
+            onClose={() => setSubscriptionModalOpen(false)}
+          />
+        )}
 
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-20 bg-gradient-to-b from-black/80 via-black/30 to-transparent" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-20 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
 
+        <button
+          type="button"
+          onClick={() => setSubscriptionModalOpen(true)}
+          className={cn(
+            "absolute inset-0 z-[15]",
+            !unlocked ? "cursor-pointer" : "pointer-events-none hidden"
+          )}
+          aria-label="Unlock episodes"
+        />
         <div className="pointer-events-none absolute right-3 top-3 z-20 rounded-full bg-black/65 px-3 py-1 text-[11px] font-medium text-zinc-200 ring-1 ring-zinc-800/80">
-          {episodeLabel} · {hint}
+          {episodeLabel}
         </div>
 
         {runtimeVideoStatus === "processing" && unlocked ? (

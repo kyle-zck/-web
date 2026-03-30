@@ -12,7 +12,16 @@ export const resources: Record<AppLanguage, any> = {
       },
       open: "Open",
       loading: "Loading...",
+      close: "Close",
       backHome: "Back to Home",
+      skipToContent: "Skip to main content",
+      error: {
+        title: "Something went wrong",
+        message: "An error occurred. Please try again or refresh the page.",
+        retry: "Retry",
+        appLoadFailed: "Failed to load app",
+        checkNetwork: "Please check your network and configuration, then try again."
+      },
       uidLabel: "UID",
       brandTagline: "每一秒都是剧情",
       auth: {
@@ -299,10 +308,11 @@ export const resources: Record<AppLanguage, any> = {
         enterKey: "Enter password",
         login: "Login",
         checking: "Checking...",
-        invalidKey: "Invalid password.",
+        invalidKey:
+          "Invalid password. If you changed it under Password & Security, use that password — not ADMIN_KEY (env is only used before any saved password exists).",
         networkError: "Network error.",
         keyHint:
-          "Use ADMIN_KEY from env on first deploy (default `admin` if unset). After login, change password under Password & Security in the sidebar.",
+          "First-time: use ADMIN_KEY from env (default `admin` if unset). After you save a new password in Password & Security, only that password works; ADMIN_KEY is ignored until the saved hash is removed.",
         logout: "Log out",
         accountManagement: "Account management",
         accountMgmtHint:
@@ -783,7 +793,16 @@ export const resources: Record<AppLanguage, any> = {
       },
       open: "打开",
       loading: "加载中…",
+      close: "关闭",
       backHome: "返回首页",
+      skipToContent: "跳转至正文内容",
+      error: {
+        title: "页面出错了",
+        message: "未知错误。请重试或刷新页面。",
+        retry: "重试",
+        appLoadFailed: "应用加载失败",
+        checkNetwork: "请检查网络与配置后重试。"
+      },
       uidLabel: "UID",
       brandTagline: "Every Second Is Drama",
       auth: {
@@ -1069,10 +1088,11 @@ export const resources: Record<AppLanguage, any> = {
         enterKey: "输入密码",
         login: "登录",
         checking: "验证中...",
-        invalidKey: "密码错误。",
+        invalidKey:
+          "密码错误。若已在侧栏「密码与安全」保存过新密码，请用新密码登录，而不是环境变量 ADMIN_KEY（改密后 ADMIN_KEY 不再生效，除非删除已保存的哈希）。",
         networkError: "网络错误。",
         keyHint:
-          "首次部署使用环境变量 ADMIN_KEY（未设置时默认为 `admin`）。登录后在侧栏「密码与安全」中修改密码。",
+          "首次：用环境变量 ADMIN_KEY（未设置时默认为 `admin`）。在「密码与安全」保存新密码后，仅新密码有效；需恢复用 ADMIN_KEY 时请清空库表 admin_credentials 或删除 data/admin-password.json。",
         logout: "退出登录",
         accountManagement: "账号管理",
         accountMgmtHint:

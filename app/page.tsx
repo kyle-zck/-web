@@ -21,6 +21,12 @@ function seriesCreatedSortTime(s: Series): number {
   return s.listedAt ?? s.completedAt ?? s.createdAt ?? 0;
 }
 
+type EffectiveHomeRow =
+  | { id: string; kind: "continue" }
+  | { id: string; kind: "newRelease"; titleText?: string }
+  | { id: string; kind: "custom"; titleText: string; items: Series[] }
+  | { id: string; kind: "trending"; items: Series[] };
+
 async function buildHomeContent() {
   const [appConfig, rawSeries] = await Promise.all([
     getCachedAppConfig(),
@@ -48,6 +54,11 @@ async function buildHomeContent() {
 
   const newReleaseItems = fallbackNew.slice(0, 7);
 
+  const trendingFlagged = series.filter((s) => s.isTrending === true);
+  const trendingItems = (trendingFlagged.length > 0 ? trendingFlagged : [...series])
+    .sort((a, b) => seriesCreatedSortTime(b) - seriesCreatedSortTime(a))
+    .slice(0, 7);
+
   const configuredRows = (homeCfg?.titleRows ?? [])
     .map((r) => ({
       id: r.id,
@@ -56,14 +67,45 @@ async function buildHomeContent() {
       hidden: r.hidden === true,
       seriesIds: r.seriesIds ?? []
     }))
-    .filter((r) => r.title.trim().length > 0);
+    .filter(
+      (r) =>
+        !r.hidden &&
+        (r.kind === "continue" || r.kind === "newRelease" || r.title.trim().length > 0)
+    );
+
+  const fromConfigured: EffectiveHomeRow[] = configuredRows.map((r) => {
+    if (r.kind === "continue") return { id: r.id, kind: "continue" };
+    if (r.kind === "newRelease") {
+      const tt = r.title.trim();
+      return { id: r.id, kind: "newRelease", titleText: tt.length > 0 ? tt : undefined };
+    }
+    const items = r.seriesIds
+      .map((id) => byId.get(id))
+      .filter((x): x is Series => Boolean(x));
+    return { id: r.id, kind: "custom", titleText: r.title, items };
+  });
+
+  let effectiveRows: EffectiveHomeRow[] = fromConfigured;
+  if (effectiveRows.length === 0) {
+    const h = homeCfg ?? {};
+    const next: EffectiveHomeRow[] = [];
+    if (h.showContinueWatching !== false) {
+      next.push({ id: "fallback-continue", kind: "continue" });
+    }
+    if (h.showNewRelease !== false) {
+      next.push({ id: "fallback-new", kind: "newRelease", titleText: undefined });
+    }
+    if (h.showTrending !== false && trendingItems.length > 0) {
+      next.push({ id: "fallback-trending", kind: "trending", items: trendingItems });
+    }
+    effectiveRows = next;
+  }
 
   return {
     heroItems,
     heroCountsBySeriesId,
     newReleaseItems,
-    configuredRows,
-    byId
+    effectiveRows
   };
 }
 
@@ -75,21 +117,27 @@ export default async function HomePage() {
         <div className="page-gutter-x flex-1 space-y-6 pb-20 pt-8 md:space-y-8 md:pb-24 md:pt-12">
           <HeroCarousel items={c.heroItems} countsBySeriesId={c.heroCountsBySeriesId} />
 
-          {c.configuredRows.map((row) => {
-            if (row.hidden) return null;
+          {c.effectiveRows.map((row) => {
             if (row.kind === "continue") {
               return <ContinueWatching key={row.id} />;
             }
-
             if (row.kind === "newRelease") {
-              return <SeriesRow key={row.id} titleText={row.title} items={c.newReleaseItems} />;
+              return (
+                <SeriesRow
+                  key={row.id}
+                  titleKey={row.titleText ? undefined : "home.newRelease"}
+                  titleText={row.titleText}
+                  items={c.newReleaseItems}
+                />
+              );
             }
-
-            const items = row.seriesIds
-              .map((id) => c.byId.get(id))
-              .filter((x): x is Series => Boolean(x));
-
-            return <SeriesRow key={row.id} titleText={row.title} items={items} />;
+            if (row.kind === "trending") {
+              return (
+                <SeriesRow key={row.id} titleKey="home.trendingDramas" items={row.items} />
+              );
+            }
+            if (!row.items.length) return null;
+            return <SeriesRow key={row.id} titleText={row.titleText} items={row.items} />;
           })}
 
           <div className="pt-1 md:pt-2">

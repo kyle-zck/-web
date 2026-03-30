@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * 根布局级错误边界（须自带 html/body）。
- * 根布局失败时不要依赖 Tailwind（可能未注入），故使用内联样式。
+ * Root layout-level error boundary (must provide its own html/body).
+ * Avoids Tailwind since it may not be injected when the root layout fails.
  */
 export default function GlobalError({
   error,
@@ -12,7 +12,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   return (
-    <html lang="zh-CN">
+    <html lang="en">
       <body
         style={{
           margin: 0,
@@ -27,9 +27,9 @@ export default function GlobalError({
         }}
       >
         <div style={{ textAlign: "center", maxWidth: 420 }}>
-          <h1 style={{ fontSize: 20, marginBottom: 12 }}>应用加载失败</h1>
+          <h1 style={{ fontSize: 20, marginBottom: 12 }}>App failed to load</h1>
           <p style={{ fontSize: 14, color: "#a1a1aa", marginBottom: 20 }}>
-            {error?.message || "请检查网络与配置后重试。"}
+            {error?.message || "Please check your network and configuration, then try again."}
           </p>
           <button
             type="button"
@@ -45,7 +45,7 @@ export default function GlobalError({
               cursor: "pointer"
             }}
           >
-            重试
+            Retry
           </button>
         </div>
       </body>

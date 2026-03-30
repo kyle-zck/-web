@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 export function Modal({
@@ -15,13 +16,15 @@ export function Modal({
   children: React.ReactNode;
   footer?: React.ReactNode;
 }) {
+  const { t } = useTranslation();
+
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50">
       <button
         type="button"
-        aria-label="关闭"
+        aria-label={t("common.close", "Close")}
         className="absolute inset-0 bg-black/70"
         onClick={onClose}
       />

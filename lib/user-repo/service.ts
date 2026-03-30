@@ -179,10 +179,28 @@ function engagementBatchCacheKey(ids: string[]): string {
   return [...new Set(ids)].sort().join("\u0001");
 }
 
+async function engagementCountsFromPgOrJsonFallback(
+  seriesIds: string[]
+): Promise<Record<string, EngagementCounts>> {
+  if (!shouldUsePgStorage()) {
+    return json.getEngagementCountsBatch(seriesIds);
+  }
+  try {
+    return await pg.getEngagementCountsBatch(seriesIds);
+  } catch (e) {
+    console.error(
+      "[user-repo] getEngagementCountsBatch PG 失败，回退本地 JSON（检查 DATABASE_URL / 网络）",
+      e
+    );
+    return json.getEngagementCountsBatch(seriesIds);
+  }
+}
+
 /**
  * 批量取收藏/点赞/观看数。
  * - 配置 REDIS_URL 时：按剧维度读穿 Redis，多实例共享；未命中再打 PG/JSON 并回写。
  * - 未配置 Redis：Next Data Cache（短 TTL）+ `engagement-series-{id}` 标签，供 revalidateTag 精准失效。
+ * - PG 不可达时回退 JSON，避免首页等页面整页报错。
  */
 export async function getEngagementCountsBatch(
   ids: string[]
@@ -196,9 +214,7 @@ export async function getEngagementCountsBatch(
       if (misses.length === 0) {
         return hits;
       }
-      const filled = shouldUsePgStorage()
-        ? await pg.getEngagementCountsBatch(misses)
-        : json.getEngagementCountsBatch(misses);
+      const filled = await engagementCountsFromPgOrJsonFallback(misses);
       await redisEngagementMSet(filled);
       return { ...hits, ...filled };
     } catch {
@@ -212,7 +228,7 @@ export async function getEngagementCountsBatch(
 
   if (shouldUsePgStorage()) {
     return unstable_cache(
-      () => pg.getEngagementCountsBatch(unique),
+      () => engagementCountsFromPgOrJsonFallback(unique),
       ["engagement-counts-batch", key],
       { revalidate: ttl, tags }
     )();

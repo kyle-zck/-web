@@ -26,6 +26,8 @@ export function SeriesRow({ titleKey, titleText, items }: SeriesRowProps) {
   const lang = i18n.language as AppLanguage;
   const title = titleText ?? (titleKey ? t(titleKey) : "");
 
+  if (items.length === 0) return null;
+
   return (
     <section className="home-row-cv mb-6 lg:mb-10">
       <div className="mb-4 flex items-end justify-between px-1">
@@ -45,6 +47,11 @@ export function SeriesRow({ titleKey, titleText, items }: SeriesRowProps) {
             "home-poster-rail scrollbar-thin [-webkit-overflow-scrolling:touch]",
             items.length <= 7 && "home-poster-rail--fit"
           )}
+          style={
+            items.length <= 7
+              ? ({ "--hp-cols": Math.min(7, items.length) } as React.CSSProperties)
+              : undefined
+          }
         >
           {items.map((s) => {
             const { title } = getSeriesI18nText(s, lang);

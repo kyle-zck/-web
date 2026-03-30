@@ -76,6 +76,11 @@ export function ContinueWatching() {
             "home-poster-rail scrollbar-thin [-webkit-overflow-scrolling:touch]",
             watched.length <= 7 && "home-poster-rail--fit"
           )}
+          style={
+            watched.length <= 7
+              ? ({ "--hp-cols": Math.min(7, watched.length) } as React.CSSProperties)
+              : undefined
+          }
         >
         {watched.map((row) => (
           (() => {

@@ -35,15 +35,19 @@ export default async function SeriesDetailPage({
 }: {
   params: { id: string };
 }) {
-  const series = await getCachedSeriesForDetailPage(params.id);
+  // Fetch series data and engagement counts in parallel for faster TTFB
+  const [series, engagementResult] = await Promise.all([
+    getCachedSeriesForDetailPage(params.id),
+    getEngagementCountsBatch([params.id]).catch(() => null)
+  ]);
+
   if (!series) return notFound();
 
-  const initialEngagement =
-    (await getEngagementCountsBatch([params.id]))[params.id] ?? {
-      collectionCount: 0,
-      likesCount: 0,
-      viewsCount: 0
-    };
+  const initialEngagement = engagementResult?.[params.id] ?? {
+    collectionCount: 0,
+    likesCount: 0,
+    viewsCount: 0
+  };
 
   return (
     <main className="h-full min-h-0 overflow-hidden lg:flex lg:flex-col">

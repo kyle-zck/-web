@@ -2,22 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-
-const ITEMS = [
-  { href: "/", label: "首页", icon: "home" },
-  { href: "/explore", label: "探索", icon: "search" },
-  { href: "/profile", label: "我的", icon: "user" }
-];
 
 function Icon({ name, active }: { name: string; active: boolean }) {
   const base = "h-5 w-5";
   const common = active ? "text-brand" : "text-zinc-400";
   switch (name) {
     case "home":
-      return (
-        <span className={cn(base, common)}>⌂</span>
-      );
+      return <span className={cn(base, common)}>⌂</span>;
     case "search":
       return <span className={cn(base, common)}>⌕</span>;
     case "user":
@@ -29,11 +22,18 @@ function Icon({ name, active }: { name: string; active: boolean }) {
 
 export function BottomNav() {
   const pathname = usePathname();
+  const { t } = useTranslation();
+
+  const items = [
+    { href: "/", label: t("common.nav.home", "Home"), icon: "home" },
+    { href: "/explore", label: t("common.nav.explore", "Explore"), icon: "search" },
+    { href: "/profile", label: t("common.nav.profile", "My"), icon: "user" }
+  ];
 
   return (
-    <nav className="sticky bottom-0 z-40 border-t border-zinc-800/80 bg-black/95 backdrop-blur md:hidden pb-[env(safe-area-inset-bottom)]">
+    <nav className="sticky bottom-0 z-40 border-t border-zinc-800/80 bg-black/95 backdrop-blur pb-[env(safe-area-inset-bottom)] md:hidden">
       <div className="page-gutter-x mx-auto flex max-w-md items-center justify-between py-2.5">
-        {ITEMS.map((item) => {
+        {items.map((item) => {
           const active =
             item.href === "/"
               ? pathname === "/"
