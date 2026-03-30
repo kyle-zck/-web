@@ -1,17 +1,41 @@
 /**
  * 本地与线上配置对比脚本
  * 运行方式：npx ts-node scripts/check-env-sync.ts
+ * （也可先 export $(grep -v '^#' .env.local | xargs) 再运行，或 node --env-file=.env.local 配合可执行入口）
  */
 
-import * as dotenv from "dotenv";
 import path from "path";
-
-dotenv.config({ path: path.join(process.cwd(), ".env.local") });
-
+import { existsSync, readFileSync, promises as fs } from "fs";
 import { Pool } from "pg";
-import { promises as fs } from "fs";
 import { getDatabaseUrl } from "../lib/db/url";
-import { readStoredRaw } from "../lib/app-config/service";
+
+/** 与 dotenv 行为接近的轻量解析，避免引入额外依赖导致 next build 类型检查失败 */
+function loadEnvLocalFile(): void {
+  const envPath = path.join(process.cwd(), ".env.local");
+  if (!existsSync(envPath)) return;
+  const text = readFileSync(envPath, "utf8");
+  for (const rawLine of text.split("\n")) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const unexported = line.startsWith("export ") ? line.slice(7).trim() : line;
+    const eq = unexported.indexOf("=");
+    if (eq === -1) continue;
+    const key = unexported.slice(0, eq).trim();
+    if (!key) continue;
+    let value = unexported.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (process.env[key] === undefined) {
+      process.env[key] = value;
+    }
+  }
+}
+
+loadEnvLocalFile();
 
 const appConfigLocalPath = path.join(process.cwd(), "data", "app-config.json");
 
