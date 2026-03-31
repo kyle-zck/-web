@@ -65,6 +65,8 @@ export interface SubscriptionPlanSectionProps {
   gridCols?: 1 | 2 | 3;
   /** 配置拉取中且无套餐数据时显示骨架，避免空白闪烁 */
   planGridLoading?: boolean;
+  /** "dark" 用于 Modal 覆盖层（手机端深色背景）；"light" 用于 Store 页面（琥珀色全页主题） */
+  theme?: "dark" | "light";
 }
 
 export function SubscriptionPlanSection({
@@ -78,9 +80,11 @@ export function SubscriptionPlanSection({
   paying,
   isSubscribed,
   gridCols = 3,
-  planGridLoading = false
+  planGridLoading = false,
+  theme = "dark"
 }: SubscriptionPlanSectionProps) {
   const { t } = useTranslation();
+  const isDark = theme === "dark";
 
   const gridColsClass =
     gridCols === 1
@@ -112,90 +116,189 @@ export function SubscriptionPlanSection({
           </>
         ) : null}
         {!planGridLoading &&
-          plans.map((plan) => (
-          <button
-            key={plan.id}
-            type="button"
-            onClick={() => onSelectPlan(plan)}
-            className={cn(
-              "relative overflow-hidden rounded-2xl p-5 text-left shadow-lg transition-all",
-              "bg-gradient-to-br from-amber-100 to-amber-200/90",
-              selectedPlan?.id === plan.id && "ring-2 ring-brand",
-              "hover:scale-[1.02]"
-            )}
-          >
-            {(() => {
-              const dp = clampDiscountPercent(plan.discountPercent ?? 100);
-              const end = discountEndMs(plan);
-              if (dp >= 100) return null;
-              const now = Date.now();
-              const remaining = end ? end - now : null;
-              const countdown = remaining != null ? formatCountdown(remaining, t) : null;
-              return (
-                <div className="absolute right-4 top-4 z-10">
-                  <div className="rounded-xl bg-red-600 px-4 py-3 text-white shadow-lg ring-1 ring-red-300/40">
-                    <div className="text-lg font-extrabold leading-none">
-                      <span className="mr-2">{dp}%</span>
-                      <span className="mr-2">OFF</span>
-                      <span>{t("subscription.limitedTime", "Limited")}</span>
-                    </div>
-                  </div>
-                  {countdown ? (
-                    <div className="mt-1 text-sm font-bold tabular-nums text-black">
-                      ⏱ {countdown}
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })()}
-            <span
-              className="absolute -right-4 -top-4 text-[120px] font-black leading-none text-amber-300/30"
-              aria-hidden
-            >
-              V
-            </span>
-            <div className="relative">
-              <p className="text-sm font-semibold text-amber-900">{plan.label}</p>
-              {(() => {
-                const dp = clampDiscountPercent(plan.discountPercent ?? 100);
-                const paid = effectivePriceUsd(plan);
-                if (dp >= 100) {
+          plans.map((plan) => {
+            const isSelected = selectedPlan?.id === plan.id;
+            return (
+              <button
+                key={plan.id}
+                type="button"
+                onClick={() => onSelectPlan(plan)}
+                className={cn(
+                  "relative overflow-hidden rounded-2xl p-5 text-left shadow-lg transition-all",
+                  isDark
+                    ? isSelected
+                      ? "bg-gradient-to-br from-red-700/80 to-red-900/80 ring-2 ring-brand"
+                      : "bg-gradient-to-br from-zinc-800/80 to-zinc-900/80 hover:from-zinc-700/80 hover:to-zinc-800/80"
+                    : isSelected
+                      ? "bg-gradient-to-br from-amber-100 to-amber-200/90 ring-2 ring-brand"
+                      : "bg-gradient-to-br from-amber-100 to-amber-200/90",
+                  "hover:scale-[1.02]"
+                )}
+              >
+                {(() => {
+                  const dp = clampDiscountPercent(plan.discountPercent ?? 100);
+                  const end = discountEndMs(plan);
+                  if (dp >= 100) return null;
+                  const now = Date.now();
+                  const remaining = end ? end - now : null;
+                  const countdown = remaining != null ? formatCountdown(remaining, t) : null;
                   return (
-                    <p className="mt-2 text-2xl font-bold text-amber-950">
-                      {formatUsd(plan.priceUsd)}
-                    </p>
+                    <div className="absolute right-4 top-4 z-10">
+                      <div className="rounded-xl bg-red-600 px-4 py-3 text-white shadow-lg ring-1 ring-red-300/40">
+                        <div className="text-lg font-extrabold leading-none">
+                          <span className="mr-2">{dp}%</span>
+                          <span className="mr-2">OFF</span>
+                          <span>{t("subscription.limitedTime", "Limited")}</span>
+                        </div>
+                      </div>
+                      {countdown ? (
+                        <div
+                          className={cn(
+                            "mt-1 text-sm font-bold tabular-nums",
+                            isDark ? "text-zinc-300" : "text-black"
+                          )}
+                        >
+                          ⏱ {countdown}
+                        </div>
+                      ) : null}
+                    </div>
                   );
-                }
-                return (
-                  <div className="mt-2 flex items-end gap-2">
-                    <p className="text-2xl font-bold text-amber-950">{formatUsd(paid)}</p>
-                    <p className="text-sm font-semibold text-amber-800/70 line-through">
-                      {formatUsd(plan.priceUsd)}
-                    </p>
+                })()}
+                <span
+                  className={cn(
+                    "absolute -right-4 -top-4 text-[120px] font-black leading-none",
+                    isDark
+                      ? isSelected
+                        ? "text-red-500/20"
+                        : "text-zinc-700/40"
+                      : "text-amber-300/30"
+                  )}
+                  aria-hidden
+                >
+                  V
+                </span>
+                <div className="relative">
+                  <p
+                    className={cn(
+                      "text-sm font-semibold",
+                      isDark
+                        ? isSelected
+                          ? "text-red-200"
+                          : "text-zinc-300"
+                        : "text-amber-900"
+                    )}
+                  >
+                    {plan.label}
+                  </p>
+                  {(() => {
+                    const dp = clampDiscountPercent(plan.discountPercent ?? 100);
+                    const paid = effectivePriceUsd(plan);
+                    if (dp >= 100) {
+                      return (
+                        <p
+                          className={cn(
+                            "mt-2 text-2xl font-bold",
+                            isDark
+                              ? isSelected
+                                ? "text-white"
+                                : "text-zinc-100"
+                              : "text-amber-950"
+                          )}
+                        >
+                          {formatUsd(plan.priceUsd)}
+                        </p>
+                      );
+                    }
+                    return (
+                      <div className="mt-2 flex items-end gap-2">
+                        <p
+                          className={cn(
+                            "text-2xl font-bold",
+                            isDark
+                              ? isSelected
+                                ? "text-white"
+                                : "text-zinc-100"
+                              : "text-amber-950"
+                          )}
+                        >
+                          {formatUsd(paid)}
+                        </p>
+                        <p
+                          className={cn(
+                            "text-sm font-semibold line-through",
+                            isDark
+                              ? isSelected
+                                ? "text-red-300/60"
+                                : "text-zinc-500"
+                              : "text-amber-800/70"
+                          )}
+                        >
+                          {formatUsd(plan.priceUsd)}
+                        </p>
+                      </div>
+                    );
+                  })()}
+                  <p
+                    className={cn(
+                      "mt-1 text-xs",
+                      isDark ? (isSelected ? "text-red-200/70" : "text-zinc-500") : "text-amber-800/80"
+                    )}
+                  >
+                    {t("subscription.autoRenew", "Auto-renew. Cancel anytime.")}
+                  </p>
+                  <div
+                    className={cn(
+                      "mt-4 flex flex-wrap gap-3 border-t pt-3",
+                      isDark
+                        ? "border-zinc-700/50"
+                        : "border-amber-300/50"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "flex items-center gap-1.5 text-xs font-medium",
+                        isDark
+                          ? isSelected
+                            ? "text-red-200"
+                            : "text-zinc-400"
+                          : "text-amber-900"
+                      )}
+                    >
+                      <span aria-hidden>📺</span>
+                      {t("subscription.unlimited", "Unlimited Viewing")}
+                    </span>
+                    <span
+                      className={cn(
+                        "flex items-center gap-1.5 text-xs font-medium",
+                        isDark
+                          ? isSelected
+                            ? "text-red-200"
+                            : "text-zinc-400"
+                          : "text-amber-900"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "rounded px-1.5 py-0.5 text-[10px] font-bold",
+                          isDark
+                            ? isSelected
+                              ? "bg-red-600/40 text-red-200"
+                              : "bg-zinc-700 text-zinc-300"
+                            : "bg-amber-900/20 text-amber-900"
+                        )}
+                      >
+                        1080
+                      </span>
+                      {t("subscription.hd", "1080p High Quality")}
+                    </span>
                   </div>
-                );
-              })()}
-              <p className="mt-1 text-xs text-amber-800/80">
-                {t("subscription.autoRenew", "Auto-renew. Cancel anytime.")}
-              </p>
-              <div className="mt-4 flex flex-wrap gap-3 border-t border-amber-300/50 pt-3">
-                <span className="flex items-center gap-1.5 text-xs font-medium text-amber-900">
-                  <span aria-hidden>📺</span>
-                  {t("subscription.unlimited", "Unlimited Viewing")}
-                </span>
-                <span className="flex items-center gap-1.5 text-xs font-medium text-amber-900">
-                  <span className="rounded bg-amber-900/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">
-                    1080
-                  </span>
-                  {t("subscription.hd", "1080p High Quality")}
-                </span>
-              </div>
-            </div>
-          </button>
-        ))}
+                </div>
+              </button>
+            );
+          })}
       </div>
 
-      <section className="mt-8 rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-4">
+      <section className="mt-8 rounded-2xl border p-4 bg-zinc-900/60">
         <div className="rounded-xl bg-black/30 p-4">
           <p className="text-xs font-semibold text-zinc-400">
             {t("store.tips", "Tips:")}
@@ -209,13 +312,13 @@ export function SubscriptionPlanSection({
           </ol>
         </div>
 
-        <div className="mt-4 rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-4">
-          <label className="flex cursor-pointer items-start gap-3 text-[10px] text-zinc-400">
+        <div className="mt-4 rounded-xl border border-zinc-800/80 bg-black/30 p-4">
+          <label className="flex cursor-pointer items-start gap-3 text-xs text-zinc-400">
             <input
               type="checkbox"
               checked={agreeAutoRenew}
               onChange={(e) => onAgreeAutoRenewChange(e.target.checked)}
-              className="mt-1 h-4 w-4 accent-red-500"
+              className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
             />
             <span className="leading-4">
               {t("subscription.agreeTermsPrefix", "I have read and agree to the")}
@@ -237,12 +340,19 @@ export function SubscriptionPlanSection({
           onClick={onPayNow}
           disabled={!selectedPlan || paying || !agreeAutoRenew}
           className={cn(
-            "mt-4 w-full rounded-xl px-4 py-3.5 text-base font-bold text-white transition-colors",
+            "mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-base font-bold text-white transition-colors",
             "bg-brand shadow-soft-glow hover:bg-red-600",
             (!selectedPlan || paying || !agreeAutoRenew) && "cursor-not-allowed opacity-60"
           )}
         >
-          {paying ? t("auth.working", "Processing...") : t("store.payNow", "Pay Now")}
+          {paying ? (
+            <>
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" aria-hidden />
+              {t("auth.working", "Processing...")}
+            </>
+          ) : (
+            t("store.payNow", "Pay Now")
+          )}
         </button>
       </section>
     </>
