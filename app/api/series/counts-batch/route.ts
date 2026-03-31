@@ -31,5 +31,12 @@ export async function POST(req: NextRequest) {
       batch[seriesId] ?? { collectionCount: 0, likesCount: 0, viewsCount: 0 };
   }
 
-  return NextResponse.json({ ok: true, byId });
+  return NextResponse.json(
+    { ok: true, byId },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300"
+      }
+    }
+  );
 }

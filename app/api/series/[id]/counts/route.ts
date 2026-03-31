@@ -19,10 +19,18 @@ export async function GET(
       viewsCount: 0
     };
 
-  return NextResponse.json({
-    ok: true,
-    collectionCount: row.collectionCount,
-    likesCount: row.likesCount,
-    viewsCount: row.viewsCount
-  });
+  return NextResponse.json(
+    {
+      ok: true,
+      collectionCount: row.collectionCount,
+      likesCount: row.likesCount,
+      viewsCount: row.viewsCount
+    },
+    {
+      headers: {
+        // 与 /api/series 同级缓存生命周期，边缘可复用
+        "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300"
+      }
+    }
+  );
 }

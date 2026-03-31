@@ -174,7 +174,7 @@ export function ImmersiveSeriesDetail({
 
       // counts（仅在 initialEngagement 未命中时需要）
       if (initialEngagement == null) {
-        fetch(`/api/series/${series.id}/counts`)
+        fetch(`/api/series/${series.id}/counts`, { cache: "default" })
           .then((r) => r.json())
           .then((json) => {
             if (json?.ok) {

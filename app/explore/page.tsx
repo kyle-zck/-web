@@ -44,8 +44,8 @@ function ExploreContent() {
     let cancelled = false;
     setLoading(true);
     Promise.all([
-      fetch("/api/series?lite=1").then((r) => r.json()),
-      fetch("/api/tag-catalog").then((r) => r.json())
+      fetch("/api/series?lite=1", { cache: "default" }).then((r) => r.json()),
+      fetch("/api/tag-catalog", { cache: "default" }).then((r) => r.json())
     ])
       .then(([seriesJson, tagJson]) => {
         if (cancelled) return;

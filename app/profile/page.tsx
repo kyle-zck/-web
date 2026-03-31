@@ -76,7 +76,7 @@ export default function ProfilePage() {
   const lastFavoritesSyncRef = useRef("");
 
   useEffect(() => {
-    fetch("/api/series?lite=1")
+    fetch("/api/series?lite=1", { cache: "default" })
       .then((r) => r.json())
       .then((json) => {
         if (json?.ok && Array.isArray(json.series)) {
