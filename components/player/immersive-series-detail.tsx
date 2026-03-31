@@ -15,11 +15,11 @@ import type { AppLanguage } from "@/lib/i18n/languages";
 import { getSeriesI18nText } from "@/lib/i18n/seriesText";
 import { tagLabel } from "@/lib/i18n/tagKey";
 import { Modal } from "@/components/ui/modal";
-import { SubscriptionModal } from "@/components/player/subscription-modal";
 import { formatEngagementCount } from "@/lib/format-count";
 import { getOrCreateDeviceClientId } from "@/lib/client/device-client-id";
 import { prefetchAppConfig } from "@/lib/client/app-config-cache";
 import type { EngagementCounts } from "@/lib/user-repo";
+import { ShareSheet } from "@/components/ui/share-sheet";
 
 const EPISODES_PER_TAB = 50;
 
@@ -38,31 +38,8 @@ function PlayGlyph({ className }: { className?: string }) {
   );
 }
 
-function ShareButton({ title, compact }: { title: string; compact?: boolean }) {
-  const [copied, setCopied] = useState(false);
+function ShareButton({ title, compact, onClick }: { title: string; compact?: boolean; onClick: () => void }) {
   const { t } = useTranslation();
-
-  const onShare = async () => {
-    try {
-      const url = window.location.href;
-      const nav = navigator as Navigator & {
-        share?: (data: { title?: string; text?: string; url?: string }) => Promise<void>;
-      };
-      if (nav.share) {
-        await nav.share({
-          title,
-          text: `${title} - ${t("seriesDetail.shareDrama", "Watch this amazing short drama now!")}`,
-          url
-        });
-        return;
-      }
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
-    } catch {
-      // ignore
-    }
-  };
 
   if (compact) {
     return (
@@ -70,7 +47,7 @@ function ShareButton({ title, compact }: { title: string; compact?: boolean }) {
         <button
           type="button"
           aria-label={t("seriesDetail.share")}
-          onClick={onShare}
+          onClick={onClick}
           className="inline-flex items-center gap-2 rounded-lg py-1 text-zinc-400 transition-colors hover:bg-zinc-800/50 hover:text-zinc-200"
         >
           <svg
@@ -97,14 +74,9 @@ function ShareButton({ title, compact }: { title: string; compact?: boolean }) {
 
   return (
     <div className="relative">
-      <IconButton label={t("seriesDetail.share")} onClick={onShare}>
+      <IconButton label={t("seriesDetail.share")} onClick={onClick}>
         ⤴
       </IconButton>
-      {copied ? (
-        <div className="absolute right-0 top-10 rounded-full bg-zinc-950 px-3 py-1 text-[11px] text-zinc-200 ring-1 ring-zinc-800/80">
-          {t("seriesDetail.copiedLink")}
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -139,7 +111,8 @@ export function ImmersiveSeriesDetail({
   const [episodeTab, setEpisodeTab] = useState(0);
   const [allEpisodesOpen, setAllEpisodesOpen] = useState(false);
   const [playerSessionKey, setPlayerSessionKey] = useState(0);
-  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const shareUrl = typeof window !== "undefined" ? window.location.href : "";
 
   useEffect(() => {
     setSeries(series.id);
@@ -252,7 +225,6 @@ export function ImmersiveSeriesDetail({
                 series={series}
                 episode={episode}
                 sessionKey={playerSessionKey}
-                onOpenSubscription={() => setSubscriptionModalOpen(true)}
               />
             </div>
           </div>
@@ -392,7 +364,11 @@ export function ImmersiveSeriesDetail({
               <span className="sr-only">{t("seriesDetail.likes")}</span>
             </button>
             <div className="flex min-w-0 flex-1 items-center justify-center">
-              <ShareButton title={seriesTitle} compact />
+              <ShareButton
+                title={seriesTitle}
+                compact
+                onClick={() => setShareOpen(true)}
+              />
             </div>
           </div>
 
@@ -548,10 +524,12 @@ export function ImmersiveSeriesDetail({
         🙂
       </button>
 
-      {/* 订阅弹窗 - 由 ImmersiveSeriesDetail 统一挂载 */}
-      <SubscriptionModal
-        open={subscriptionModalOpen}
-        onClose={() => setSubscriptionModalOpen(false)}
+      {/* 分享面板：Facebook / X / 复制链接 */}
+      <ShareSheet
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        title={seriesTitle}
+        url={shareUrl}
       />
     </>
   );

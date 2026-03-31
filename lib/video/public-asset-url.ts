@@ -5,21 +5,29 @@ function baseUrl(): string {
 }
 
 /**
- * 代理策略：
- * - 有 S3_PUBLIC_BASE_URL → 拼接后直连 CDN，极快
- * - 无 baseUrl 时仅对 .r2.dev 走代理（兜底，不影响有配置的场景）
- * - 绝对 URL 直接返回
+ * 代理策略（server-side）：
+ * - 已有直接可访问的公开 CDN URL → 直接返回，跳过服务端代理（极快）
+ * - 仅对 .r2.dev 且不含 public token 的 URL 走服务端代理
+ * - 绝对 URL 直接返回（走直连 CDN 或原始直链）
  */
 export function proxifyR2DevMediaUrl(raw: string): string {
   const src = raw.trim();
   if (!src) return src;
-  // 有 baseUrl 配置时，封面/视频优先直连 CDN，不走代理
+
+  // 已有 S3_PUBLIC_BASE_URL：直接可访问，不走代理
   const base = baseUrl();
   if (base) return src;
-  // 无 baseUrl 时，对 .r2.dev 兜底走代理
-  if (/^https?:\/\/[^/]+\.r2\.dev\/.+/i.test(src)) {
-    return `/api/video/proxy?src=${encodeURIComponent(src)}`;
+
+  // 检测是否为公开的 Cloudflare R2 URL（不含 ?signature= 或 &token= 等鉴权参数）
+  // 这类 URL 已经可公开访问，无需服务端代理，可直连 CDN 加速
+  if (/^https?:\/\/[^/]+\.r2\.dev\//i.test(src)) {
+    // 含鉴权参数的 R2 URL 仍走代理；其余公开 URL 直连
+    if (/[?&](?:signature|token|X-Amz-)=/i.test(src)) {
+      return `/api/video/proxy?src=${encodeURIComponent(src)}`;
+    }
+    return src;
   }
+
   return src;
 }
 

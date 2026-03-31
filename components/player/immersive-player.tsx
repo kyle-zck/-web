@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Episode, Series } from "@/constants/mock-data";
 import { isEpisodeLocked, usePlayerStore } from "@/lib/store/player";
@@ -18,17 +19,15 @@ import { attachHls, supportsNativeHls } from "@/lib/video/hls-loader";
 export function ImmersivePlayer({
   series,
   episode,
-  sessionKey = 0,
-  onOpenSubscription
+  sessionKey = 0
 }: {
   series: Series;
   episode: Episode;
   sessionKey?: number;
-  /** 由 ImmersiveSeriesDetail 传入，用于在点击锁定层后打开 SubscriptionModal */
-  onOpenSubscription?: () => void;
 }) {
   const playerRootRef = useRef<HTMLElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const router = useRouter();
   const initialSeekAppliedKeyRef = useRef<string>("");
   const [ready, setReady] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -331,7 +330,7 @@ export function ImmersivePlayer({
           <LockedOverlay
             posterUrl={lockPreviewPosterUrl}
             previewPlayableUrl={playbackUrl}
-            onUnlock={onOpenSubscription ?? (() => {})}
+            onUnlock={() => router.push("/store")}
           />
         ) : null}
 
