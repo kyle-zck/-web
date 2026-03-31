@@ -35,17 +35,30 @@ export function normalizeAssetUrl(url?: string): string | undefined {
   return raw;
 }
 
+/** 封面/缩略图等与视频一致：相对路径补全后再走 R2 代理，避免直链在客户端加载失败 */
+function normalizeImageField(url?: string): string {
+  const raw = (url ?? "").trim();
+  if (!raw) return "";
+  const n = normalizeAssetUrl(raw) ?? raw;
+  return proxifyR2DevMediaUrl(n);
+}
+
+/** 客户端兜底：锁定层等场景对单条图片 URL 做与全站一致的归一化 */
+export function resolvePublicImageUrl(raw: string): string {
+  return normalizeImageField(raw);
+}
+
 export function normalizeSeriesPublicUrls(series: Series): Series {
   const episodes: Episode[] = (series.episodes ?? []).map((ep) => ({
     ...ep,
     videoUrl: normalizeAssetUrl(ep.videoUrl) ?? ep.videoUrl,
     videoPlaybackUrl: normalizeAssetUrl(ep.videoPlaybackUrl),
-    thumbnail: normalizeAssetUrl(ep.thumbnail) ?? ep.thumbnail
+    thumbnail: normalizeImageField(ep.thumbnail)
   }));
   return {
     ...series,
-    cover: normalizeAssetUrl(series.cover) ?? series.cover,
-    poster: normalizeAssetUrl(series.poster) ?? series.poster,
+    cover: normalizeImageField(series.cover),
+    poster: normalizeImageField(series.poster),
     episodes
   };
 }

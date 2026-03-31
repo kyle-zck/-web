@@ -60,8 +60,8 @@ export function ContinueWatching() {
   if (!watched.length) return null;
 
   return (
-    <section className="mt-4">
-      <div className="flex items-end justify-between px-1">
+    <section className="mt-2 sm:mt-3">
+      <div className="mb-2 flex items-end justify-between px-1 sm:mb-2.5">
         <h2 className="section-title-fluid font-extrabold tracking-tight text-zinc-50">
           {t("home.continueWatching")}
         </h2>
@@ -70,7 +70,7 @@ export function ContinueWatching() {
         </p>
       </div>
 
-      <div className="mt-3 px-1">
+      <div className="px-1">
         <div
           className={cn(
             "home-poster-rail scrollbar-thin [-webkit-overflow-scrolling:touch]",

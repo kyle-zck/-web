@@ -89,7 +89,7 @@ export function HeroCarousel({ items, countsBySeriesId }: HeroCarouselProps) {
   };
 
   return (
-    <section className="relative mb-6 pt-6 pb-8 sm:pt-8 sm:pb-10 md:pb-12">
+    <section className="relative mb-5 px-1 pt-6 pb-8 sm:mb-6 sm:px-2 sm:pt-8 sm:pb-10 md:pb-12">
       <div
         className="mx-auto flex w-[82%] items-center justify-center gap-4 overflow-x-visible scrollbar-thin snap-x snap-mandatory scroll-smooth md:w-[76%] md:gap-6"
         ref={scrollRef}
@@ -180,7 +180,7 @@ export function HeroCarousel({ items, countsBySeriesId }: HeroCarouselProps) {
           <button
             type="button"
             onClick={goPrev}
-            className="pointer-events-auto absolute left-2 top-1/2 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black/80 text-white shadow-lg ring-1 ring-zinc-600/80 transition-all hover:bg-brand hover:ring-brand/50 md:inline-flex"
+            className="pointer-events-auto absolute left-1 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/80 text-white shadow-lg ring-1 ring-zinc-600/80 transition-all hover:bg-brand hover:ring-brand/50 sm:left-2 sm:h-12 sm:w-12 md:inline-flex"
             aria-label="Previous hero"
           >
             <ChevronLeft />
@@ -188,7 +188,7 @@ export function HeroCarousel({ items, countsBySeriesId }: HeroCarouselProps) {
           <button
             type="button"
             onClick={goNext}
-            className="pointer-events-auto absolute right-2 top-1/2 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black/80 text-white shadow-lg ring-1 ring-zinc-600/80 transition-all hover:bg-brand hover:ring-brand/50 md:inline-flex"
+            className="pointer-events-auto absolute right-1 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/80 text-white shadow-lg ring-1 ring-zinc-600/80 transition-all hover:bg-brand hover:ring-brand/50 sm:right-2 sm:h-12 sm:w-12 md:inline-flex"
             aria-label="Next hero"
           >
             <ChevronRight />

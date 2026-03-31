@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Episode, Series } from "@/constants/mock-data";
-import { usePlayerStore } from "@/lib/store/player";
+import { isEpisodeLocked, usePlayerStore } from "@/lib/store/player";
 import { useFavoritesStore } from "@/lib/store/favorites";
 import { useLikesStore } from "@/lib/store/likes";
 import { useUserStore } from "@/lib/store/user";
@@ -15,6 +15,7 @@ import type { AppLanguage } from "@/lib/i18n/languages";
 import { getSeriesI18nText } from "@/lib/i18n/seriesText";
 import { tagLabel } from "@/lib/i18n/tagKey";
 import { Modal } from "@/components/ui/modal";
+import { SubscriptionModal } from "@/components/player/subscription-modal";
 import { formatEngagementCount } from "@/lib/format-count";
 import { getOrCreateDeviceClientId } from "@/lib/client/device-client-id";
 import type { EngagementCounts } from "@/lib/user-repo";
@@ -114,11 +115,11 @@ export function ImmersiveSeriesDetail({
   series: Series;
   initialEngagement?: EngagementCounts;
 }) {
+  const isSubscribed = usePlayerStore((s) => s.isSubscribed);
   const {
     setSeries,
     episodeIndex,
     setEpisodeIndex,
-    isEpisodeUnlocked,
     getProgress,
     resetProgress
   } = usePlayerStore();
@@ -137,8 +138,7 @@ export function ImmersiveSeriesDetail({
   const [episodeTab, setEpisodeTab] = useState(0);
   const [allEpisodesOpen, setAllEpisodesOpen] = useState(false);
   const [playerSessionKey, setPlayerSessionKey] = useState(0);
-
-  const lockStartIndex = series.lockStartIndex ?? 4;
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
 
   useEffect(() => {
     setSeries(series.id);
@@ -146,54 +146,48 @@ export function ImmersiveSeriesDetail({
 
   /** 获取互动计数（收藏、点赞、观看数）- 延迟执行避免抢占视频带宽 */
   useEffect(() => {
-    if (initialEngagement != null) return;
-    const fetchCounts = () => {
-      fetch(`/api/series/${series.id}/counts`)
-        .then((r) => r.json())
-        .then((json) => {
-          if (json?.ok) {
-            setCollectionCount(json.collectionCount ?? 0);
-            setLikesCount(json.likesCount ?? 0);
-            setViewsCount(json.viewsCount ?? 0);
-          }
-        })
-        .catch(() => {});
-    };
-    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-      const id = window.requestIdleCallback(fetchCounts, { timeout: 3000 });
-      return () => window.cancelIdleCallback(id);
-    }
-    const t = globalThis.setTimeout(fetchCounts, 2000);
-    return () => globalThis.clearTimeout(t);
-  }, [series.id, initialEngagement]);
-
-  /** 首次进入播放页记录观看（每用户每剧一条，与收藏/点赞同源 clientId 体系）
-   * 使用 requestIdleCallback 延迟执行，避免与视频加载抢占带宽
-   */
-  useEffect(() => {
     const clientId = userId ?? supabaseUserId ?? getOrCreateDeviceClientId();
-    if (!clientId) return;
-    const recordView = () => {
-      fetch("/api/user/views", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, seriesId: series.id })
-      })
-        .then((r) => r.json())
-        .then((json: { ok?: boolean; viewsCount?: number }) => {
-          if (json?.ok && typeof json.viewsCount === "number") {
-            setViewsCount(json.viewsCount);
-          }
+
+    // 合并为一次 requestIdleCallback，并行发起 counts + views 两个请求
+    const deferredWork = () => {
+      // views 记录（仅在有 clientId 时）
+      if (clientId) {
+        fetch("/api/user/views", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clientId, seriesId: series.id })
         })
-        .catch(() => {});
+          .then((r) => r.json())
+          .then((json: { ok?: boolean; viewsCount?: number }) => {
+            if (json?.ok && typeof json.viewsCount === "number") {
+              setViewsCount(json.viewsCount);
+            }
+          })
+          .catch(() => {});
+      }
+
+      // counts（仅在 initialEngagement 未命中时需要）
+      if (initialEngagement == null) {
+        fetch(`/api/series/${series.id}/counts`)
+          .then((r) => r.json())
+          .then((json) => {
+            if (json?.ok) {
+              setCollectionCount(json.collectionCount ?? 0);
+              setLikesCount(json.likesCount ?? 0);
+              setViewsCount(json.viewsCount ?? 0);
+            }
+          })
+          .catch(() => {});
+      }
     };
+
     if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-      const id = window.requestIdleCallback(recordView, { timeout: 3000 });
+      const id = window.requestIdleCallback(deferredWork, { timeout: 3000 });
       return () => window.cancelIdleCallback(id);
     }
-    const t = globalThis.setTimeout(recordView, 2000);
+    const t = globalThis.setTimeout(deferredWork, 2000);
     return () => globalThis.clearTimeout(t);
-  }, [series.id, userId, supabaseUserId]);
+  }, [series.id, userId, supabaseUserId, initialEngagement]);
 
   const episode = useMemo<Episode>(() => {
     return series.episodes.find((e) => e.index === episodeIndex) ?? series.episodes[0];
@@ -252,6 +246,7 @@ export function ImmersiveSeriesDetail({
                 series={series}
                 episode={episode}
                 sessionKey={playerSessionKey}
+                onOpenSubscription={() => setSubscriptionModalOpen(true)}
               />
             </div>
           </div>
@@ -439,8 +434,7 @@ export function ImmersiveSeriesDetail({
               <div className="grid grid-cols-6 gap-2">
                 {episodesInTab.map((ep) => {
                   const selected = ep.index === episode.index;
-                  const unlocked = isEpisodeUnlocked(series, ep);
-                  const isLockedCandidate = ep.index >= lockStartIndex && !unlocked;
+                  const isLockedCandidate = !isSubscribed && isEpisodeLocked(series, ep);
                   return (
                     <button
                       key={ep.id}
@@ -499,8 +493,7 @@ export function ImmersiveSeriesDetail({
           <div className="grid grid-cols-6 gap-2">
             {series.episodes.map((ep) => {
               const selected = ep.index === episode.index;
-              const unlocked = isEpisodeUnlocked(series, ep);
-              const isLockedCandidate = ep.index >= lockStartIndex && !unlocked;
+              const isLockedCandidate = !isSubscribed && isEpisodeLocked(series, ep);
               return (
                 <button
                   key={ep.id}
@@ -548,6 +541,12 @@ export function ImmersiveSeriesDetail({
       >
         🙂
       </button>
+
+      {/* 订阅弹窗 - 由 ImmersiveSeriesDetail 统一挂载 */}
+      <SubscriptionModal
+        open={subscriptionModalOpen}
+        onClose={() => setSubscriptionModalOpen(false)}
+      />
     </>
   );
 }

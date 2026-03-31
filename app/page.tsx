@@ -113,8 +113,8 @@ export default async function HomePage() {
   try {
     const c = await buildHomeContent();
     return (
-      <main className="flex min-h-screen flex-col">
-        <div className="page-gutter-x flex-1 space-y-6 pb-20 pt-8 md:space-y-8 md:pb-24 md:pt-12">
+      <main className="flex min-h-0 flex-1 flex-col">
+        <div className="page-gutter-x flex min-h-0 flex-1 flex-col space-y-6 pb-20 pt-8 md:space-y-8 md:pb-24 md:pt-12">
           <HeroCarousel items={c.heroItems} countsBySeriesId={c.heroCountsBySeriesId} />
 
           {c.effectiveRows.map((row) => {
@@ -149,7 +149,7 @@ export default async function HomePage() {
   } catch (e) {
     console.error("[home] 渲染失败", e);
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center px-6 py-20">
+      <main className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 py-20">
         <p className="text-center text-lg font-semibold text-white">首页暂时无法加载</p>
         <p className="mt-2 max-w-md text-center text-sm text-zinc-400">
           请稍后刷新页面。若持续出现，请检查终端日志与数据库配置。

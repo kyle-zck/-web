@@ -29,8 +29,8 @@ export function SeriesRow({ titleKey, titleText, items }: SeriesRowProps) {
   if (items.length === 0) return null;
 
   return (
-    <section className="home-row-cv mb-6 lg:mb-10">
-      <div className="mb-4 flex items-end justify-between px-1">
+    <section className="home-row-cv mb-5 lg:mb-8">
+      <div className="mb-2 flex items-end justify-between px-1 sm:mb-2.5">
         <h2 className="section-title-fluid font-extrabold tracking-tight text-zinc-50">
           {title}
         </h2>

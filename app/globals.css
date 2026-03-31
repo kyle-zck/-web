@@ -244,6 +244,11 @@ body {
  */
 .home-poster-rail {
   --hp-gap: 0.75rem;
+  /** 与「一行 7 张」视觉一致的单卡宽度；≤7 条时桌面端也沿用此宽，避免 1 张卡被 1fr 拉成全宽大横幅 */
+  --hp-cell-width: max(
+    7.5rem,
+    calc((min(100vw, 1400px) - var(--layout-gutter-x-total) - 1.5rem * 6) / 7)
+  );
   display: flex;
   flex-wrap: nowrap;
   gap: var(--hp-gap);
@@ -256,30 +261,25 @@ body {
 }
 
 .home-poster-rail > .home-poster-cell {
-  flex: 0 0 max(
-    7.5rem,
-    calc((min(100vw, 1400px) - var(--layout-gutter-x-total) - 1.5rem * 6) / 7)
-  );
-  min-width: max(
-    7.5rem,
-    calc((min(100vw, 1400px) - var(--layout-gutter-x-total) - 1.5rem * 6) / 7)
-  );
+  flex: 0 0 var(--hp-cell-width);
+  min-width: var(--hp-cell-width);
 }
 
 @media (min-width: 1024px) {
   .home-poster-rail--fit {
     display: grid;
-    /* 条数 <7 时由 SeriesRow / ContinueWatching 注入 --hp-cols，避免单卡只占 1/7 宽 */
-    grid-template-columns: repeat(var(--hp-cols, 7), minmax(0, 1fr));
-    overflow-x: visible;
+    justify-content: start;
+    /* 固定列宽 + 左对齐，条数少时右侧留白（与移动端横滑海报尺度一致） */
+    grid-template-columns: repeat(var(--hp-cols, 7), var(--hp-cell-width));
+    overflow-x: auto;
     padding-bottom: 0;
   }
 
   .home-poster-rail--fit > .home-poster-cell {
     flex: unset;
     min-width: 0 !important;
-    width: auto;
-    max-width: none;
+    width: 100%;
+    max-width: var(--hp-cell-width);
   }
 
   .home-poster-rail:not(.home-poster-rail--fit) > .home-poster-cell {

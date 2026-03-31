@@ -2,26 +2,30 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Episode, Series } from "@/constants/mock-data";
-import { usePlayerStore } from "@/lib/store/player";
-import { SubscriptionModal } from "@/components/player/subscription-modal";
+import { isEpisodeLocked, usePlayerStore } from "@/lib/store/player";
+import { LockedOverlay } from "@/components/player/locked-overlay";
 import { useTranslation } from "react-i18next";
 import type { AppLanguage } from "@/lib/i18n/languages";
-import { cn } from "@/lib/utils";
 import {
   buildEpisodePlaybackCandidates,
   getEpisodePlaybackUrl,
   playbackUrlIndicatesHls,
   resolveNormalizedPlayableUrl
 } from "@/lib/video/playback";
+import { resolvePublicImageUrl } from "@/lib/video/public-asset-url";
+import { attachHls, supportsNativeHls } from "@/lib/video/hls-loader";
 
 export function ImmersivePlayer({
   series,
   episode,
-  sessionKey = 0
+  sessionKey = 0,
+  onOpenSubscription
 }: {
   series: Series;
   episode: Episode;
   sessionKey?: number;
+  /** 由 ImmersiveSeriesDetail 传入，用于在点击锁定层后打开 SubscriptionModal */
+  onOpenSubscription?: () => void;
 }) {
   const playerRootRef = useRef<HTMLElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -31,10 +35,12 @@ export function ImmersivePlayer({
   const { t, i18n } = useTranslation();
   const lang = i18n.language as AppLanguage;
 
-  const { isEpisodeUnlocked, episodeIndex, setEpisodeIndex, saveProgress, getProgress, resetProgress } =
+  const isSubscribed = usePlayerStore((s) => s.isSubscribed);
+  const { episodeIndex, setEpisodeIndex, saveProgress, getProgress, resetProgress } =
     usePlayerStore();
 
-  const unlocked = isEpisodeUnlocked(series, episode);
+  /** 与侧栏选集一致：订阅或免费/未达锁定集 → 可播；显式依赖 isSubscribed 避免订阅态更新未触发重渲染 */
+  const unlocked = isSubscribed || !isEpisodeLocked(series, episode);
   const initialSeek = useMemo(
     () => getProgress(series.id, episode.index),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -47,10 +53,7 @@ export function ImmersivePlayer({
     initialSeekAppliedKeyRef.current = "";
   }, [episode.id, sessionKey]);
 
-  useEffect(() => {
-    if (!unlocked) setSubscriptionModalOpen(true);
-    else setSubscriptionModalOpen(false);
-  }, [unlocked, episode.id, series.id]);
+  // 锁定态下由 LockedOverlay 承接用户点击，不自动弹出 SubscriptionModal
 
   useEffect(() => {
     const syncFullscreen = () => {
@@ -118,6 +121,14 @@ export function ImmersivePlayer({
     lang === "zh-CN"
       ? t("series.episodeLabelZh", { index: episode.index })
       : t("series.episodeLabel", { index: episode.index });
+
+  const lockPreviewPosterUrl = useMemo(() => {
+    for (const raw of [episode.thumbnail, series.poster, series.cover]) {
+      const resolved = resolvePublicImageUrl((raw ?? "").trim());
+      if (resolved) return resolved;
+    }
+    return "";
+  }, [episode.thumbnail, series.poster, series.cover]);
   const [runtimePlaybackUrl, setRuntimePlaybackUrl] = useState<string>(() =>
     getEpisodePlaybackUrl(episode)
   );
@@ -125,7 +136,6 @@ export function ImmersivePlayer({
   const [runtimeVideoStatus, setRuntimeVideoStatus] = useState<
     "processing" | "ready" | "failed"
   >(episode.videoStatus ?? "ready");
-  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
   const playbackCandidates = useMemo(
     () => buildEpisodePlaybackCandidates(episode),
     [episode]
@@ -223,40 +233,27 @@ export function ImmersivePlayer({
       return;
     }
 
-    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+    if (supportsNativeHls(video)) {
       video.src = playbackUrl;
       return;
     }
 
     let disposed = false;
-    let hlsInstance: {
-      loadSource: (src: string) => void;
-      attachMedia: (el: HTMLMediaElement) => void;
-      destroy: () => void;
-    } | null = null;
-
-    import("hls.js")
-      .then((m) => {
-        if (disposed) return;
-        const HlsCtor = m.default;
-        if (!HlsCtor?.isSupported?.()) {
-          video.src = playbackUrl;
+    attachHls(video, playbackUrl)
+      .then((result) => {
+        if (disposed) {
+          result?.hls.destroy();
           return;
         }
-        hlsInstance = new HlsCtor({
-          enableWorker: true,
-          lowLatencyMode: false
-        });
-        hlsInstance.loadSource(playbackUrl);
-        hlsInstance.attachMedia(video);
+        // Fallback: if HLS not supported (result === null), the video src was already set
       })
       .catch(() => {
+        if (disposed) return;
         video.src = playbackUrl;
       });
 
     return () => {
       disposed = true;
-      if (hlsInstance) hlsInstance.destroy();
     };
   }, [hls, playbackUrl, unlocked, episode.id]);
 
@@ -274,10 +271,14 @@ export function ImmersivePlayer({
       ref={playerRootRef}
       className="immersive-player-root relative h-full w-full min-h-0"
     >
-      <div className="relative h-full w-full min-h-0 overflow-hidden rounded-none border-0 bg-[#000000] shadow-none ring-0">
+      <div className="relative isolate h-full w-full min-h-0 overflow-hidden rounded-none border-0 bg-[#000000] shadow-none ring-0">
         <video
           ref={videoRef}
-          className="immersive-video-el h-full w-full object-cover"
+          className={
+            unlocked
+              ? "immersive-video-el relative z-0 h-full w-full object-cover"
+              : "immersive-video-el pointer-events-none relative z-0 h-full w-full object-cover opacity-0"
+          }
           src={unlocked && !hls ? playbackUrl : undefined}
           controls={unlocked}
           playsInline
@@ -290,32 +291,20 @@ export function ImmersivePlayer({
           onCanPlay={handleReady}
           onError={handleLoadError}
           onEnded={handleEnded}
-          style={
-            !unlocked && !subscriptionModalOpen
-              ? { pointerEvents: "none" as const }
-              : undefined
-          }
+          aria-hidden={!unlocked}
         />
-        {!unlocked && (
-          <SubscriptionModal
-            open={subscriptionModalOpen}
-            onClose={() => setSubscriptionModalOpen(false)}
+        {!unlocked ? (
+          <LockedOverlay
+            posterUrl={lockPreviewPosterUrl}
+            previewPlayableUrl={playbackUrl}
+            onUnlock={onOpenSubscription ?? (() => {})}
           />
-        )}
+        ) : null}
 
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-20 bg-gradient-to-b from-black/80 via-black/30 to-transparent" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-20 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
 
-        <button
-          type="button"
-          onClick={() => setSubscriptionModalOpen(true)}
-          className={cn(
-            "absolute inset-0 z-[15]",
-            !unlocked ? "cursor-pointer" : "pointer-events-none hidden"
-          )}
-          aria-label="Unlock episodes"
-        />
-        <div className="pointer-events-none absolute right-3 top-3 z-20 rounded-full bg-black/65 px-3 py-1 text-[11px] font-medium text-zinc-200 ring-1 ring-zinc-800/80">
+        <div className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-full bg-black/65 px-3 py-1 text-[11px] font-medium text-zinc-200 ring-1 ring-zinc-800/80">
           {episodeLabel}
         </div>
 
