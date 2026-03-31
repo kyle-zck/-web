@@ -17,12 +17,14 @@ export type PosterImageProps = {
   className?: string;
   /** LCP：首张海报可设 true */
   priority?: boolean;
+  /** 1–100，默认 LCP 略高、其余略压体积（Lighthouse「改进图片传送」） */
+  quality?: number;
 };
 
 /**
  * 剧目海报：next/image 压缩/WebP(Avif) + srcset，保留封面链 fallback（与原先 onError 行为一致）
  */
-export function PosterImage({ chain, alt, sizes, className, priority }: PosterImageProps) {
+export function PosterImage({ chain, alt, sizes, className, priority, quality }: PosterImageProps) {
   const [index, setIndex] = useState(0);
   const list = chain.length > 0 ? chain : [""];
   const src = list[Math.min(index, list.length - 1)];
@@ -35,6 +37,8 @@ export function PosterImage({ chain, alt, sizes, className, priority }: PosterIm
 
   const imageSrc = resolvePosterSrcForOptimizer(src);
 
+  const q = quality ?? (priority ? 78 : 72);
+
   return (
     <Image
       key={`${src}::${index}`}
@@ -42,6 +46,7 @@ export function PosterImage({ chain, alt, sizes, className, priority }: PosterIm
       alt={alt}
       fill
       sizes={sizes}
+      quality={q}
       className={cn(className)}
       priority={priority}
       decoding={priority ? "sync" : "async"}

@@ -122,9 +122,10 @@ export function HeroCarousel({ items, countsBySeriesId }: HeroCarouselProps) {
                   <PosterImage
                     chain={artworkChain}
                     alt={title}
-                    sizes="(max-width:640px) 240px, (max-width:1024px) 280px, 340px"
+                    sizes="(max-width:640px) 232px, (max-width:1024px) 276px, 332px"
                     className="poster-card-drama__img"
                     priority={index === 0}
+                    quality={index === 0 ? 78 : 72}
                   />
                   <div
                     className="poster-card-drama__overlay poster-card-drama__overlay--hero absolute inset-0 z-[1]"

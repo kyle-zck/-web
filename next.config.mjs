@@ -105,8 +105,8 @@ const nextConfig = {
     minimumCacheTTL: 86400,
     /** 移动优先：略收窄 deviceSizes，减少同屏多海报时生成过大 srcset */
     deviceSizes: [360, 414, 640, 750, 828, 1080, 1200, 1920],
-    /** 与海报 sizes（约 160–280px）对齐，避免生成偏大 w（Lighthouse「改进图片传送」） */
-    imageSizes: [16, 32, 48, 64, 96, 120, 128, 192, 224, 256, 384]
+    /** 与海报 sizes 对齐；补 432–512 避免 384 与 640 之间只能选 640（Lighthouse  oversized） */
+    imageSizes: [16, 32, 48, 64, 96, 120, 128, 192, 224, 256, 304, 384, 432, 480, 512]
   }
 };
 
