@@ -173,8 +173,15 @@ export default function AdminDramaUploadPage() {
     e.target.value = "";
   };
 
+  const isVideoLikeFile = (f: File) => {
+    const mime = f.type;
+    if (mime && mime.startsWith("video/")) return true;
+    const ext = f.name.toLowerCase().split(".").pop() ?? "";
+    return ["mp4", "webm", "mov", "m4v", "mkv", "avi", "mpeg", "mpg"].includes(ext);
+  };
+
   const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
+    const files = Array.from(e.target.files ?? []).filter(isVideoLikeFile);
     const parsed = files
       .map((f) => {
         const m = f.name.match(/(\d+)/);
@@ -769,25 +776,34 @@ export default function AdminDramaUploadPage() {
             {t("admin.fieldVideoFiles")} <span className="text-red-400">*</span>
           </label>
           <p className="mt-1 text-xs text-zinc-500">{t("admin.videoBatchHint")}</p>
-          <div className="mt-2">
+          <div className="mt-2 flex flex-wrap gap-2">
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/60 px-4 py-3 text-sm font-medium text-zinc-200 hover:bg-zinc-700/60">
               <input
                 type="file"
-                name="videos"
+                name="videos-files"
                 accept="video/*"
                 multiple
                 onChange={handleVideoUpload}
                 className="hidden"
+              />
+              {t("admin.videoUploadSelectFiles")}
+            </label>
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/60 px-4 py-3 text-sm font-medium text-zinc-200 hover:bg-zinc-700/60">
+              <input
+                type="file"
+                name="videos-folder"
+                onChange={handleVideoUpload}
+                className="hidden"
                 {...({ webkitdirectory: "", mozdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
               />
-              {t("admin.clickUpload")}
+              {t("admin.videoUploadSelectFolder")}
             </label>
-            {form.videoFiles.length > 0 && (
-              <p className="mt-2 text-xs text-emerald-400">
-                {t("admin.selectedEpisodes", { count: form.videoFiles.length })}
-              </p>
-            )}
           </div>
+          {form.videoFiles.length > 0 ? (
+            <p className="mt-2 text-xs text-emerald-400">
+              {t("admin.selectedEpisodes", { count: form.videoFiles.length })}
+            </p>
+          ) : null}
         </div>
 
         <div>
