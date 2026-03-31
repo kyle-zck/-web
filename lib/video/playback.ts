@@ -30,13 +30,22 @@ export function buildEpisodePlaybackCandidates(episode: Episode): string[] {
   return Array.from(new Set(urls));
 }
 
-export function getEpisodePlaybackUrl(episode: Episode): string {
-  const list = buildEpisodePlaybackCandidates(episode);
-  return list[0] ?? "";
+/**
+ * 手动转码优先策略：
+ *  - videoPlaybackUrl（手动转的）排第一，无论它是 HLS 还是 MP4
+ *  - videoUrl（原始 MP4）作为兜底
+ * 不再做类型排序，保证"手动优先"的精确控制。
+ */
+export function buildMp4FirstCandidates(episode: Episode): string[] {
+  return buildEpisodePlaybackCandidates(episode);
 }
 
 export function isHlsUrl(url: string): boolean {
   return /\.m3u8(\?.*)?$/i.test(url);
+}
+
+export function isMp4Url(url: string): boolean {
+  return /\.mp4(\?.*)?$/i.test(url);
 }
 
 /**
@@ -55,4 +64,9 @@ export function playbackUrlIndicatesHls(playableUrl: string): boolean {
   } catch {
     return false;
   }
+}
+
+export function getEpisodePlaybackUrl(episode: Episode): string {
+  const list = buildEpisodePlaybackCandidates(episode);
+  return list[0] ?? "";
 }

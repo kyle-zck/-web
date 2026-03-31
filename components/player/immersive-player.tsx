@@ -7,7 +7,7 @@ import { LockedOverlay } from "@/components/player/locked-overlay";
 import { useTranslation } from "react-i18next";
 import type { AppLanguage } from "@/lib/i18n/languages";
 import {
-  buildEpisodePlaybackCandidates,
+  buildMp4FirstCandidates,
   getEpisodePlaybackUrl,
   playbackUrlIndicatesHls,
   resolveNormalizedPlayableUrl
@@ -129,6 +129,7 @@ export function ImmersivePlayer({
     }
     return "";
   }, [episode.thumbnail, series.poster, series.cover]);
+  const playbackPosterUrl = lockPreviewPosterUrl;
   const [runtimePlaybackUrl, setRuntimePlaybackUrl] = useState<string>(() =>
     getEpisodePlaybackUrl(episode)
   );
@@ -137,7 +138,7 @@ export function ImmersivePlayer({
     "processing" | "ready" | "failed"
   >(episode.videoStatus ?? "ready");
   const playbackCandidates = useMemo(
-    () => buildEpisodePlaybackCandidates(episode),
+    () => buildMp4FirstCandidates(episode),
     [episode]
   );
   const playbackUrl = runtimePlaybackUrl;
@@ -239,12 +240,14 @@ export function ImmersivePlayer({
     }
 
     let disposed = false;
+    let hlsInstance: { destroy: () => void } | null = null;
     attachHls(video, playbackUrl)
       .then((result) => {
         if (disposed) {
           result?.hls.destroy();
           return;
         }
+        hlsInstance = result?.hls ?? null;
         // Fallback: if HLS not supported (result === null), the video src was already set
       })
       .catch(() => {
@@ -254,8 +257,30 @@ export function ImmersivePlayer({
 
     return () => {
       disposed = true;
+      if (hlsInstance) hlsInstance.destroy();
     };
   }, [hls, playbackUrl, unlocked, episode.id]);
+
+  // 预连接媒体域名，减少首次 DNS/TLS 建连耗时（仅跨域 URL 生效）
+  useEffect(() => {
+    if (!unlocked) return;
+    const u = playbackUrl.trim();
+    if (!u) return;
+    try {
+      const url = new URL(u, window.location.origin);
+      if (url.origin === window.location.origin) return;
+      const id = `preconnect-${url.origin}`;
+      if (document.getElementById(id)) return;
+      const link = document.createElement("link");
+      link.id = id;
+      link.rel = "preconnect";
+      link.href = url.origin;
+      link.crossOrigin = "";
+      document.head.appendChild(link);
+    } catch {
+      // ignore invalid/relative urls
+    }
+  }, [playbackUrl, unlocked]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -288,11 +313,20 @@ export function ImmersivePlayer({
           disableRemotePlayback
           autoPlay={unlocked}
           preload={unlocked ? "auto" : "metadata"}
+          poster={playbackPosterUrl || undefined}
           onCanPlay={handleReady}
           onError={handleLoadError}
           onEnded={handleEnded}
           aria-hidden={!unlocked}
         />
+        {unlocked && playbackPosterUrl && !ready && !loadFailed ? (
+          <img
+            src={playbackPosterUrl}
+            alt=""
+            className="pointer-events-none absolute inset-0 z-[1] h-full w-full object-cover"
+            aria-hidden
+          />
+        ) : null}
         {!unlocked ? (
           <LockedOverlay
             posterUrl={lockPreviewPosterUrl}
