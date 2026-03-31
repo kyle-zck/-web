@@ -63,28 +63,48 @@ function LockPreviewMedia({
     let disposed = false;
     let hlsInstance: { destroy: () => void } | null = null;
 
-    if (!isHls) {
-      video.src = playUrl;
-    } else if (supportsNativeHls(video)) {
-      video.src = playUrl;
-    } else {
-      attachHls(video, playUrl)
-        .then((result) => {
-          if (disposed) {
-            result?.hls.destroy();
-            return;
-          }
-          if (!result) video.src = playUrl;
-          else hlsInstance = result.hls;
-        })
-        .catch(() => {
-          if (disposed) return;
-          setVideoFailed(true);
-        });
-    }
+    /**
+     * preload="none" + 海报优先渲染，视频在 poster 就绪后才启动加载，
+     * 避免锁屏时与海报争夺同一连接池的带宽。
+     */
+    const startVideo = () => {
+      if (disposed) return;
+      if (!isHls) {
+        video.src = playUrl;
+      } else if (supportsNativeHls(video)) {
+        video.src = playUrl;
+      } else {
+        attachHls(video, playUrl)
+          .then((result) => {
+            if (disposed) {
+              result?.hls.destroy();
+              return;
+            }
+            if (!result) video.src = playUrl;
+            else hlsInstance = result.hls;
+          })
+          .catch(() => {
+            if (disposed) return;
+            setVideoFailed(true);
+          });
+      }
+    };
+
+    // 等海报先渲染完成（img onload），再启动视频加载
+    const img = new Image();
+    img.onload = startVideo;
+    img.src = poster;
+    // 如果海报本身就是视频 poster 属性（同源），img onload 会在 poster 渲染后触发
+    // 超时 2s 仍启动视频（海报加载失败时不让视频也卡住）
+    const timeout = setTimeout(startVideo, 2000);
+    img.onerror = () => {
+      clearTimeout(timeout);
+      startVideo();
+    };
 
     return () => {
       disposed = true;
+      clearTimeout(timeout);
       video.removeEventListener("loadeddata", bumpToFirstFrame);
       video.removeEventListener("canplay", markReady);
       video.removeEventListener("seeked", markReady);
@@ -130,8 +150,7 @@ function LockPreviewMedia({
           }`}
           muted
           playsInline
-          preload="auto"
-          poster={hasPoster ? poster : undefined}
+          preload="none"
           aria-hidden
         />
       ) : null}

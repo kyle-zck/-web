@@ -5,11 +5,18 @@ function baseUrl(): string {
 }
 
 /**
- * R2 公网 `.r2.dev` 直链在部分网络/客户端不稳定，视频与封面统一走本站代理（与播放链路一致）。
+ * 代理策略：
+ * - 有 S3_PUBLIC_BASE_URL → 拼接后直连 CDN，极快
+ * - 无 baseUrl 时仅对 .r2.dev 走代理（兜底，不影响有配置的场景）
+ * - 绝对 URL 直接返回
  */
 export function proxifyR2DevMediaUrl(raw: string): string {
   const src = raw.trim();
   if (!src) return src;
+  // 有 baseUrl 配置时，封面/视频优先直连 CDN，不走代理
+  const base = baseUrl();
+  if (base) return src;
+  // 无 baseUrl 时，对 .r2.dev 兜底走代理
   if (/^https?:\/\/[^/]+\.r2\.dev\/.+/i.test(src)) {
     return `/api/video/proxy?src=${encodeURIComponent(src)}`;
   }
