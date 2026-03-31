@@ -18,6 +18,7 @@ import { Modal } from "@/components/ui/modal";
 import { SubscriptionModal } from "@/components/player/subscription-modal";
 import { formatEngagementCount } from "@/lib/format-count";
 import { getOrCreateDeviceClientId } from "@/lib/client/device-client-id";
+import { prefetchAppConfig } from "@/lib/client/app-config-cache";
 import type { EngagementCounts } from "@/lib/user-repo";
 
 const EPISODES_PER_TAB = 50;
@@ -143,6 +144,11 @@ export function ImmersiveSeriesDetail({
   useEffect(() => {
     setSeries(series.id);
   }, [series.id, setSeries]);
+
+  /** 空闲预取充值配置，打开 VIP 弹窗时可立即命中内存缓存 */
+  useEffect(() => {
+    prefetchAppConfig();
+  }, []);
 
   /** 获取互动计数（收藏、点赞、观看数）- 延迟执行避免抢占视频带宽 */
   useEffect(() => {

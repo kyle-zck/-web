@@ -11,9 +11,13 @@ import { AuthModal } from "@/components/ui/auth-modal";
 import { useTranslation } from "react-i18next";
 import {
   checkoutResultToUserMessage,
-  fetchJsonWithTimeout,
   postStripeCheckoutSession
 } from "@/lib/client/api-fetch";
+import {
+  loadAppConfigClient,
+  peekAppConfigCache,
+  setAppConfigMemory
+} from "@/lib/client/app-config-cache";
 
 interface SubscriptionModalProps {
   open: boolean;
@@ -27,50 +31,67 @@ type StoreConfig = {
   tips?: string[];
 };
 
-type AppConfigResponse = {
-  subscriptionPlans?: SubscriptionPlan[];
-  store?: StoreConfig;
-};
-
 export function SubscriptionModal({ open, onClose, plans: plansProp }: SubscriptionModalProps) {
   const { t } = useTranslation();
   const { isLoggedIn, supabaseUserId } = useUserStore();
   const { isSubscribed } = usePlayerStore();
 
-  const [plans, setPlans] = useState<SubscriptionPlan[]>(plansProp ?? []);
-  const [storeCfg, setStoreCfg] = useState<StoreConfig>({});
+  // 展示用状态（初始即有缓存数据，秒开）
+  const [plans, setPlans] = useState<SubscriptionPlan[]>(() => {
+    if (plansProp?.length) return plansProp;
+    const cached = peekAppConfigCache();
+    return cached?.subscriptionPlans ?? [];
+  });
+  const [storeCfg, setStoreCfg] = useState<StoreConfig>(() => {
+    if (plansProp?.length) return {};
+    const cached = peekAppConfigCache();
+    return cached?.store ?? {};
+  });
+
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [agreeAutoRenew, setAgreeAutoRenew] = useState(true);
   const [paying, setPaying] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
+  /** 后台刷新是否仍在进行中（用于切换骨架占位） */
+  const [refreshing, setRefreshing] = useState(false);
 
+  // 弹窗打开时：若外部未传 plans，立即后台刷新最新配置
   useEffect(() => {
     if (!open) return;
-    if (plansProp?.length) {
-      setPlans(plansProp);
-    } else {
-      const ctrl = new AbortController();
-      fetchJsonWithTimeout<AppConfigResponse>("/api/app-config", 8000, ctrl.signal)
-        .then((json) => {
-          setPlans(json.subscriptionPlans ?? []);
-          setStoreCfg(json.store ?? {});
-        })
-        .catch(() => {
-          setPlans([]);
-          setStoreCfg({});
-        });
-      return () => ctrl.abort();
-    }
+    if (plansProp?.length) return;
+
+    // 立即用缓存数据展示（同步），后台再拉新数据
+    setRefreshing(true);
+    let cancelled = false;
+
+    loadAppConfigClient()
+      .then((json) => {
+        if (cancelled) return;
+        const freshPlans = json.subscriptionPlans ?? [];
+        const freshStore = json.store ?? {};
+        // 同步更新内存缓存，让下次打开更快
+        setAppConfigMemory(json);
+        setPlans(freshPlans);
+        setStoreCfg(freshStore);
+      })
+      .catch(() => {
+        /* ignore — 已有缓存兜底 */
+      })
+      .finally(() => {
+        if (!cancelled) setRefreshing(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [open, plansProp]);
 
+  // 外部传入 plans 变化时同步
   useEffect(() => {
-    if (!open || plansProp?.length) return;
-    const ctrl = new AbortController();
-    fetchJsonWithTimeout<{ store?: StoreConfig }>("/api/app-config", 8000, ctrl.signal)
-      .then((json) => setStoreCfg(json.store ?? {}))
-      .catch(() => setStoreCfg({}));
-    return () => ctrl.abort();
-  }, [open, plansProp]);
+    if (plansProp?.length) {
+      setPlans(plansProp);
+    }
+  }, [plansProp]);
 
   const handlePayNow = async () => {
     if (!selectedPlan) return;
@@ -121,6 +142,7 @@ export function SubscriptionModal({ open, onClose, plans: plansProp }: Subscript
             paying={paying}
             isSubscribed={isSubscribed}
             gridCols={2}
+            planGridLoading={refreshing && plans.length === 0}
           />
         </div>
       </Modal>

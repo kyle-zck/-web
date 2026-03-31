@@ -63,6 +63,8 @@ export interface SubscriptionPlanSectionProps {
   paying: boolean;
   isSubscribed?: boolean;
   gridCols?: 1 | 2 | 3;
+  /** 配置拉取中且无套餐数据时显示骨架，避免空白闪烁 */
+  planGridLoading?: boolean;
 }
 
 export function SubscriptionPlanSection({
@@ -75,7 +77,8 @@ export function SubscriptionPlanSection({
   onPayNow,
   paying,
   isSubscribed,
-  gridCols = 3
+  gridCols = 3,
+  planGridLoading = false
 }: SubscriptionPlanSectionProps) {
   const { t } = useTranslation();
 
@@ -102,7 +105,14 @@ export function SubscriptionPlanSection({
       )}
 
       <div className={cn("grid gap-4", gridColsClass)}>
-        {plans.map((plan) => (
+        {planGridLoading ? (
+          <>
+            <div className="h-48 animate-pulse rounded-2xl bg-zinc-800/80" aria-hidden />
+            <div className="h-48 animate-pulse rounded-2xl bg-zinc-800/80" aria-hidden />
+          </>
+        ) : null}
+        {!planGridLoading &&
+          plans.map((plan) => (
           <button
             key={plan.id}
             type="button"

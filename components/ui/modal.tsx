@@ -31,7 +31,7 @@ export function Modal({
       <div
         className={cn(
           "absolute left-1/2 top-1/2 w-[calc(100%-2rem)] max-w-4xl -translate-x-1/2 -translate-y-1/2 rounded-2xl",
-          "border border-zinc-800/80 bg-black p-4 shadow-xl shadow-black/70 backdrop-blur"
+          "border border-zinc-800/80 bg-black p-4 shadow-xl shadow-black/70"
         )}
       >
         {title ? (
