@@ -40,7 +40,11 @@ function newHomeRow(): HomeRowDraft {
   };
 }
 
-function ensureBuiltinRows(rows: HomeRowDraft[]): HomeRowDraft[] {
+function ensureBuiltinRows(
+  rows: HomeRowDraft[],
+  showContinue = true,
+  showNewRelease = true
+): HomeRowDraft[] {
   const hasContinue = rows.some((r) => r.kind === "continue");
   const hasNewRelease = rows.some((r) => r.kind === "newRelease");
   return [
@@ -53,7 +57,7 @@ function ensureBuiltinRows(rows: HomeRowDraft[]): HomeRowDraft[] {
             title: "Continue watching",
             seriesIds: [],
             kind: "continue" as const,
-            hidden: false
+            hidden: !showContinue
           }
         ]),
     ...(hasNewRelease
@@ -64,7 +68,7 @@ function ensureBuiltinRows(rows: HomeRowDraft[]): HomeRowDraft[] {
             title: "New release",
             seriesIds: [],
             kind: "newRelease" as const,
-            hidden: false
+            hidden: !showNewRelease
           }
         ])
   ];
@@ -104,12 +108,13 @@ export default function AdminSiteSettingsPage() {
         return;
       }
       const c = (json?.config ?? {}) as AppConfig;
+      const cfgHome = c.home ?? emptyConfig().home;
       setCfg({
         ...emptyConfig(),
         ...c,
         seo: { ...emptyConfig().seo, ...c.seo },
         nav: { ...emptyConfig().nav, ...c.nav },
-        home: { ...emptyConfig().home, ...c.home },
+        home: cfgHome,
         legal: { ...emptyConfig().legal, ...c.legal }
       });
 
@@ -120,7 +125,10 @@ export default function AdminSiteSettingsPage() {
         kind: r.kind ?? "custom",
         hidden: r.hidden === true
       }));
-      setHomeRows(ensureBuiltinRows(configuredRows));
+
+      const showContinue = c.home?.showContinueWatching !== false;
+      const showNewRelease = c.home?.showNewRelease !== false;
+      setHomeRows(ensureBuiltinRows(configuredRows, showContinue, showNewRelease));
       setHeroSeriesIds([...(c.home?.featuredSeriesIds ?? [])].slice(0, 5));
 
       if (seriesRes.res.ok && seriesRes.json?.ok && Array.isArray(seriesRes.json.series)) {
@@ -143,7 +151,24 @@ export default function AdminSiteSettingsPage() {
   const seriesById = useMemo(() => new Map(seriesList.map((s) => [s.id, s])), [seriesList]);
 
   const updateHomeRow = (id: string, patchRow: Partial<HomeRowDraft>) => {
-    setHomeRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patchRow } : r)));
+    setHomeRows((prev) => {
+      const updated = prev.map((r) => (r.id === id ? { ...r, ...patchRow } : r));
+      const row = updated.find((r) => r.id === id);
+      if (!row) return updated;
+      if (row.kind === "continue") {
+        setCfg((c) => ({
+          ...c,
+          home: { ...c.home, showContinueWatching: row.hidden !== true }
+        }));
+      }
+      if (row.kind === "newRelease") {
+        setCfg((c) => ({
+          ...c,
+          home: { ...c.home, showNewRelease: row.hidden !== true }
+        }));
+      }
+      return updated;
+    });
   };
 
   const removeHomeRow = (id: string) => {
@@ -246,7 +271,10 @@ export default function AdminSiteSettingsPage() {
         kind: r.kind ?? "custom",
         hidden: r.hidden === true
       }))
-      .filter((r) => r.title.length > 0);
+      .filter((r) => {
+        if (r.kind === "continue" || r.kind === "newRelease") return true;
+        return r.title.length > 0;
+      });
 
     try {
       setSaving(true);

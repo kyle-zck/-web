@@ -213,13 +213,6 @@ export default function AdminDramaUploadPage() {
       }
 
       const sortedVideos = [...form.videoFiles].sort((a, b) => a.index - b.index);
-      const uploaded: Array<{
-        videoUrl: string;
-        videoStreamId?: string;
-        videoPlaybackUrl?: string;
-        videoStatus?: "processing" | "ready" | "failed";
-        fileName: string;
-      }> = [];
       const total = sortedVideos.length;
 
       const updateUploadFileProgress = (
@@ -230,6 +223,15 @@ export default function AdminDramaUploadPage() {
           prev.map((it) => (it.key === key ? { ...it, ...patch } : it))
         );
       };
+
+      setUploadFilesProgress(
+        sortedVideos.map((v, idx) => ({
+          key: `${idx}-${v.file.name}-${v.file.size}`,
+          fileName: v.file.name,
+          stage: "queued",
+          percent: 0
+        }))
+      );
 
       const putByXhr = (
         url: string,
@@ -256,160 +258,265 @@ export default function AdminDramaUploadPage() {
           xhr.send(file);
         });
 
-      const uploadSingle = async (file: File, progressKey: string) => {
-        const maxRetries = 2;
-        for (let attempt = 1; attempt <= maxRetries + 1; attempt += 1) {
-          try {
-            updateUploadFileProgress(progressKey, { stage: "presign", percent: 0 });
-            const { res: presignRes, json: presignJson } = await fetchAdminJson<{
-              ok?: boolean;
-              uploadUrl?: string;
-              key?: string;
-              publicUrl?: string;
-              errorKey?: string;
-            }>(
-              "/admin/api/upload/video/presign",
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  fileName: file.name,
-                  contentType: file.type || "video/mp4"
-                })
-              },
-              10000
-            );
-            if (!presignRes.ok || !presignJson?.ok || !presignJson.uploadUrl || !presignJson.key) {
-              throw new Error("presign unavailable");
-            }
+      // Phase 1: batch presign — single API round-trip for all files
+      const { res: presignRes, json: presignJson } = await fetchAdminJson<{
+        ok?: boolean;
+        items?: Array<{ key: string; uploadUrl: string; publicUrl: string }>;
+        errorKey?: string;
+      }>(
+        "/admin/api/upload/video/presign-batch",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            files: sortedVideos.map((v) => ({
+              fileName: v.file.name,
+              contentType: v.file.type || "video/mp4"
+            }))
+          })
+        },
+        30000
+      );
 
-            updateUploadFileProgress(progressKey, { stage: "uploading", percent: 1 });
-            await putByXhr(
-              presignJson.uploadUrl,
-              file,
-              (percent) => updateUploadFileProgress(progressKey, { stage: "uploading", percent }),
-              300_000
-            );
+      // Fallback: per-file presign (for old servers without batch endpoint)
+      if (!presignRes.ok || !presignJson?.ok || !Array.isArray(presignJson.items)) {
+        const perFilePresign = await Promise.all(
+          sortedVideos.map(async (v) => {
+            const key = `videos/${Date.now()}-${Math.random().toString(36).slice(2)}-${v.file.name.replace(/[^a-zA-Z0-9._-]+/g, "-").slice(0, 120)}`;
+            return { key };
+          })
+        );
 
-            updateUploadFileProgress(progressKey, { stage: "completing", percent: 100 });
-            const complete = await fetchAdminJson<{
-              ok?: boolean;
-              videoUrl?: string;
-              videoStreamId?: string;
-              videoPlaybackUrl?: string;
-              videoStatus?: "processing" | "ready" | "failed";
-              errorKey?: string;
-            }>("/admin/api/upload/video", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                uploadedKey: presignJson.key,
-                uploadedUrl: presignJson.publicUrl,
-                targetMode: form.uploadVideoMode
-              })
-            });
-            if (!complete.res.ok || !complete.json?.ok || !complete.json.videoUrl) {
-              throw new Error("complete failed");
-            }
-            updateUploadFileProgress(progressKey, { stage: "done", percent: 100 });
-            return complete.json;
-          } catch {
-            if (attempt > maxRetries) break;
-            await new Promise((r) => globalThis.setTimeout(r, 800 * attempt));
-          }
-        }
-
-        // 生产环境不回退到应用层中转（无服务器环境容易慢/超时）
-        if (!isLocalDevHost) {
-          updateUploadFileProgress(progressKey, { stage: "failed" });
-          throw new Error("direct upload failed");
-        }
-
-        const fd = new FormData();
-        fd.append("file", file);
-        fd.append("targetMode", form.uploadVideoMode);
-        const controller = new AbortController();
-        const timer = globalThis.setTimeout(() => controller.abort(), 45_000);
-        const fallback = await fetchAdminJson<{
-          ok?: boolean;
-          videoUrl?: string;
+        // Parallel upload with per-file presign inside each worker
+        const byOrder: Array<{
+          videoUrl: string;
           videoStreamId?: string;
           videoPlaybackUrl?: string;
           videoStatus?: "processing" | "ready" | "failed";
-          errorKey?: string;
-        }>("/admin/api/upload/video", {
-          method: "POST",
-          body: fd,
-          signal: controller.signal
-        }).finally(() => globalThis.clearTimeout(timer));
-        if (!fallback.res.ok || !fallback.json?.ok || !fallback.json.videoUrl) {
-          updateUploadFileProgress(progressKey, { stage: "failed" });
-          throw new Error("fallback failed");
-        }
-        updateUploadFileProgress(progressKey, { stage: "done", percent: 100 });
-        return fallback.json;
-      };
+          fileName: string;
+        } | undefined> = new Array(total);
 
-      const byOrder: Array<
-        | {
-            videoUrl: string;
-            videoStreamId?: string;
-            videoPlaybackUrl?: string;
-            videoStatus?: "processing" | "ready" | "failed";
-            fileName: string;
-          }
-        | undefined
-      > = new Array(total);
-      setUploadFilesProgress(
-        sortedVideos.map((v, idx) => ({
-          key: `${idx}-${v.file.name}-${v.file.size}`,
-          fileName: v.file.name,
-          stage: "queued",
-          percent: 0
-        }))
-      );
+        let cursor = 0;
+        let doneCount = 0;
+        const workerCount = suggestWorkerCount(total);
+        await Promise.all(
+          Array.from({ length: workerCount }).map(async () => {
+            while (cursor < total) {
+              const current = cursor;
+              cursor += 1;
+              const v = sortedVideos[current];
+              const progressKey = `${current}-${v.file.name}-${v.file.size}`;
+              setUploadProgress({ current: Math.min(doneCount + 1, total), total, fileName: v.file.name });
+
+              const maxRetries = 2;
+              for (let attempt = 1; attempt <= maxRetries + 1; attempt += 1) {
+                try {
+                  updateUploadFileProgress(progressKey, { stage: "presign", percent: 0 });
+                  const { res: pRes, json: pJson } = await fetchAdminJson<{
+                    ok?: boolean; uploadUrl?: string; key?: string; publicUrl?: string;
+                  }>(
+                    "/admin/api/upload/video/presign",
+                    { method: "POST", headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ fileName: v.file.name, contentType: v.file.type || "video/mp4" }) },
+                    10000
+                  );
+                  if (!pRes.ok || !pJson?.ok || !pJson.uploadUrl) throw new Error("presign unavailable");
+
+                  updateUploadFileProgress(progressKey, { stage: "uploading", percent: 1 });
+                  await putByXhr(pJson.uploadUrl, v.file,
+                    (p) => updateUploadFileProgress(progressKey, { stage: "uploading", percent: p }), 300_000);
+
+                  updateUploadFileProgress(progressKey, { stage: "completing", percent: 100 });
+                  const { res: cRes, json: cJson } = await fetchAdminJson<{
+                    ok?: boolean; videoUrl?: string; videoStreamId?: string;
+                    videoPlaybackUrl?: string; videoStatus?: "processing" | "ready" | "failed";
+                  }>("/admin/api/upload/video", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ uploadedKey: pJson.key, uploadedUrl: pJson.publicUrl, targetMode: form.uploadVideoMode })
+                  });
+                  if (!cRes.ok || !cJson?.ok || !cJson.videoUrl) throw new Error("complete failed");
+                  updateUploadFileProgress(progressKey, { stage: "done", percent: 100 });
+                  byOrder[current] = {
+                    videoUrl: cJson.videoUrl!, videoStreamId: cJson.videoStreamId,
+                    videoPlaybackUrl: cJson.videoPlaybackUrl, videoStatus: cJson.videoStatus, fileName: v.file.name
+                  };
+                  doneCount += 1;
+                  break;
+                } catch {
+                  if (attempt > maxRetries) {
+                    updateUploadFileProgress(progressKey, { stage: "failed" });
+                    doneCount += 1;
+                  } else {
+                    await new Promise((r) => globalThis.setTimeout(r, 800 * attempt));
+                  }
+                }
+              }
+            }
+          })
+        );
+
+        const uploaded = byOrder.filter((x): x is NonNullable<typeof x> => Boolean(x && x.videoUrl));
+        setUploadProgress(null);
+
+        const episodeUrls = uploaded.map((x) => x.videoUrl);
+        const episodeVideoMeta = uploaded.map((x) => ({
+          fileName: x.fileName,
+          localVideoUrl: `file:///${x.fileName.replace(/\\/g, "/")}`,
+          videoStreamId: x.videoStreamId,
+          videoPlaybackUrl: x.videoPlaybackUrl,
+          videoStatus: x.videoStatus
+        }));
+
+        const { res: seriesRes, json: seriesJson } = await fetchAdminJson<{
+          ok?: boolean; errorKey?: string; error?: string; traceId?: string;
+        }>("/admin/api/series", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: form.title.trim(), originalName: form.originalName.trim(),
+            localOrTranslated: form.localOrTranslated || undefined,
+            description: form.description.trim(), tags: finalTags,
+            coverDataUrl: coverUrl, episodeVideoUrls: episodeUrls,
+            episodeVideoMeta, lockStartIndex: form.lockStartIndex, listed: form.listed
+          })
+        });
+        if (seriesRes.ok && seriesJson?.ok) {
+          showToast(t("admin.uploadSuccessShort"), "success");
+          setUploadFilesProgress([]);
+          setForm((f) => ({ ...f, title: "", originalName: "", localOrTranslated: "", totalEpisodes: 0, description: "", tagIds: [], lockStartIndex: 1, coverUrl: "", videoFiles: [], uploadVideoMode: "mp4", listed: true }));
+        } else {
+          const base = translateAdminApiError(seriesJson, t, "admin.submitFailed");
+          showToast(seriesJson?.traceId ? `${base} (trace: ${seriesJson.traceId})` : base);
+        }
+        return;
+      }
+
+      // Phase 1b: mark all files as ready (presign done)
+      sortedVideos.forEach((v, idx) => {
+        updateUploadFileProgress(`${idx}-${v.file.name}-${v.file.size}`, { stage: "uploading", percent: 0 });
+      });
+
+      // Phase 2: parallel XHR upload (workers share the presigned URLs — no per-file API calls)
+      const presignedMap = new Map(presignJson.items.map((item, i) => [`${i}-${sortedVideos[i].file.name}-${sortedVideos[i].file.size}`, item]));
+      const byOrder: Array<{
+        key: string; publicUrl: string;
+      } | undefined> = new Array(total);
+
       let cursor = 0;
       let doneCount = 0;
-      // 生产环境按网络质量自适应并发，避免弱网上行被高并发反向拖慢。
       const workerCount = suggestWorkerCount(total);
-      const workers = Array.from({ length: workerCount }).map(async () => {
-        while (cursor < total) {
-          const current = cursor;
-          cursor += 1;
-          const v = sortedVideos[current];
-          setUploadProgress({
-            current: Math.min(doneCount + 1, total),
-            total,
-            fileName: v.file.name
-          });
-          const progressKey = `${current}-${v.file.name}-${v.file.size}`;
-          const json = await uploadSingle(v.file, progressKey);
-          byOrder[current] = {
-            videoUrl: json.videoUrl!,
-            videoStreamId: json.videoStreamId,
-            videoPlaybackUrl: json.videoPlaybackUrl,
-            videoStatus: json.videoStatus,
-            fileName: v.file.name
-          };
-          doneCount += 1;
-        }
-      });
-      try {
-        await Promise.all(workers);
-      } catch {
-        setUploadFilesProgress((prev) =>
-          prev.map((it) => (it.stage === "done" ? it : { ...it, stage: "failed" }))
-        );
+      await Promise.all(
+        Array.from({ length: workerCount }).map(async () => {
+          while (cursor < total) {
+            const current = cursor;
+            cursor += 1;
+            const v = sortedVideos[current];
+            const progressKey = `${current}-${v.file.name}-${v.file.size}`;
+            setUploadProgress({ current: Math.min(doneCount + 1, total), total, fileName: v.file.name });
+            const presigned = presignedMap.get(progressKey);
+            if (!presigned) {
+              updateUploadFileProgress(progressKey, { stage: "failed" });
+              doneCount += 1;
+              continue;
+            }
+            try {
+              await putByXhr(
+                presigned.uploadUrl,
+                v.file,
+                (p) => updateUploadFileProgress(progressKey, { stage: "uploading", percent: p }),
+                300_000
+              );
+              updateUploadFileProgress(progressKey, { stage: "completing", percent: 100 });
+              byOrder[current] = { key: presigned.key, publicUrl: presigned.publicUrl };
+              doneCount += 1;
+            } catch {
+              updateUploadFileProgress(progressKey, { stage: "failed" });
+              doneCount += 1;
+            }
+          }
+        })
+      );
+
+      const succeeded = byOrder.filter((x): x is NonNullable<typeof x> => Boolean(x));
+      if (succeeded.length === 0) {
         showToast(t("admin.uploadDirectFailedUseHttps"));
         setSubmitting(false);
         return;
       }
-      uploaded.push(
-        ...byOrder.filter(
-          (x): x is NonNullable<typeof x> => Boolean(x && x.videoUrl)
-        )
-      );
+
+      // Phase 3: batch complete — MP4 无需此步，HLS 才调用
+      let uploaded: Array<{
+        videoUrl: string; videoStreamId?: string;
+        videoPlaybackUrl?: string; videoStatus?: "processing" | "ready" | "failed"; fileName: string;
+      }> = [];
+
+      if (form.uploadVideoMode === "hls") {
+        setUploadFilesProgress((prev) =>
+          prev.map((it) => (it.stage !== "failed" ? { ...it, stage: "completing" as const, percent: 100 } : it))
+        );
+        const { res: completeRes, json: completeJson } = await fetchAdminJson<{
+          ok?: boolean;
+          items?: Array<{ videoUrl: string; videoStreamId?: string;
+            videoPlaybackUrl?: string; videoStatus?: "processing" | "ready" | "failed"; }>;
+          errorKey?: string;
+        }>(
+          "/admin/api/upload/video/complete-batch",
+          {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              videos: byOrder
+                .filter((x): x is NonNullable<typeof x> => Boolean(x))
+                .map((x) => ({ uploadedKey: x.key, uploadedUrl: x.publicUrl, targetMode: form.uploadVideoMode }))
+            })
+          },
+          30000
+        );
+        if (!completeRes.ok || !completeJson?.ok || !Array.isArray(completeJson.items)) {
+          setUploadFilesProgress((prev) =>
+            prev.map((it) => (it.stage === "completing" ? { ...it, stage: "failed" } : it))
+          );
+          showToast(t("admin.submitFailed"));
+          setSubmitting(false);
+          return;
+        }
+        const completeItemsMap = new Map(completeJson.items.map((c) => [c.videoUrl, c]));
+        uploaded = sortedVideos
+          .map((v, idx) => {
+            const done = byOrder[idx];
+            if (!done) return null;
+            const meta = completeItemsMap.get(done.publicUrl) ??
+              [...completeItemsMap.values()].find((c) => c.videoUrl.includes(done.key)) ??
+              { videoUrl: done.publicUrl };
+            return {
+              videoUrl: meta.videoUrl,
+              videoStreamId: meta.videoStreamId,
+              videoPlaybackUrl: meta.videoPlaybackUrl,
+              videoStatus: meta.videoStatus,
+              fileName: v.file.name
+            };
+          })
+          .filter((x): x is NonNullable<typeof x> => Boolean(x && x.videoUrl));
+      } else {
+        // MP4: PUT 成功即完成，publicUrl 就是最终 videoUrl
+        uploaded = sortedVideos
+          .map((v, idx) => {
+            const done = byOrder[idx];
+            if (!done) return null;
+            return {
+              videoUrl: done.publicUrl,
+              videoStreamId: undefined,
+              videoPlaybackUrl: done.publicUrl,
+              videoStatus: "ready" as const,
+              fileName: v.file.name
+            };
+          })
+          .filter((x): x is NonNullable<typeof x> => Boolean(x && x.videoUrl));
+      }
+
+      uploaded.forEach((_, idx) => {
+        updateUploadFileProgress(`${idx}-${sortedVideos[idx].file.name}-${sortedVideos[idx].file.size}`, { stage: "done", percent: 100 });
+      });
       setUploadProgress(null);
+
       const episodeUrls = uploaded.map((x) => x.videoUrl);
       const episodeVideoMeta = uploaded.map((x) => ({
         fileName: x.fileName,
@@ -419,46 +526,25 @@ export default function AdminDramaUploadPage() {
         videoStatus: x.videoStatus
       }));
 
-      const { res, json } = await fetchAdminJson<{
-        ok?: boolean;
-        errorKey?: string;
-        error?: string;
-        traceId?: string;
+      const { res: seriesRes, json: seriesJson } = await fetchAdminJson<{
+        ok?: boolean; errorKey?: string; error?: string; traceId?: string;
       }>("/admin/api/series", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: form.title.trim(),
-          originalName: form.originalName.trim(),
+          title: form.title.trim(), originalName: form.originalName.trim(),
           localOrTranslated: form.localOrTranslated || undefined,
-          description: form.description.trim(),
-          tags: finalTags,
-          coverDataUrl: coverUrl,
-          episodeVideoUrls: episodeUrls,
-          episodeVideoMeta,
-          lockStartIndex: form.lockStartIndex,
-          listed: form.listed
+          description: form.description.trim(), tags: finalTags,
+          coverDataUrl: coverUrl, episodeVideoUrls: episodeUrls,
+          episodeVideoMeta, lockStartIndex: form.lockStartIndex, listed: form.listed
         })
       });
-      if (res.ok && json?.ok) {
+      if (seriesRes.ok && seriesJson?.ok) {
         showToast(t("admin.uploadSuccessShort"), "success");
         setUploadFilesProgress([]);
-        setForm({
-          title: "",
-          originalName: "",
-          localOrTranslated: "",
-          totalEpisodes: 0,
-          description: "",
-          tagIds: [],
-          lockStartIndex: 1,
-          coverUrl: "",
-          videoFiles: [],
-          uploadVideoMode: "mp4",
-          listed: true
-        });
+        setForm((f) => ({ ...f, title: "", originalName: "", localOrTranslated: "", totalEpisodes: 0, description: "", tagIds: [], lockStartIndex: 1, coverUrl: "", videoFiles: [], uploadVideoMode: "mp4", listed: true }));
       } else {
-        const base = translateAdminApiError(json, t, "admin.submitFailed");
-        showToast(json?.traceId ? `${base} (trace: ${json.traceId})` : base);
+        const base = translateAdminApiError(seriesJson, t, "admin.submitFailed");
+        showToast(seriesJson?.traceId ? `${base} (trace: ${seriesJson.traceId})` : base);
       }
     } catch {
       showToast(t("admin.networkErrorShort"));
@@ -692,6 +778,7 @@ export default function AdminDramaUploadPage() {
                 multiple
                 onChange={handleVideoUpload}
                 className="hidden"
+                {...({ webkitdirectory: "", mozdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
               />
               {t("admin.clickUpload")}
             </label>
