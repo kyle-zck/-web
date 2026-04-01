@@ -39,8 +39,8 @@ export default function StorePage() {
   const [payResult, setPayResult] = useState<null | "success" | "cancel">(null);
 
   const payResultTitle = useMemo(() => {
-    if (payResult === "success") return {t("common.store.paySuccessTitle")};
-    if (payResult === "cancel") return {t("common.store.payCancelTitle")};
+    if (payResult === "success") return t("common.store.paySuccessTitle");
+    if (payResult === "cancel") return t("common.store.payCancelTitle");
     return "";
   }, [payResult, t]);
 
