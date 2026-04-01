@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { showToast } from "@/components/ui/toast";
 import { translateAdminApiError } from "@/lib/admin/api-error";
 import { fetchAdminJson } from "@/lib/admin/fetch-admin-json";
+import { backgroundUploadManager, type UploadSession } from "@/lib/upload/background-upload-manager";
+import { getAllUploadSessions, isBackgroundUploadSupported } from "@/lib/upload/background-upload-db";
 
 /** 来自「管理标签」目录 drama-tag-catalog */
 interface TagItem {
@@ -19,6 +21,13 @@ type UploadFileProgress = {
   stage: UploadStage;
   percent: number;
 };
+
+interface BackgroundUploadState {
+  isEnabled: boolean;
+  isInitialized: boolean;
+  activeSessionId: string | null;
+  backgroundSessions: UploadSession[];
+}
 
 export default function AdminDramaUploadPage() {
   const { t } = useTranslation();
@@ -48,6 +57,14 @@ export default function AdminDramaUploadPage() {
     fileName: string;
   } | null>(null);
   const [uploadFilesProgress, setUploadFilesProgress] = useState<UploadFileProgress[]>([]);
+  const [bgUpload, setBgUpload] = useState<BackgroundUploadState>({
+    isEnabled: false,
+    isInitialized: false,
+    activeSessionId: null,
+    backgroundSessions: []
+  });
+  const [showBgUploadsPanel, setShowBgUploadsPanel] = useState(false);
+  const cleanupRef = useRef<(() => void) | null>(null);
 
   const suggestWorkerCount = (total: number) => {
     if (total <= 1) return total;
@@ -92,6 +109,77 @@ export default function AdminDramaUploadPage() {
   useEffect(() => {
     loadTags();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const initBgUpload = async () => {
+      const supported = await isBackgroundUploadSupported();
+      if (!supported || !mounted) {
+        setBgUpload((prev) => ({ ...prev, isEnabled: false, isInitialized: true }));
+        return;
+      }
+
+      const initialized = await backgroundUploadManager.initialize();
+      if (!mounted) return;
+
+      if (initialized) {
+        backgroundUploadManager.onStatusChange((sessionId, fileIndex, stage, percent, error) => {
+          setUploadFilesProgress((prev) => {
+            const key = prev.find((p) => p.key.includes(`-${fileIndex}-`))?.key ||
+              `${fileIndex}-unknown-unknown`;
+            const existing = prev.find((p) => p.key === key);
+            if (!existing) {
+              const newKey = `${fileIndex}-file-${fileIndex}`;
+              return [...prev, { key: newKey, fileName: `Episode ${fileIndex}`, stage, percent: percent || 0 }];
+            }
+            return prev.map((p) =>
+              p.key === key ? { ...p, stage, percent: percent || p.percent } : p
+            );
+          });
+        });
+
+        backgroundUploadManager.onSessionChange((session) => {
+          setBgUpload((prev) => {
+            const exists = prev.backgroundSessions.some((s) => s.id === session.id);
+            if (exists) {
+              return {
+                ...prev,
+                backgroundSessions: prev.backgroundSessions.map((s) =>
+                  s.id === session.id ? session : s
+                ),
+              };
+            }
+            return {
+              ...prev,
+              backgroundSessions: [...prev.backgroundSessions, session],
+            };
+          });
+        });
+
+        const sessions = await getAllUploadSessions();
+        setBgUpload({
+          isEnabled: true,
+          isInitialized: true,
+          activeSessionId: null,
+          backgroundSessions: sessions,
+        });
+
+        cleanupRef.current = () => {
+          backgroundUploadManager.destroy();
+        };
+      } else {
+        setBgUpload((prev) => ({ ...prev, isEnabled: false, isInitialized: true }));
+      }
+    };
+
+    initBgUpload();
+
+    return () => {
+      mounted = false;
+      cleanupRef.current?.();
+    };
   }, []);
 
   const checkDuplicate = async () => {
@@ -143,6 +231,112 @@ export default function AdminDramaUploadPage() {
     }
     return null;
   };
+
+  const handleBackgroundUpload = useCallback(async () => {
+    const err = validate();
+    if (err) {
+      showToast(err);
+      return;
+    }
+    const dupOk = await checkDuplicate();
+    if (!dupOk) return;
+
+    if (!bgUpload.isEnabled) {
+      showToast(t("common.admin.bgUploadNotSupported"), "warning");
+      handleSubmit();
+      return;
+    }
+
+    setSubmitting(true);
+
+    const finalTags = form.tagIds
+      .map((id) => tags.find((t) => t.id === id)?.name?.trim())
+      .filter((e): e is string => Boolean(e));
+
+    if (finalTags.length === 0) {
+      showToast(t("common.admin.valTagsRequired"));
+      setSubmitting(false);
+      return;
+    }
+
+    const sortedVideos = [...form.videoFiles].sort((a, b) => a.index - b.index);
+
+    setUploadFilesProgress(
+      sortedVideos.map((v, idx) => ({
+        key: `${idx}-${v.file.name}-${v.file.size}`,
+        fileName: v.file.name,
+        stage: "queued" as const,
+        percent: 0
+      }))
+    );
+
+    const sessionId = await backgroundUploadManager.startUpload(
+      {
+        title: form.title.trim(),
+        originalName: form.originalName.trim(),
+        localOrTranslated: form.localOrTranslated || "",
+        totalEpisodes: form.totalEpisodes,
+        description: form.description.trim(),
+        tagIds: finalTags,
+        lockStartIndex: form.lockStartIndex,
+        coverUrl: form.coverUrl,
+        uploadVideoMode: form.uploadVideoMode,
+        listed: form.listed
+      },
+      sortedVideos
+    );
+
+    backgroundUploadManager.setActiveFiles(sessionId, sortedVideos);
+
+    setBgUpload((prev) => ({
+      ...prev,
+      activeSessionId: sessionId,
+      backgroundSessions: [
+        ...prev.backgroundSessions,
+        {
+          id: sessionId,
+          formData: {
+            title: form.title.trim(),
+            originalName: form.originalName.trim(),
+            localOrTranslated: form.localOrTranslated || "",
+            totalEpisodes: form.totalEpisodes,
+            description: form.description.trim(),
+            tagIds: finalTags,
+            lockStartIndex: form.lockStartIndex,
+            coverUrl: form.coverUrl,
+            uploadVideoMode: form.uploadVideoMode,
+            listed: form.listed
+          },
+          files: sortedVideos.map((v, idx) => ({
+            fileName: v.file.name,
+            fileSize: v.file.size,
+            fileType: v.file.type || "video/mp4",
+            index: v.index,
+            stage: "queued",
+            percent: 0,
+            retryCount: 0
+          })),
+          status: "pending",
+          currentIndex: 0,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        }
+      ]
+    }));
+
+    setShowBgUploadsPanel(true);
+    showToast(t("common.admin.bgUploadStarted"), "info");
+    setSubmitting(false);
+  }, [form, tags, bgUpload.isEnabled, t]);
+
+  const handleBgUploadRemove = useCallback(async (sessionId: string) => {
+    await backgroundUploadManager.cancelUpload(sessionId);
+    setBgUpload((prev) => ({
+      ...prev,
+      backgroundSessions: prev.backgroundSessions.filter((s) => s.id !== sessionId),
+      activeSessionId: prev.activeSessionId === sessionId ? null : prev.activeSessionId
+    }));
+  }, []);
 
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -595,7 +789,11 @@ export default function AdminDramaUploadPage() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          handleSubmit();
+          if (bgUpload.isEnabled) {
+            handleBackgroundUpload();
+          } else {
+            handleSubmit();
+          }
         }}
         className="mt-6 space-y-5 rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-6"
       >
@@ -839,7 +1037,7 @@ export default function AdminDramaUploadPage() {
           </select>
         </div>
 
-        <div className="flex gap-3 pt-4">
+        <div className="flex flex-wrap gap-3 pt-4">
           <button
             type="button"
             onClick={handleCancel}
@@ -850,18 +1048,21 @@ export default function AdminDramaUploadPage() {
           <button
             type="submit"
             disabled={submitting || checking}
-            className="rounded-lg bg-brand px-6 py-3 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-60"
+            className="flex items-center gap-2 rounded-lg bg-brand px-6 py-3 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-60"
           >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
             {submitting
               ? uploadProgress
                 ? t("common.admin.videoUploadingProgress", {
                     current: uploadProgress.current,
                     total: uploadProgress.total
                   })
-                : t("common.admin.submitting")
+                : t("common.admin.bgUploadStarting")
               : checking
                 ? t("common.admin.submitting")
-                : t("common.admin.submit")}
+                : t("common.admin.bgUploadStart")}
           </button>
         </div>
         {uploadProgress ? (
@@ -892,6 +1093,121 @@ export default function AdminDramaUploadPage() {
           </div>
         ) : null}
       </form>
+
+      {bgUpload.backgroundSessions.length > 0 && (
+        <div className="mt-6 rounded-2xl border border-emerald-800/40 bg-emerald-950/30 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <svg className="h-5 w-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <h3 className="text-sm font-semibold text-emerald-300">
+                {t("common.admin.bgUploadPanelTitle")}
+              </h3>
+              <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-300">
+                {bgUpload.backgroundSessions.length}
+              </span>
+            </div>
+            <button
+              onClick={() => setShowBgUploadsPanel(!showBgUploadsPanel)}
+              className="text-xs text-emerald-400 hover:text-emerald-300"
+            >
+              {showBgUploadsPanel ? t("common.admin.hide") : t("common.admin.show")}
+            </button>
+          </div>
+
+          {showBgUploadsPanel && (
+            <div className="space-y-3">
+              {bgUpload.backgroundSessions.map((session) => {
+                const doneCount = session.files.filter((f) => f.stage === "done").length;
+                const failedCount = session.files.filter((f) => f.stage === "failed").length;
+                const uploadingCount = session.files.filter((f) => f.stage === "uploading" || f.stage === "presign" || f.stage === "completing").length;
+                const totalCount = session.files.length;
+
+                const donePercent = (doneCount / totalCount) * 100;
+                const uploadingPercent = session.files
+                  .filter((f) => f.stage === "uploading")
+                  .reduce((sum, f) => sum + (f.percent || 0), 0) / totalCount;
+                const overallPercent = Math.round(donePercent + uploadingPercent);
+
+                return (
+                  <div
+                    key={session.id}
+                    className="rounded-lg border border-zinc-700/50 bg-zinc-900/50 p-3"
+                  >
+                    <div className="mb-2 flex items-start justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-zinc-200">{session.formData.title}</p>
+                        <p className="text-xs text-zinc-500">
+                          {overallPercent}%
+                          <span className="ml-1">
+                            ({doneCount}/{totalCount}
+                            {uploadingCount > 0 && ` + ${uploadingCount} ${t("common.admin.uploadingShort")}`}
+                            {failedCount > 0 && `, ${failedCount} ${t("common.admin.failedShort")}`})
+                          </span>
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`rounded-full px-2 py-0.5 text-xs ${
+                          session.status === "completed"
+                            ? "bg-emerald-500/20 text-emerald-300"
+                            : session.status === "failed"
+                            ? "bg-red-500/20 text-red-300"
+                            : session.status === "paused"
+                            ? "bg-yellow-500/20 text-yellow-300"
+                            : "bg-blue-500/20 text-blue-300"
+                        }`}>
+                          {overallPercent}%
+                        </span>
+                        <button
+                          onClick={() => handleBgUploadRemove(session.id)}
+                          className="rounded-md border border-zinc-600 px-2 py-1 text-xs text-zinc-400 hover:border-red-500 hover:text-red-400"
+                        >
+                          {t("common.admin.remove")}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mb-2 h-2 overflow-hidden rounded-full bg-zinc-800">
+                      <div
+                        className={`h-full transition-all ${
+                          session.status === "failed" ? "bg-red-500" : "bg-emerald-500"
+                        }`}
+                        style={{ width: `${overallPercent}%` }}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                      {session.files.slice(0, 4).map((file) => (
+                        <div key={file.index} className="flex items-center gap-2 text-xs">
+                          <span className={`h-2 w-2 rounded-full ${
+                            file.stage === "done"
+                              ? "bg-emerald-500"
+                              : file.stage === "failed"
+                              ? "bg-red-500"
+                              : file.stage === "uploading"
+                              ? "bg-blue-500 animate-pulse"
+                              : "bg-zinc-600"
+                          }`} />
+                          <span className="truncate text-zinc-400">
+                            {t(`common.admin.uploadStage_${file.stage}`)}
+                            {file.stage === "uploading" ? ` ${file.percent}%` : ""}
+                          </span>
+                        </div>
+                      ))}
+                      {session.files.length > 4 && (
+                        <p className="col-span-2 text-xs text-zinc-500">
+                          +{session.files.length - 4} {t("common.admin.moreFiles")}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </main>
   );
 }
