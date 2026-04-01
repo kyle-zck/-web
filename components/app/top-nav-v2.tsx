@@ -168,16 +168,16 @@ export function TopNavV2() {
     const showExplore = navFlags?.showExplore !== false;
     const showProfile = navFlags?.showProfile !== false;
     return [
-      { href: "/", label: t("nav.home"), active: pathname === "/", show: true as const },
+      { href: "/", label: t("common.nav.home"), active: pathname === "/", show: true as const },
       {
         href: "/explore",
-        label: t("nav.explore"),
+        label: t("common.nav.explore"),
         active: pathname.startsWith("/explore"),
         show: showExplore
       },
       {
         href: "/profile",
-        label: t("nav.profile"),
+        label: t("common.nav.profile"),
         active: pathname.startsWith("/profile"),
         show: showProfile
       }
@@ -270,7 +270,7 @@ export function TopNavV2() {
                 setMenuOpen(false);
               }}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-black/60 ring-1 ring-zinc-700 text-zinc-200"
-              aria-label={t("nav.search")}
+              aria-label={t("common.nav.search")}
             >
               <SearchGlyph />
             </button>
@@ -299,7 +299,7 @@ export function TopNavV2() {
               <Link
                 href="/profile"
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-black/70 ring-1 ring-zinc-700 transition-colors hover:bg-zinc-800/80"
-                aria-label={t("nav.profile")}
+                aria-label={t("common.nav.profile")}
               >
                 <span className="text-lg" aria-hidden>
                   👤
@@ -354,7 +354,7 @@ export function TopNavV2() {
               <Link
                 href="/profile"
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-black/60 ring-1 ring-zinc-700"
-                aria-label={t("nav.profile")}
+                aria-label={t("common.nav.profile")}
               >
                 <span className="text-lg" aria-hidden>
                   👤

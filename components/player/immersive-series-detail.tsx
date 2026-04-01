@@ -233,7 +233,7 @@ export function ImmersiveSeriesDetail({
         <div className="immersive-info-panel w-full min-w-0 flex-1 overflow-y-auto px-5 pb-16 pt-5 lg:ml-[65vw] lg:h-full lg:min-h-0 lg:w-[35vw] lg:px-6 lg:pt-7">
           <nav className="text-sm text-zinc-500">
             <Link href="/" className="hover:text-zinc-200">
-              {t("nav.home")}
+              {t("common.nav.home")}
             </Link>
             <span className="mx-1.5">/</span>
             <span className="text-zinc-400">{seriesTitle}</span>

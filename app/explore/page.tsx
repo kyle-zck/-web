@@ -202,7 +202,7 @@ function ExploreContent() {
         {/* 搜索结果标题 */}
         {q ? (
           <div className="mb-4 mt-5">
-            <h1 className="section-title-fluid font-semibold text-zinc-100">{t("nav.search")}</h1>
+            <h1 className="section-title-fluid font-semibold text-zinc-100">{t("common.nav.search")}</h1>
             <p className="text-body-fluid mt-2 text-zinc-400">
               {t("home.resultsFound", {
                 count: filtered.length,
