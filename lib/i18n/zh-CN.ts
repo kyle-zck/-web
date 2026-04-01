@@ -196,8 +196,6 @@ export const zhCN = {
       favorites: "收藏",
       collection: "收藏",
       views: "观看",
-      share: "分享",
-      shareDrama: "精彩短剧，快来观看！"
     },
     locked: {
       title: "该集已锁定",

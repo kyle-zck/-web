@@ -8,7 +8,6 @@ import { useFavoritesStore } from "@/lib/store/favorites";
 import { useLikesStore } from "@/lib/store/likes";
 import { useUserStore } from "@/lib/store/user";
 import { ImmersivePlayer } from "@/components/player/immersive-player";
-import { IconButton } from "@/components/ui/icon-button";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import type { AppLanguage } from "@/lib/i18n/languages";
@@ -19,7 +18,6 @@ import { formatEngagementCount } from "@/lib/format-count";
 import { getOrCreateDeviceClientId } from "@/lib/client/device-client-id";
 import { prefetchAppConfig } from "@/lib/client/app-config-cache";
 import type { EngagementCounts } from "@/lib/user-repo";
-import { ShareSheet } from "@/components/ui/share-sheet";
 
 const EPISODES_PER_TAB = 50;
 
@@ -35,49 +33,6 @@ function PlayGlyph({ className }: { className?: string }) {
     >
       <path d="M8 5v14l11-7L8 5z" />
     </svg>
-  );
-}
-
-function ShareButton({ title, compact, onClick }: { title: string; compact?: boolean; onClick: () => void }) {
-  const { t } = useTranslation();
-
-  if (compact) {
-    return (
-      <div className="relative">
-        <button
-          type="button"
-          aria-label={t("common.seriesDetail.share")}
-          onClick={onClick}
-          className="inline-flex items-center gap-2 rounded-lg py-1 text-zinc-400 transition-colors hover:bg-zinc-800/50 hover:text-zinc-200"
-        >
-          <svg
-            width="22"
-            height="22"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="shrink-0"
-            aria-hidden
-          >
-            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-            <polyline points="16 6 12 2 8 6" />
-            <line x1="12" y1="2" x2="12" y2="15" />
-          </svg>
-          <span className="text-sm font-medium text-zinc-500">{t("common.seriesDetail.share")}</span>
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="relative">
-      <IconButton label={t("common.seriesDetail.share")} onClick={onClick}>
-        ⤴
-      </IconButton>
-    </div>
   );
 }
 
@@ -111,8 +66,6 @@ export function ImmersiveSeriesDetail({
   const [episodeTab, setEpisodeTab] = useState(0);
   const [allEpisodesOpen, setAllEpisodesOpen] = useState(false);
   const [playerSessionKey, setPlayerSessionKey] = useState(0);
-  const [shareOpen, setShareOpen] = useState(false);
-  const shareUrl = typeof window !== "undefined" ? window.location.href : "";
 
   useEffect(() => {
     setSeries(series.id);
@@ -363,13 +316,6 @@ export function ImmersiveSeriesDetail({
               </span>
               <span className="sr-only">{t("common.seriesDetail.likes")}</span>
             </button>
-            <div className="flex min-w-0 flex-1 items-center justify-center">
-              <ShareButton
-                title={seriesTitle}
-                compact
-                onClick={() => setShareOpen(true)}
-              />
-            </div>
           </div>
 
           <section className="mt-6">
@@ -523,14 +469,6 @@ export function ImmersiveSeriesDetail({
       >
         🙂
       </button>
-
-      {/* 分享面板：Facebook / X / 复制链接 */}
-      <ShareSheet
-        open={shareOpen}
-        onClose={() => setShareOpen(false)}
-        title={seriesTitle}
-        url={shareUrl}
-      />
     </>
   );
 }

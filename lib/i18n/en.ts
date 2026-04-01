@@ -212,8 +212,6 @@ export const en = {
       favorites: "Favorites",
       collection: "Collection",
       views: "Views",
-      share: "Share",
-      shareDrama: "Watch this amazing short drama now!"
     },
     locked: {
       title: "This episode is locked",
