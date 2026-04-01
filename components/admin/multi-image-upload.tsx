@@ -41,11 +41,11 @@ export function MultiImageUpload({
     (file: File | null) => {
       if (!file) return;
       if (!file.type.startsWith("image/")) {
-        onError?.(t("admin.multiErrImage"));
+        onError?.(t("common.admin.multiErrImage"));
         return;
       }
       if (file.size > 4 * 1024 * 1024) {
-        onError?.(t("admin.multiErrSize"));
+        onError?.(t("common.admin.multiErrSize"));
         return;
       }
       const url = URL.createObjectURL(file);
@@ -103,12 +103,12 @@ export function MultiImageUpload({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={displayUrl}
-              alt={t("admin.coverAlt")}
+              alt={t("common.admin.coverAlt")}
               className="h-full w-full object-cover object-center"
             />
             <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity hover:opacity-100">
               <span className="rounded-lg bg-white/90 px-4 py-2 text-xs font-semibold text-zinc-800">
-                {t("admin.multiClickReplace")}
+                {t("common.admin.multiClickReplace")}
               </span>
             </div>
           </>
@@ -127,7 +127,7 @@ export function MultiImageUpload({
                 d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"
               />
             </svg>
-            <span className="text-xs text-zinc-500">{t("admin.multiDragHint")}</span>
+            <span className="text-xs text-zinc-500">{t("common.admin.multiDragHint")}</span>
           </div>
         )}
       </div>

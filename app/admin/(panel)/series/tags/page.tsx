@@ -67,10 +67,10 @@ export default function AdminSeriesTagsPage() {
     try {
       const [seriesOk, catalogOk] = await Promise.all([loadSeries(), loadCatalog()]);
       if (!seriesOk && !catalogOk) {
-        setLoadError(String(t("admin.submitFailed")));
+        setLoadError(String(t("common.admin.submitFailed")));
       }
     } catch {
-      setLoadError(String(t("admin.networkError")));
+      setLoadError(String(t("common.admin.networkError")));
     } finally {
       setLoading(false);
     }
@@ -137,7 +137,7 @@ export default function AdminSeriesTagsPage() {
   const saveEdit = async () => {
     if (!editingSeries) return;
     if (editingTags.length === 0) {
-      showToast(t("admin.valTagsRequired"), "error");
+      showToast(t("common.admin.valTagsRequired"), "error");
       return;
     }
     setSavingEdit(true);
@@ -158,13 +158,13 @@ export default function AdminSeriesTagsPage() {
         showToast(translateAdminApiError(json, t, "admin.tagSaveFailed"), "error");
         return;
       }
-      showToast(t("admin.tagSaved"), "success");
+      showToast(t("common.admin.tagSaved"), "success");
       setSeries((prev) =>
         prev.map((x) => (x.id === editingSeries.id ? { ...x, tags: [...normalized] } : x))
       );
       closeEdit();
     } catch {
-      showToast(t("admin.networkErrorShort"));
+      showToast(t("common.admin.networkErrorShort"));
     } finally {
       setSavingEdit(false);
     }
@@ -172,21 +172,21 @@ export default function AdminSeriesTagsPage() {
 
   return (
     <main>
-      <p className="text-xs font-medium text-zinc-500">{t("admin.dramaResourceManagement")}</p>
-      <h3 className="mt-1 text-lg font-bold text-zinc-100">{t("admin.tagLibrary")}</h3>
+      <p className="text-xs font-medium text-zinc-500">{t("common.admin.dramaResourceManagement")}</p>
+      <h3 className="mt-1 text-lg font-bold text-zinc-100">{t("common.admin.tagLibrary")}</h3>
       <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-400">
-        {t("admin.tagManagementIntro")}
+        {t("common.admin.tagManagementIntro")}
       </p>
 
       <section className="mt-5 flex flex-wrap items-end gap-3 rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-4">
         <div>
-          <label className="block text-xs font-semibold text-zinc-400">{t("admin.tags")}</label>
+          <label className="block text-xs font-semibold text-zinc-400">{t("common.admin.tags")}</label>
           <input
             type="text"
             list="drama-tag-catalog-datalist"
             value={draft.tag}
             onChange={(e) => setDraft((d) => ({ ...d, tag: e.target.value }))}
-            placeholder={t("admin.tagExactFilterPlaceholder")}
+            placeholder={t("common.admin.tagExactFilterPlaceholder")}
             className="mt-1 w-48 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500"
           />
           <datalist id="drama-tag-catalog-datalist">
@@ -197,13 +197,13 @@ export default function AdminSeriesTagsPage() {
         </div>
         <div>
           <label className="block text-xs font-semibold text-zinc-400">
-            {t("admin.dramaTitleFuzzy")}
+            {t("common.admin.dramaTitleFuzzy")}
           </label>
           <input
             type="text"
             value={draft.title}
             onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
-            placeholder={t("admin.dramaTitleFuzzyPlaceholder")}
+            placeholder={t("common.admin.dramaTitleFuzzyPlaceholder")}
             className="mt-1 w-52 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500"
           />
         </div>
@@ -213,21 +213,21 @@ export default function AdminSeriesTagsPage() {
             onClick={handleReset}
             className="rounded-lg border border-zinc-600 bg-zinc-800/60 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-700/60"
           >
-            {t("admin.reset")}
+            {t("common.admin.reset")}
           </button>
           <button
             type="button"
             onClick={handleQuery}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500"
           >
-            {t("admin.query")}
+            {t("common.admin.query")}
           </button>
           <button
             type="button"
             onClick={() => setManageOpen(true)}
             className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
           >
-            {t("admin.manageTagCatalog")}
+            {t("common.admin.manageTagCatalog")}
           </button>
         </div>
       </section>
@@ -240,7 +240,7 @@ export default function AdminSeriesTagsPage() {
             onClick={loadAll}
             className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-100 hover:bg-red-500/20"
           >
-            {t("admin.query")}
+            {t("common.admin.query")}
           </button>
         </div>
       ) : null}
@@ -254,16 +254,16 @@ export default function AdminSeriesTagsPage() {
       <section className="mt-6 overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/60">
         <div className="max-h-[calc(100vh-320px)] overflow-auto">
           {loading ? (
-            <div className="py-12 text-center text-zinc-500">{t("admin.tableLoading")}</div>
+            <div className="py-12 text-center text-zinc-500">{t("common.admin.tableLoading")}</div>
           ) : (
             <div className="overflow-x-auto scrollbar-thin">
               <table className="w-full min-w-[700px] border-collapse">
                 <thead className="sticky top-0 z-10 border-b border-zinc-700/80 bg-zinc-900/95 backdrop-blur">
                   <tr className="text-left text-xs text-zinc-400">
-                    <th className="min-w-[260px] px-4 py-3 font-semibold">{t("admin.tagColDramaTitle")}</th>
-                    <th className="min-w-[280px] px-4 py-3 font-semibold">{t("admin.tagColTag")}</th>
+                    <th className="min-w-[260px] px-4 py-3 font-semibold">{t("common.admin.tagColDramaTitle")}</th>
+                    <th className="min-w-[280px] px-4 py-3 font-semibold">{t("common.admin.tagColTag")}</th>
                     <th className="w-40 whitespace-nowrap px-4 py-3 font-semibold">
-                      {t("admin.action")}
+                      {t("common.admin.action")}
                     </th>
                   </tr>
                 </thead>
@@ -271,7 +271,7 @@ export default function AdminSeriesTagsPage() {
                   {filteredSeries.length === 0 ? (
                     <tr>
                       <td colSpan={3} className="px-4 py-12 text-center text-sm text-zinc-500">
-                        {t("admin.noDataShort")}
+                        {t("common.admin.noDataShort")}
                       </td>
                     </tr>
                   ) : (
@@ -299,7 +299,7 @@ export default function AdminSeriesTagsPage() {
                                   </span>
                                 ))
                               ) : (
-                                <span className="text-red-300">{t("admin.valTagsRequired")}</span>
+                                <span className="text-red-300">{t("common.admin.valTagsRequired")}</span>
                               )}
                             </div>
                           </td>
@@ -309,7 +309,7 @@ export default function AdminSeriesTagsPage() {
                               onClick={() => startEdit(s)}
                               className="rounded-lg border border-blue-500/50 px-3 py-1.5 text-xs font-semibold text-blue-300 hover:bg-blue-500/15"
                             >
-                              {t("admin.edit")}
+                              {t("common.admin.edit")}
                             </button>
                           </td>
                         </tr>
@@ -328,7 +328,7 @@ export default function AdminSeriesTagsPage() {
           <div className="w-full max-w-2xl rounded-2xl border border-zinc-800/80 bg-zinc-950 p-5">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-base font-bold text-zinc-100">{t("admin.edit")}</h2>
+                <h2 className="text-base font-bold text-zinc-100">{t("common.admin.edit")}</h2>
                 <p className="mt-1 text-xs text-zinc-500">{editingSeries.title}</p>
               </div>
               <button
@@ -336,12 +336,12 @@ export default function AdminSeriesTagsPage() {
                 onClick={closeEdit}
                 className="rounded-lg border border-zinc-700 bg-black/40 px-3 py-1.5 text-xs font-semibold text-zinc-200"
               >
-                {t("admin.close")}
+                {t("common.admin.close")}
               </button>
             </div>
 
             <div className="mt-4 space-y-2">
-              <p className="text-xs text-zinc-400">{t("admin.tagsPickHint")}</p>
+              <p className="text-xs text-zinc-400">{t("common.admin.tagsPickHint")}</p>
               <div className="max-h-48 overflow-auto rounded-lg border border-zinc-700/80 bg-zinc-900/50 p-3">
                 <div className="flex flex-wrap gap-2">
                   {catalogNames.map((tag) => {
@@ -363,7 +363,7 @@ export default function AdminSeriesTagsPage() {
                 </div>
               </div>
               {editingTags.length === 0 ? (
-                <p className="text-xs text-red-300">{t("admin.valTagsRequired")}</p>
+                <p className="text-xs text-red-300">{t("common.admin.valTagsRequired")}</p>
               ) : null}
             </div>
 
@@ -374,7 +374,7 @@ export default function AdminSeriesTagsPage() {
                 disabled={savingEdit}
                 className="rounded-lg border border-zinc-600 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-700/50 disabled:opacity-50"
               >
-                {t("admin.cancel")}
+                {t("common.admin.cancel")}
               </button>
               <button
                 type="button"
@@ -382,7 +382,7 @@ export default function AdminSeriesTagsPage() {
                 disabled={savingEdit}
                 className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
               >
-                {savingEdit ? t("admin.savingShort") : t("admin.save")}
+                {savingEdit ? t("common.admin.savingShort") : t("common.admin.save")}
               </button>
             </div>
           </div>

@@ -4,11 +4,11 @@ import type { TFunction } from "i18next";
 export function translateAdminApiError(
   json: { error?: string; errorKey?: string } | null | undefined,
   t: TFunction,
-  fallbackKey = "admin.submitFailed"
+  fallbackKey = "common.admin.submitFailed"
 ): string {
   if (!json) return String(t(fallbackKey));
   if (typeof json.errorKey === "string" && json.errorKey.length > 0) {
-    return String(t(`admin.${json.errorKey}`));
+    return String(t(`common.admin.${json.errorKey}`));
   }
   if (json.error) return json.error;
   return String(t(fallbackKey));

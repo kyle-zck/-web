@@ -30,7 +30,7 @@ export default function AdminDramaDetailPage() {
   const { t, i18n } = useTranslation();
   const formatTs = useCallback((ts?: number) => formatDate(ts, i18n.language), [i18n.language]);
   const taskLabel = useCallback(
-    (s: Series) => buildTaskName(s, t("admin.unnamed"), formatTs),
+    (s: Series) => buildTaskName(s, t("common.admin.unnamed"), formatTs),
     [formatTs, t]
   );
   const [series, setSeries] = useState<Series[]>([]);
@@ -75,7 +75,7 @@ export default function AdminDramaDetailPage() {
       }
     } catch {
       setSeries([]);
-      setLoadError(String(t("admin.networkError")));
+      setLoadError(String(t("common.admin.networkError")));
     } finally {
       setLoading(false);
     }
@@ -127,16 +127,16 @@ export default function AdminDramaDetailPage() {
   const handleReset = () => {
     setFilter(defaultFilter);
     setAppliedFilter(defaultFilter);
-    showToast(t("admin.toastResetFilters"), "info");
+    showToast(t("common.admin.toastResetFilters"), "info");
   };
 
   const handleQuery = () => {
     setAppliedFilter(filter);
-    showToast(t("admin.toastQueryFilters"), "info");
+    showToast(t("common.admin.toastQueryFilters"), "info");
   };
 
   const handleDelete = async (s: Series) => {
-    if (!confirm(t("admin.confirmDeleteDramaFull", { title: s.title }))) return;
+    if (!confirm(t("common.admin.confirmDeleteDramaFull", { title: s.title }))) return;
     try {
       const { res, json } = await fetchAdminJson<{ ok?: boolean; errorKey?: string }>(
         `/admin/api/series/${s.id}`,
@@ -144,7 +144,7 @@ export default function AdminDramaDetailPage() {
         10000
       );
       if (res.ok && json?.ok) {
-        showToast(t("admin.deleteSuccess"), "success");
+        showToast(t("common.admin.deleteSuccess"), "success");
         setSelectedIds((prev) => {
           const next = new Set(prev);
           next.delete(s.id);
@@ -155,7 +155,7 @@ export default function AdminDramaDetailPage() {
         showToast(translateAdminApiError(json, t, "admin.deleteFailed"), "error");
       }
     } catch {
-      showToast(t("admin.networkErrorShort"));
+      showToast(t("common.admin.networkErrorShort"));
     }
   };
 
@@ -180,10 +180,10 @@ export default function AdminDramaDetailPage() {
   const handleBatchDelete = async () => {
     const ids = filtered.map((s) => s.id).filter((id) => selectedIds.has(id));
     if (ids.length === 0) {
-      showToast(t("admin.noDataShort"), "info");
+      showToast(t("common.admin.noDataShort"), "info");
       return;
     }
-    if (!confirm(t("admin.confirmDeleteSelectedDramas", { count: ids.length }))) return;
+    if (!confirm(t("common.admin.confirmDeleteSelectedDramas", { count: ids.length }))) return;
 
     let okCount = 0;
     for (const id of ids) {
@@ -200,7 +200,7 @@ export default function AdminDramaDetailPage() {
     }
 
     if (okCount > 0) {
-      showToast(t("admin.batchDeleteSuccess", { ok: okCount, total: ids.length }), "success");
+      showToast(t("common.admin.batchDeleteSuccess", { ok: okCount, total: ids.length }), "success");
       setSelectedIds((prev) => {
         const next = new Set(prev);
         ids.forEach((id) => next.delete(id));
@@ -208,7 +208,7 @@ export default function AdminDramaDetailPage() {
       });
       await load();
     } else {
-      showToast(t("admin.deleteFailed"), "error");
+      showToast(t("common.admin.deleteFailed"), "error");
     }
   };
 
@@ -220,7 +220,7 @@ export default function AdminDramaDetailPage() {
   const runBatchHlsOnFiltered = async () => {
     const ids = filtered.map((s) => s.id);
     if (ids.length === 0) {
-      showToast(t("admin.noDramasYetTable"), "info");
+      showToast(t("common.admin.noDramasYetTable"), "info");
       return;
     }
     setBatchHlsRunning(true);
@@ -248,7 +248,7 @@ export default function AdminDramaDetailPage() {
         return;
       }
       showToast(
-        t("admin.hlsBatchRunDone", {
+        t("common.admin.hlsBatchRunDone", {
           ok: json.okCount ?? 0,
           total: json.totalJobs ?? 0
         }),
@@ -256,7 +256,7 @@ export default function AdminDramaDetailPage() {
       );
       await load();
     } catch {
-      showToast(t("admin.networkErrorShort"));
+      showToast(t("common.admin.networkErrorShort"));
     } finally {
       setBatchHlsRunning(false);
     }
@@ -289,7 +289,7 @@ export default function AdminDramaDetailPage() {
         return;
       }
       showToast(
-        t("admin.hlsHotRunDone", {
+        t("common.admin.hlsHotRunDone", {
           ok: json.okCount ?? 0,
           total: json.totalJobs ?? 0
         }),
@@ -297,7 +297,7 @@ export default function AdminDramaDetailPage() {
       );
       await load();
     } catch {
-      showToast(t("admin.networkErrorShort"));
+      showToast(t("common.admin.networkErrorShort"));
     } finally {
       setHotHlsRunning(false);
     }
@@ -312,44 +312,44 @@ export default function AdminDramaDetailPage() {
   return (
     <main className="flex flex-col">
       <h1 className="text-xl font-extrabold text-zinc-100">
-        {t("admin.dramaDetail")}
+        {t("common.admin.dramaDetail")}
       </h1>
-      <p className="mt-1 text-xs text-zinc-400">{t("admin.dramaDetailIntro")}</p>
+      <p className="mt-1 text-xs text-zinc-400">{t("common.admin.dramaDetailIntro")}</p>
 
       <section className="mt-6 rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <label className="block text-xs font-semibold text-zinc-400">{t("admin.labelTaskName")}</label>
+            <label className="block text-xs font-semibold text-zinc-400">{t("common.admin.labelTaskName")}</label>
             <input
               type="text"
               value={filter.taskName}
               onChange={(e) => setFilter({ ...filter, taskName: e.target.value })}
-              placeholder={t("admin.phFuzzySearch")}
+              placeholder={t("common.admin.phFuzzySearch")}
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100"
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-zinc-400">{t("admin.labelDramaIdFilter")}</label>
+            <label className="block text-xs font-semibold text-zinc-400">{t("common.admin.labelDramaIdFilter")}</label>
             <input
               type="text"
               value={filter.dramaId}
               onChange={(e) => setFilter({ ...filter, dramaId: e.target.value })}
-              placeholder={t("admin.phNumberSearch")}
+              placeholder={t("common.admin.phNumberSearch")}
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100"
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-zinc-400">{t("admin.labelDramaTitleFilter")}</label>
+            <label className="block text-xs font-semibold text-zinc-400">{t("common.admin.labelDramaTitleFilter")}</label>
             <input
               type="text"
               value={filter.title}
               onChange={(e) => setFilter({ ...filter, title: e.target.value })}
-              placeholder={t("admin.phFuzzySearch")}
+              placeholder={t("common.admin.phFuzzySearch")}
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100"
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-zinc-400">{t("admin.labelTypeShort")}</label>
+            <label className="block text-xs font-semibold text-zinc-400">{t("common.admin.labelTypeShort")}</label>
             <select
               value={filter.localOrTranslated}
               onChange={(e) =>
@@ -357,19 +357,19 @@ export default function AdminDramaDetailPage() {
               }
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100"
             >
-              <option value="">{t("admin.allOption")}</option>
-              <option value="local">{t("admin.localDrama")}</option>
-              <option value="translated">{t("admin.translatedDrama")}</option>
+              <option value="">{t("common.admin.allOption")}</option>
+              <option value="local">{t("common.admin.localDrama")}</option>
+              <option value="translated">{t("common.admin.translatedDrama")}</option>
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-zinc-400">{t("admin.tags")}</label>
+            <label className="block text-xs font-semibold text-zinc-400">{t("common.admin.tags")}</label>
             <select
               value={filter.tag}
               onChange={(e) => setFilter({ ...filter, tag: e.target.value })}
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100"
             >
-              <option value="">{t("admin.allOption")}</option>
+              <option value="">{t("common.admin.allOption")}</option>
               {allTags.map((tag) => (
                 <option key={tag} value={tag}>
                   {tag}
@@ -378,7 +378,7 @@ export default function AdminDramaDetailPage() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-zinc-400">{t("admin.videoMode")}</label>
+            <label className="block text-xs font-semibold text-zinc-400">{t("common.admin.videoMode")}</label>
             <select
               value={filter.videoMode}
               onChange={(e) =>
@@ -386,15 +386,15 @@ export default function AdminDramaDetailPage() {
               }
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100"
             >
-              <option value="">{t("admin.allOption")}</option>
-              <option value="hls">{t("admin.videoModeHls")}</option>
-              <option value="mp4">{t("admin.videoModeMp4")}</option>
-              <option value="mixed">{t("admin.videoModeMixed")}</option>
-              <option value="processing">{t("admin.videoModeProcessing")}</option>
+              <option value="">{t("common.admin.allOption")}</option>
+              <option value="hls">{t("common.admin.videoModeHls")}</option>
+              <option value="mp4">{t("common.admin.videoModeMp4")}</option>
+              <option value="mixed">{t("common.admin.videoModeMixed")}</option>
+              <option value="processing">{t("common.admin.videoModeProcessing")}</option>
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-zinc-400">{t("admin.labelListedShort")}</label>
+            <label className="block text-xs font-semibold text-zinc-400">{t("common.admin.labelListedShort")}</label>
             <select
               value={filter.listed}
               onChange={(e) =>
@@ -402,13 +402,13 @@ export default function AdminDramaDetailPage() {
               }
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100"
             >
-              <option value="">{t("admin.allOption")}</option>
-              <option value="yes">{t("admin.yes")}</option>
-              <option value="no">{t("admin.no")}</option>
+              <option value="">{t("common.admin.allOption")}</option>
+              <option value="yes">{t("common.admin.yes")}</option>
+              <option value="no">{t("common.admin.no")}</option>
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-zinc-400">{t("admin.labelTimeSort")}</label>
+            <label className="block text-xs font-semibold text-zinc-400">{t("common.admin.labelTimeSort")}</label>
             <select
               value={`${filter.sortBy}-${filter.sortOrder}`}
               onChange={(e) => {
@@ -417,12 +417,12 @@ export default function AdminDramaDetailPage() {
               }}
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100"
             >
-              <option value="createdAt-desc">{t("admin.sortCreatedDesc")}</option>
-              <option value="createdAt-asc">{t("admin.sortCreatedAsc")}</option>
-              <option value="completedAt-desc">{t("admin.sortCompletedDesc")}</option>
-              <option value="completedAt-asc">{t("admin.sortCompletedAsc")}</option>
-              <option value="listedAt-desc">{t("admin.sortListedDesc")}</option>
-              <option value="listedAt-asc">{t("admin.sortListedAsc")}</option>
+              <option value="createdAt-desc">{t("common.admin.sortCreatedDesc")}</option>
+              <option value="createdAt-asc">{t("common.admin.sortCreatedAsc")}</option>
+              <option value="completedAt-desc">{t("common.admin.sortCompletedDesc")}</option>
+              <option value="completedAt-asc">{t("common.admin.sortCompletedAsc")}</option>
+              <option value="listedAt-desc">{t("common.admin.sortListedDesc")}</option>
+              <option value="listedAt-asc">{t("common.admin.sortListedAsc")}</option>
             </select>
           </div>
           <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-1">
@@ -431,14 +431,14 @@ export default function AdminDramaDetailPage() {
               onClick={handleReset}
               className="rounded-lg border border-zinc-600 bg-zinc-800/60 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-700/60"
             >
-              {t("admin.reset")}
+              {t("common.admin.reset")}
             </button>
             <button
               type="button"
               onClick={handleQuery}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500"
             >
-              {t("admin.query")}
+              {t("common.admin.query")}
             </button>
             <button
               type="button"
@@ -446,7 +446,7 @@ export default function AdminDramaDetailPage() {
               disabled={filtered.filter((s) => selectedIds.has(s.id)).length === 0}
               className="rounded-lg border border-red-500/50 px-4 py-2 text-sm font-semibold text-red-300 hover:bg-red-500/20 disabled:opacity-50"
             >
-              {t("admin.batchDeleteWithCount", { count: filtered.filter((s) => selectedIds.has(s.id)).length })}
+              {t("common.admin.batchDeleteWithCount", { count: filtered.filter((s) => selectedIds.has(s.id)).length })}
             </button>
           </div>
           <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-2">
@@ -457,11 +457,11 @@ export default function AdminDramaDetailPage() {
               className="rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50"
             >
               {batchHlsRunning
-                ? t("admin.hlsBatchRunning")
-                : t("admin.hlsBatchRunFiltered", { count: filtered.length })}
+                ? t("common.admin.hlsBatchRunning")
+                : t("common.admin.hlsBatchRunFiltered", { count: filtered.length })}
             </button>
             <div className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900/40 px-2 py-1.5">
-              <span className="text-xs text-zinc-400">{t("admin.hlsFirstNEpisodes")}</span>
+              <span className="text-xs text-zinc-400">{t("common.admin.hlsFirstNEpisodes")}</span>
               <input
                 type="number"
                 min={0}
@@ -471,10 +471,10 @@ export default function AdminDramaDetailPage() {
                 }
                 className="w-16 rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-100"
               />
-              <span className="text-[11px] text-zinc-500">{t("admin.hlsFirstNEpisodesHint")}</span>
+              <span className="text-[11px] text-zinc-500">{t("common.admin.hlsFirstNEpisodesHint")}</span>
             </div>
             <div className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900/40 px-2 py-1.5">
-              <span className="text-xs text-zinc-400">{t("admin.hlsHotMinViews")}</span>
+              <span className="text-xs text-zinc-400">{t("common.admin.hlsHotMinViews")}</span>
               <input
                 type="number"
                 min={0}
@@ -482,7 +482,7 @@ export default function AdminDramaDetailPage() {
                 onChange={(e) => setHotMinViews(Math.max(0, Number(e.target.value || 0)))}
                 className="w-20 rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-100"
               />
-              <span className="text-xs text-zinc-400">{t("admin.hlsHotMaxSeries")}</span>
+              <span className="text-xs text-zinc-400">{t("common.admin.hlsHotMaxSeries")}</span>
               <input
                 type="number"
                 min={1}
@@ -496,7 +496,7 @@ export default function AdminDramaDetailPage() {
                 onClick={runHotHls}
                 className="rounded-md bg-fuchsia-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-fuchsia-500 disabled:opacity-50"
               >
-                {hotHlsRunning ? t("admin.hlsHotRunning") : t("admin.hlsHotRun")}
+                {hotHlsRunning ? t("common.admin.hlsHotRunning") : t("common.admin.hlsHotRun")}
               </button>
             </div>
           </div>
@@ -511,7 +511,7 @@ export default function AdminDramaDetailPage() {
             onClick={load}
             className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-100 hover:bg-red-500/20"
           >
-            {t("admin.query")}
+            {t("common.admin.query")}
           </button>
         </div>
       ) : null}
@@ -519,9 +519,9 @@ export default function AdminDramaDetailPage() {
       <section className="mt-6 overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/60">
         <div className="max-h-[calc(100vh-320px)] overflow-auto">
           {loading ? (
-            <div className="py-12 text-center text-zinc-500">{t("admin.tableLoading")}</div>
+            <div className="py-12 text-center text-zinc-500">{t("common.admin.tableLoading")}</div>
           ) : filtered.length === 0 ? (
-            <div className="py-12 text-center text-zinc-500">{t("admin.noDramasYetTable")}</div>
+            <div className="py-12 text-center text-zinc-500">{t("common.admin.noDramasYetTable")}</div>
           ) : (
             <div className="overflow-x-auto scrollbar-thin">
               <table className="w-full min-w-[1000px] border-collapse">
@@ -535,24 +535,24 @@ export default function AdminDramaDetailPage() {
                         aria-label="Select all"
                       />
                     </th>
-                    <th className="px-3 py-2 font-semibold">{t("admin.colTaskName")}</th>
-                    <th className="px-3 py-2 font-semibold">{t("admin.colDramaId")}</th>
-                    <th className="px-2 py-2 font-semibold">{t("admin.colCoverShort")}</th>
-                    <th className="px-3 py-2 font-semibold">{t("admin.colDramaTitle")}</th>
-                    <th className="px-3 py-2 font-semibold">{t("admin.colOriginalName")}</th>
-                    <th className="px-3 py-2 font-semibold">{t("admin.labelTypeShort")}</th>
-                    <th className="px-3 py-2 font-semibold">{t("admin.tags")}</th>
-                    <th className="px-2 py-2 font-semibold">{t("admin.videoMode")}</th>
-                    <th className="px-3 py-2 font-semibold">{t("admin.colDescShort")}</th>
-                    <th className="px-2 py-2 font-semibold">{t("admin.colEpisodesCount")}</th>
-                    <th className="px-2 py-2 font-semibold">{t("admin.colPaywallShort")}</th>
-                    <th className="px-2 py-2 font-semibold">{t("admin.colListedShort")}</th>
-                    <th className="px-2 py-2 font-semibold">{t("admin.colStatusShort")}</th>
-                    <th className="px-3 py-2 font-semibold">{t("admin.colCreated")}</th>
-                    <th className="px-3 py-2 font-semibold">{t("admin.colCompleted")}</th>
-                    <th className="px-3 py-2 font-semibold">{t("admin.colListedTime")}</th>
-                    <th className="px-3 py-2 font-semibold">{t("admin.colVideos")}</th>
-                    <th className="px-3 py-2 font-semibold">{t("admin.action")}</th>
+                    <th className="px-3 py-2 font-semibold">{t("common.admin.colTaskName")}</th>
+                    <th className="px-3 py-2 font-semibold">{t("common.admin.colDramaId")}</th>
+                    <th className="px-2 py-2 font-semibold">{t("common.admin.colCoverShort")}</th>
+                    <th className="px-3 py-2 font-semibold">{t("common.admin.colDramaTitle")}</th>
+                    <th className="px-3 py-2 font-semibold">{t("common.admin.colOriginalName")}</th>
+                    <th className="px-3 py-2 font-semibold">{t("common.admin.labelTypeShort")}</th>
+                    <th className="px-3 py-2 font-semibold">{t("common.admin.tags")}</th>
+                    <th className="px-2 py-2 font-semibold">{t("common.admin.videoMode")}</th>
+                    <th className="px-3 py-2 font-semibold">{t("common.admin.colDescShort")}</th>
+                    <th className="px-2 py-2 font-semibold">{t("common.admin.colEpisodesCount")}</th>
+                    <th className="px-2 py-2 font-semibold">{t("common.admin.colPaywallShort")}</th>
+                    <th className="px-2 py-2 font-semibold">{t("common.admin.colListedShort")}</th>
+                    <th className="px-2 py-2 font-semibold">{t("common.admin.colStatusShort")}</th>
+                    <th className="px-3 py-2 font-semibold">{t("common.admin.colCreated")}</th>
+                    <th className="px-3 py-2 font-semibold">{t("common.admin.colCompleted")}</th>
+                    <th className="px-3 py-2 font-semibold">{t("common.admin.colListedTime")}</th>
+                    <th className="px-3 py-2 font-semibold">{t("common.admin.colVideos")}</th>
+                    <th className="px-3 py-2 font-semibold">{t("common.admin.action")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -583,7 +583,7 @@ export default function AdminDramaDetailPage() {
                           target="_blank"
                           rel="noopener noreferrer"
                           className="block w-10 shrink-0"
-                          title={t("admin.clickViewCover")}
+                          title={t("common.admin.clickViewCover")}
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
@@ -606,9 +606,9 @@ export default function AdminDramaDetailPage() {
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-xs text-zinc-300">
                         {s.localOrTranslated === "local"
-                          ? t("admin.localDrama")
+                          ? t("common.admin.localDrama")
                           : s.localOrTranslated === "translated"
-                            ? t("admin.translatedDrama")
+                            ? t("common.admin.translatedDrama")
                             : "—"}
                       </td>
                       <td className="min-w-[80px] px-3 py-2 text-sm text-zinc-300">
@@ -619,10 +619,10 @@ export default function AdminDramaDetailPage() {
                       <td className="whitespace-nowrap px-2 py-2 text-xs text-zinc-300">
                         {(() => {
                           const mode = getSeriesVideoMode(s);
-                          if (mode === "hls") return t("admin.videoModeHls");
-                          if (mode === "mp4") return t("admin.videoModeMp4");
-                          if (mode === "processing") return t("admin.videoModeProcessing");
-                          return t("admin.videoModeMixed");
+                          if (mode === "hls") return t("common.admin.videoModeHls");
+                          if (mode === "mp4") return t("common.admin.videoModeMp4");
+                          if (mode === "processing") return t("common.admin.videoModeProcessing");
+                          return t("common.admin.videoModeMixed");
                         })()}
                       </td>
                       <td className="w-36 px-3 py-2 text-xs text-zinc-400">
@@ -634,17 +634,17 @@ export default function AdminDramaDetailPage() {
                         {s.episodes?.length ?? 0}
                       </td>
                       <td className="whitespace-nowrap px-2 py-2 text-xs text-zinc-300">
-                        {t("admin.lockFromEp", { n: s.lockStartIndex ?? 4 })}
+                        {t("common.admin.lockFromEp", { n: s.lockStartIndex ?? 4 })}
                       </td>
                       <td className="whitespace-nowrap px-2 py-2 text-xs text-zinc-300">
-                        {s.listed !== false ? t("admin.yes") : t("admin.no")}
+                        {s.listed !== false ? t("common.admin.yes") : t("common.admin.no")}
                       </td>
                       <td className="whitespace-nowrap px-2 py-2 text-xs text-zinc-300">
                         {s.taskStatus === "completed"
-                          ? t("admin.taskDone")
+                          ? t("common.admin.taskDone")
                           : s.taskStatus === "incomplete"
-                            ? t("admin.taskPending")
-                            : t("admin.taskDone")}
+                            ? t("common.admin.taskPending")
+                            : t("common.admin.taskDone")}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-[11px] text-zinc-400">
                         {formatTs(s.createdAt)}
@@ -665,7 +665,7 @@ export default function AdminDramaDetailPage() {
                               rel="noopener noreferrer"
                               className="text-[11px] text-blue-400 hover:underline"
                             >
-                              {t("admin.epLinkLabel", { n: e.index })}
+                              {t("common.admin.epLinkLabel", { n: e.index })}
                             </a>
                           ))}
                           {(s.episodes?.length ?? 0) > 3 && (
@@ -682,14 +682,14 @@ export default function AdminDramaDetailPage() {
                             onClick={() => setEditTarget(s)}
                             className="rounded-lg bg-blue-600/20 px-3 py-1.5 text-xs font-semibold text-blue-300 hover:bg-blue-600/30"
                           >
-                            {t("admin.edit")}
+                            {t("common.admin.edit")}
                           </button>
                           <button
                             type="button"
                             onClick={() => handleDelete(s)}
                             className="rounded-lg border border-red-500/50 px-3 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/20"
                           >
-                            {t("admin.delete")}
+                            {t("common.admin.delete")}
                           </button>
                         </div>
                       </td>

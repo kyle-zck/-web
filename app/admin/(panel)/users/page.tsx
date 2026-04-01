@@ -79,12 +79,12 @@ export default function AdminUsersPage() {
           setUsers(json.users);
         } else {
           setUsers([]);
-          setLoadError(String(t("admin.submitFailed")));
+          setLoadError(String(t("common.admin.submitFailed")));
         }
       })
       .catch(() => {
         setUsers([]);
-        setLoadError(String(t("admin.networkError")));
+        setLoadError(String(t("common.admin.networkError")));
       })
       .finally(() => {
         window.clearTimeout(timer);
@@ -101,7 +101,7 @@ export default function AdminUsersPage() {
     if (p === "google") return "Google";
     if (p === "facebook") return "Facebook";
     if (p === "apple") return "Apple ID";
-    return t("admin.unnamed");
+    return t("common.admin.unnamed");
   };
 
   const remainingText = (expiresAtIso: string) => {
@@ -136,7 +136,7 @@ export default function AdminUsersPage() {
   const batchDeleteUsers = async () => {
     const uids = users.map((u) => u.uid).filter((uidValue) => selectedUids.has(uidValue));
     if (uids.length === 0) return;
-    if (!confirm(t("admin.confirmDeleteSelectedUsers", { count: uids.length }))) return;
+    if (!confirm(t("common.admin.confirmDeleteSelectedUsers", { count: uids.length }))) return;
     const { res, json } = await fetchAdminJson<{ ok?: boolean; removed?: number; error?: string }>(
       "/admin/api/users",
       {
@@ -157,9 +157,9 @@ export default function AdminUsersPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-zinc-100">{t("admin.usersTitle")}</h1>
+      <h1 className="text-xl font-bold text-zinc-100">{t("common.admin.usersTitle")}</h1>
       <p className="mt-1 text-sm text-zinc-400">
-        {t("admin.usersHint")}
+        {t("common.admin.usersHint")}
       </p>
 
       <div className="mt-5 flex flex-wrap items-end gap-3 rounded-xl border border-zinc-700/80 bg-zinc-900/50 p-4">
@@ -173,7 +173,7 @@ export default function AdminUsersPage() {
           />
         </label>
         <label className="block">
-          <span className="block text-xs font-semibold text-zinc-400">{t("admin.name")}</span>
+          <span className="block text-xs font-semibold text-zinc-400">{t("common.admin.name")}</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -191,26 +191,26 @@ export default function AdminUsersPage() {
           />
         </label>
         <label className="block">
-          <span className="block text-xs font-semibold text-zinc-400">{t("admin.loginProvider")}</span>
+          <span className="block text-xs font-semibold text-zinc-400">{t("common.admin.loginProvider")}</span>
           <select
             value={provider}
             onChange={(e) => setProvider(e.target.value as any)}
             className="mt-1 rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-white"
           >
-            <option value="">{t("admin.allOption")}</option>
+            <option value="">{t("common.admin.allOption")}</option>
             <option value="google">Google</option>
             <option value="facebook">Facebook</option>
             <option value="apple">Apple ID</option>
           </select>
         </label>
         <label className="block">
-          <span className="block text-xs font-semibold text-zinc-400">{t("admin.membershipPlan")}</span>
+          <span className="block text-xs font-semibold text-zinc-400">{t("common.admin.membershipPlan")}</span>
           <select
             value={membershipPlan}
             onChange={(e) => setMembershipPlan(e.target.value)}
             className="mt-1 w-56 rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-white"
           >
-            <option value="">{t("admin.allOption")}</option>
+            <option value="">{t("common.admin.allOption")}</option>
             {planOptions.map((p) => (
               <option key={p} value={p}>
                 {p}
@@ -219,15 +219,15 @@ export default function AdminUsersPage() {
           </select>
         </label>
         <label className="block">
-          <span className="block text-xs font-semibold text-zinc-400">{t("admin.remainingSort")}</span>
+          <span className="block text-xs font-semibold text-zinc-400">{t("common.admin.remainingSort")}</span>
           <select
             value={remainingSort}
             onChange={(e) => setRemainingSort(e.target.value as any)}
             className="mt-1 rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-white"
           >
-            <option value="">{t("admin.none")}</option>
-            <option value="remainingAsc">{t("admin.remainingAsc")}</option>
-            <option value="remainingDesc">{t("admin.remainingDesc")}</option>
+            <option value="">{t("common.admin.none")}</option>
+            <option value="remainingAsc">{t("common.admin.remainingAsc")}</option>
+            <option value="remainingDesc">{t("common.admin.remainingDesc")}</option>
           </select>
         </label>
         <button
@@ -235,7 +235,7 @@ export default function AdminUsersPage() {
           onClick={load}
           className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-red-600"
         >
-          {t("admin.query")}
+          {t("common.admin.query")}
         </button>
         <button
           type="button"
@@ -249,7 +249,7 @@ export default function AdminUsersPage() {
           }}
           className="rounded-lg border border-zinc-600 bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-100 hover:bg-zinc-700"
         >
-          {t("admin.reset")}
+          {t("common.admin.reset")}
         </button>
         <button
           type="button"
@@ -257,7 +257,7 @@ export default function AdminUsersPage() {
           disabled={users.filter((u) => selectedUids.has(u.uid)).length === 0}
           className="rounded-lg border border-red-500/50 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-200 hover:bg-red-500/20 disabled:opacity-50"
         >
-          {t("admin.batchDeleteWithCount", { count: users.filter((u) => selectedUids.has(u.uid)).length })}
+          {t("common.admin.batchDeleteWithCount", { count: users.filter((u) => selectedUids.has(u.uid)).length })}
         </button>
       </div>
 
@@ -269,16 +269,16 @@ export default function AdminUsersPage() {
             onClick={load}
             className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-100 hover:bg-red-500/20"
           >
-            {t("admin.query")}
+            {t("common.admin.query")}
           </button>
         </div>
       ) : null}
 
       <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-700/80 bg-zinc-900/50">
         {loading ? (
-          <div className="p-8 text-center text-zinc-500">{t("admin.loading")}</div>
+          <div className="p-8 text-center text-zinc-500">{t("common.admin.loading")}</div>
         ) : users.length === 0 ? (
-          <div className="p-8 text-center text-zinc-500">{t("admin.noUsersYet")}</div>
+          <div className="p-8 text-center text-zinc-500">{t("common.admin.noUsersYet")}</div>
         ) : (
           <table className="w-full min-w-[1100px]">
             <thead>
@@ -292,17 +292,17 @@ export default function AdminUsersPage() {
                   />
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">UID</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.name")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.name")}</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">Email</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.phone")}</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.loginProvider")}</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.created")}</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.lastLoginAt")}</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.lastLoginIp")}</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.accountStatus")}</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.membershipPlan")}</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.remainingTime")}</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.deviceType")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.phone")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.loginProvider")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.created")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.lastLoginAt")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.lastLoginIp")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.accountStatus")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.membershipPlan")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.remainingTime")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.deviceType")}</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">Recharge</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">Recharge History</th>
               </tr>
@@ -331,7 +331,7 @@ export default function AdminUsersPage() {
                   </td>
                   <td className="px-4 py-3 text-xs text-zinc-500">{u.lastLoginIp || "-"}</td>
                   <td className="px-4 py-3 text-xs text-zinc-300">
-                    {u.status === "disabled" ? t("admin.statusDisabled") : t("admin.statusActive")}
+                    {u.status === "disabled" ? t("common.admin.statusDisabled") : t("common.admin.statusActive")}
                   </td>
                   <td className="px-4 py-3 text-xs text-zinc-300">{u.membershipPlan || "-"}</td>
                   <td className="px-4 py-3 text-xs text-zinc-300">{remainingText(u.membershipExpiresAt)}</td>

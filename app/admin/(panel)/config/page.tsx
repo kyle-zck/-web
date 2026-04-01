@@ -73,7 +73,7 @@ export default function AdminConfigPage() {
     } catch {
       setPlansEdit([]);
       setDraftPlans([]);
-      setLoadError(String(t("admin.networkError")));
+      setLoadError(String(t("common.admin.networkError")));
     } finally {
       setLoaded(true);
     }
@@ -99,7 +99,7 @@ export default function AdminConfigPage() {
       {
         id: nextId,
         templateName: nextId,
-        label: t("admin.newPlan"),
+        label: t("common.admin.newPlan"),
         priceUsd: 9.99,
         durationDays: 30,
         discountPercent: 100,
@@ -141,7 +141,7 @@ export default function AdminConfigPage() {
       return next;
     });
     setDraftPlans(staged);
-    showToast(t("admin.saved"), "success");
+    showToast(t("common.admin.saved"), "success");
   };
 
   const stageTitleIntro = () => {
@@ -150,7 +150,7 @@ export default function AdminConfigPage() {
       title: storeTitleEdit,
       subtitle: storeSubtitleEdit
     }));
-    showToast(t("admin.saved"), "success");
+    showToast(t("common.admin.saved"), "success");
   };
 
   const stageTips = () => {
@@ -159,7 +159,7 @@ export default function AdminConfigPage() {
       ...prev,
       tips: nextTips.length ? nextTips : []
     }));
-    showToast(t("admin.saved"), "success");
+    showToast(t("common.admin.saved"), "success");
   };
 
   const applyAll = async () => {
@@ -180,7 +180,7 @@ export default function AdminConfigPage() {
         showToast(translateAdminApiError(json, t), "error");
         return;
       }
-      showToast(t("admin.saved"), "success");
+      showToast(t("common.admin.saved"), "success");
     } finally {
       setSaving(false);
     }
@@ -189,7 +189,7 @@ export default function AdminConfigPage() {
   if (!loaded) {
     return (
       <main>
-        <p className="text-sm text-zinc-400">{t("admin.loading")}</p>
+        <p className="text-sm text-zinc-400">{t("common.admin.loading")}</p>
       </main>
     );
   }
@@ -198,9 +198,9 @@ export default function AdminConfigPage() {
     <main>
       <div className="flex items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-extrabold text-zinc-100">{t("admin.rechargeTemplateManagement")}</h1>
+          <h1 className="text-xl font-extrabold text-zinc-100">{t("common.admin.rechargeTemplateManagement")}</h1>
           <p className="mt-1 text-xs text-zinc-400">
-            {t("admin.configHint")}
+            {t("common.admin.configHint")}
           </p>
         </div>
         <button
@@ -209,7 +209,7 @@ export default function AdminConfigPage() {
           disabled={saving}
           className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
         >
-          {saving ? t("admin.saving") : t("admin.save")}
+          {saving ? t("common.admin.saving") : t("common.admin.save")}
         </button>
       </div>
 
@@ -221,35 +221,35 @@ export default function AdminConfigPage() {
             onClick={() => loadConfig()}
             className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-100 hover:bg-red-500/20"
           >
-            {t("admin.query")}
+            {t("common.admin.query")}
           </button>
         </div>
       ) : null}
 
       <section className="mt-5 rounded-3xl border border-zinc-800/80 bg-zinc-950/60 p-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-zinc-100">{t("admin.subscriptionPlans")}</h2>
+          <h2 className="text-sm font-semibold text-zinc-100">{t("common.admin.subscriptionPlans")}</h2>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={addPlan}
               className="rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-semibold text-zinc-200 hover:bg-zinc-700"
             >
-              {t("admin.addPlan")}
+              {t("common.admin.addPlan")}
             </button>
             <button
               type="button"
               onClick={stagePlans}
               className="rounded-full bg-brand/15 px-3 py-1.5 text-xs font-semibold text-brand ring-1 ring-brand/40 hover:bg-brand/20"
             >
-              {t("admin.save")}
+              {t("common.admin.save")}
             </button>
           </div>
         </div>
         <div className="mt-3 space-y-3">
           {plansEdit.length === 0 ? (
             <div className="rounded-2xl border border-zinc-800/80 bg-black/30 p-6 text-center text-sm text-zinc-500">
-              {t("admin.noRechargeTemplatesYet")}
+              {t("common.admin.noRechargeTemplatesYet")}
             </div>
           ) : (
             plansEdit.map((plan, i) => (
@@ -279,7 +279,7 @@ export default function AdminConfigPage() {
                   />
                 </label>
                 <label className="flex flex-col gap-1 text-xs text-zinc-400">
-                  {t("admin.priceUsd")}
+                  {t("common.admin.priceUsd")}
                   <input
                     type="number"
                     step="0.01"
@@ -289,7 +289,7 @@ export default function AdminConfigPage() {
                   />
                 </label>
                 <label className="flex flex-col gap-1 text-xs text-zinc-400">
-                  {t("admin.durationDays")}
+                  {t("common.admin.durationDays")}
                   <input
                     type="number"
                     value={plan.durationDays}
@@ -317,7 +317,7 @@ export default function AdminConfigPage() {
                 </label>
                 <div className="flex items-end gap-2">
                   <label className="flex flex-1 flex-col gap-1 text-xs text-zinc-400">
-                    {t("admin.paymentUrl")}
+                    {t("common.admin.paymentUrl")}
                     <input
                       value={plan.paymentUrl ?? ""}
                       onChange={(e) => updatePlan(i, { paymentUrl: e.target.value || undefined })}
@@ -341,7 +341,7 @@ export default function AdminConfigPage() {
                     onClick={() => removePlan(i)}
                     className="rounded-lg border border-red-500/50 bg-red-500/10 px-2 py-2 text-xs font-semibold text-red-300 hover:bg-red-500/20"
                   >
-                    {t("admin.delete")}
+                    {t("common.admin.delete")}
                   </button>
                 </div>
                 </div>
@@ -354,18 +354,18 @@ export default function AdminConfigPage() {
       {/* 图3：标题与子介绍编辑 */}
       <section className="mt-5 rounded-3xl border border-zinc-800/80 bg-zinc-950/60 p-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-zinc-100">{t("admin.storeTitleConfig")}</h2>
+          <h2 className="text-sm font-semibold text-zinc-100">{t("common.admin.storeTitleConfig")}</h2>
           <button
             type="button"
             onClick={stageTitleIntro}
             className="rounded-full bg-brand/15 px-3 py-1.5 text-xs font-semibold text-brand ring-1 ring-brand/40 hover:bg-brand/20"
           >
-            {t("admin.save")}
+            {t("common.admin.save")}
           </button>
         </div>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-xs text-zinc-400">
-            {t("admin.title")}
+            {t("common.admin.title")}
             <input
               value={storeTitleEdit}
               onChange={(e) => setStoreTitleEdit(e.target.value)}
@@ -373,7 +373,7 @@ export default function AdminConfigPage() {
             />
           </label>
           <label className="flex flex-col gap-1 text-xs text-zinc-400">
-            {t("admin.subtitle")}
+            {t("common.admin.subtitle")}
             <input
               value={storeSubtitleEdit}
               onChange={(e) => setStoreSubtitleEdit(e.target.value)}
@@ -386,19 +386,19 @@ export default function AdminConfigPage() {
       {/* 图4：Tips 内容编辑 */}
       <section className="mt-5 rounded-3xl border border-zinc-800/80 bg-zinc-950/60 p-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-zinc-100">{t("admin.storeTipsConfig")}</h2>
+          <h2 className="text-sm font-semibold text-zinc-100">{t("common.admin.storeTipsConfig")}</h2>
           <button
             type="button"
             onClick={stageTips}
             className="rounded-full bg-brand/15 px-3 py-1.5 text-xs font-semibold text-brand ring-1 ring-brand/40 hover:bg-brand/20"
           >
-            {t("admin.save")}
+            {t("common.admin.save")}
           </button>
         </div>
         <div className="mt-3 space-y-2">
           {tipsEdit.map((line, idx) => (
             <label key={idx} className="flex flex-col gap-1 text-xs text-zinc-400">
-              {String(t("admin.tipLine", { n: idx + 1 } as any))}
+              {String(t("common.admin.tipLine", { n: idx + 1 } as any))}
               <input
                 value={line}
                 onChange={(e) => {

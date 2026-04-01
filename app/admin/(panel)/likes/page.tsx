@@ -21,12 +21,12 @@ export default function AdminLikesPage() {
           setByClient(json.byClient);
         } else {
           setByClient({});
-          setLoadError(String(t("admin.submitFailed")));
+          setLoadError(String(t("common.admin.submitFailed")));
         }
       })
       .catch(() => {
         setByClient({});
-        setLoadError(String(t("admin.networkError")));
+        setLoadError(String(t("common.admin.networkError")));
       })
       .finally(() => {
         window.clearTimeout(timer);
@@ -45,9 +45,9 @@ export default function AdminLikesPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-zinc-100">{t("admin.likesTitle")}</h1>
+      <h1 className="text-xl font-bold text-zinc-100">{t("common.admin.likesTitle")}</h1>
       <p className="mt-1 text-sm text-zinc-400">
-        {t("admin.likesHint")}
+        {t("common.admin.likesHint")}
       </p>
       {loadError ? (
         <div className="mt-4 flex items-center justify-between rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
@@ -57,21 +57,21 @@ export default function AdminLikesPage() {
             onClick={load}
             className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-100 hover:bg-red-500/20"
           >
-            {t("admin.query")}
+            {t("common.admin.query")}
           </button>
         </div>
       ) : null}
       <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-700/80 bg-zinc-900/50">
         {loading ? (
-          <div className="p-8 text-center text-zinc-500">{t("admin.loading")}</div>
+          <div className="p-8 text-center text-zinc-500">{t("common.admin.loading")}</div>
         ) : rows.length === 0 ? (
-          <div className="p-8 text-center text-zinc-500">{t("admin.noLikesYet")}</div>
+          <div className="p-8 text-center text-zinc-500">{t("common.admin.noLikesYet")}</div>
         ) : (
           <table className="w-full min-w-[500px]">
             <thead>
               <tr className="border-b border-zinc-700/80">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.clientId")}</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.seriesId")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.clientId")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.seriesId")}</th>
               </tr>
             </thead>
             <tbody>

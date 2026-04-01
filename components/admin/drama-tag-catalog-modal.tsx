@@ -65,7 +65,7 @@ export function DramaTagCatalogModal({ open, onClose, onCatalogChange }: Props) 
   const handleAdd = async () => {
     const name = newName.trim();
     if (!name) {
-      showToast(t("admin.tagNameRequiredToast"));
+      showToast(t("common.admin.tagNameRequiredToast"));
       return;
     }
     try {
@@ -89,9 +89,9 @@ export function DramaTagCatalogModal({ open, onClose, onCatalogChange }: Props) 
       setNewName("");
       await load();
       onCatalogChange?.();
-      showToast(t("admin.tagAdded"), "success");
+      showToast(t("common.admin.tagAdded"), "success");
     } catch {
-      showToast(t("admin.networkErrorShort"));
+      showToast(t("common.admin.networkErrorShort"));
     }
   };
 
@@ -108,7 +108,7 @@ export function DramaTagCatalogModal({ open, onClose, onCatalogChange }: Props) 
   const saveEdit = async (id: string) => {
     const name = editValue.trim();
     if (!name) {
-      showToast(t("admin.tagNameEmpty"));
+      showToast(t("common.admin.tagNameEmpty"));
       return;
     }
     try {
@@ -132,14 +132,14 @@ export function DramaTagCatalogModal({ open, onClose, onCatalogChange }: Props) 
       cancelEdit();
       await load();
       onCatalogChange?.();
-      showToast(t("admin.tagSaved"), "success");
+      showToast(t("common.admin.tagSaved"), "success");
     } catch {
-      showToast(t("admin.networkErrorShort"));
+      showToast(t("common.admin.networkErrorShort"));
     }
   };
 
   const handleDelete = async (id: string, name: string) => {
-    const ok = confirm(t("admin.confirmDeleteCatalogTag", { name }));
+    const ok = confirm(t("common.admin.confirmDeleteCatalogTag", { name }));
     if (!ok) return;
     try {
       const { res, json } = await fetchAdminJson<{
@@ -161,9 +161,9 @@ export function DramaTagCatalogModal({ open, onClose, onCatalogChange }: Props) 
       }
       await load();
       onCatalogChange?.();
-      showToast(t("admin.tagDeletedToast"), "success");
+      showToast(t("common.admin.tagDeletedToast"), "success");
     } catch {
-      showToast(t("admin.networkErrorShort"));
+      showToast(t("common.admin.networkErrorShort"));
     }
   };
 
@@ -173,13 +173,13 @@ export function DramaTagCatalogModal({ open, onClose, onCatalogChange }: Props) 
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
       <button
         type="button"
-        aria-label={t("admin.close")}
+        aria-label={t("common.admin.close")}
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
       />
       <div className="relative z-10 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-zinc-700/80 bg-zinc-950 shadow-xl">
         <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
-          <h2 className="text-base font-bold text-zinc-100">{t("admin.tagCatalogTitle")}</h2>
+          <h2 className="text-base font-bold text-zinc-100">{t("common.admin.tagCatalogTitle")}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -191,13 +191,13 @@ export function DramaTagCatalogModal({ open, onClose, onCatalogChange }: Props) 
 
         <div className="space-y-4 overflow-y-auto p-5">
           <div>
-            <p className="text-xs font-semibold text-zinc-400">{t("admin.tagCatalogAddSection")}</p>
+            <p className="text-xs font-semibold text-zinc-400">{t("common.admin.tagCatalogAddSection")}</p>
             <div className="mt-2 flex gap-2">
               <input
                 type="text"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder={t("admin.tagCatalogPhNew")}
+                placeholder={t("common.admin.tagCatalogPhNew")}
                 className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500"
                 onKeyDown={(e) => e.key === "Enter" && handleAdd()}
               />
@@ -206,19 +206,19 @@ export function DramaTagCatalogModal({ open, onClose, onCatalogChange }: Props) 
                 onClick={handleAdd}
                 className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
               >
-                {t("admin.addButton")}
+                {t("common.admin.addButton")}
               </button>
             </div>
           </div>
 
           <div>
-            <p className="text-xs font-semibold text-zinc-400">{t("admin.tagCatalogFilterSection")}</p>
+            <p className="text-xs font-semibold text-zinc-400">{t("common.admin.tagCatalogFilterSection")}</p>
             <div className="mt-2 flex gap-2">
               <input
                 type="text"
                 value={filterDraft}
                 onChange={(e) => setFilterDraft(e.target.value)}
-                placeholder={t("admin.tagCatalogPhFilter")}
+                placeholder={t("common.admin.tagCatalogPhFilter")}
                 className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500"
                 onKeyDown={(e) => e.key === "Enter" && applyFilter()}
               />
@@ -227,20 +227,20 @@ export function DramaTagCatalogModal({ open, onClose, onCatalogChange }: Props) 
                 onClick={applyFilter}
                 className="shrink-0 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500"
               >
-                {t("admin.filterAction")}
+                {t("common.admin.filterAction")}
               </button>
             </div>
           </div>
 
           <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40">
             <div className="grid grid-cols-[1fr_auto] gap-2 border-b border-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-500">
-              <span>{t("admin.tagCatalogNameCol")}</span>
-              <span className="text-right">{t("admin.action")}</span>
+              <span>{t("common.admin.tagCatalogNameCol")}</span>
+              <span className="text-right">{t("common.admin.action")}</span>
             </div>
             {loading ? (
-              <div className="px-3 py-8 text-center text-sm text-zinc-500">{t("admin.tableLoading")}</div>
+              <div className="px-3 py-8 text-center text-sm text-zinc-500">{t("common.admin.tableLoading")}</div>
             ) : filtered.length === 0 ? (
-              <div className="px-3 py-8 text-center text-sm text-zinc-500">{t("admin.tagCatalogNoTags")}</div>
+              <div className="px-3 py-8 text-center text-sm text-zinc-500">{t("common.admin.tagCatalogNoTags")}</div>
             ) : (
               <ul className="max-h-64 divide-y divide-zinc-800/80 overflow-y-auto">
                 {filtered.map((item) => (
@@ -273,14 +273,14 @@ export function DramaTagCatalogModal({ open, onClose, onCatalogChange }: Props) 
                             onClick={() => saveEdit(item.id)}
                             className="rounded-lg bg-blue-600/20 px-2 py-1 text-xs font-semibold text-blue-300 hover:bg-blue-600/30"
                           >
-                            {t("admin.saveBtn")}
+                            {t("common.admin.saveBtn")}
                           </button>
                           <button
                             type="button"
                             onClick={cancelEdit}
                             className="rounded-lg border border-zinc-600 px-2 py-1 text-xs text-zinc-400 hover:bg-zinc-800"
                           >
-                            {t("admin.cancel")}
+                            {t("common.admin.cancel")}
                           </button>
                         </>
                       ) : (
@@ -290,14 +290,14 @@ export function DramaTagCatalogModal({ open, onClose, onCatalogChange }: Props) 
                             onClick={() => startEdit(item)}
                             className="rounded-lg bg-blue-600/20 px-2 py-1 text-xs font-semibold text-blue-300 hover:bg-blue-600/30"
                           >
-                            {t("admin.edit")}
+                            {t("common.admin.edit")}
                           </button>
                           <button
                             type="button"
                             onClick={() => handleDelete(item.id, item.name)}
                             className="rounded-lg border border-red-500/40 px-2 py-1 text-xs font-semibold text-red-300 hover:bg-red-500/15"
                           >
-                            {t("admin.delete")}
+                            {t("common.admin.delete")}
                           </button>
                         </>
                       )}
@@ -315,7 +315,7 @@ export function DramaTagCatalogModal({ open, onClose, onCatalogChange }: Props) 
             onClick={onClose}
             className="w-full rounded-lg border border-zinc-600 py-2 text-sm font-semibold text-zinc-300 hover:bg-zinc-800/80"
           >
-            {t("admin.close")}
+            {t("common.admin.close")}
           </button>
         </div>
       </div>

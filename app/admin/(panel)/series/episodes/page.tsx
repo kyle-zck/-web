@@ -56,7 +56,7 @@ export default function AdminEpisodeManagementPage() {
       }
     } catch {
       setSeries([]);
-      setLoadError(String(t("admin.networkError")));
+      setLoadError(String(t("common.admin.networkError")));
     } finally {
       setLoading(false);
     }
@@ -122,7 +122,7 @@ export default function AdminEpisodeManagementPage() {
   const episodeKey = (s: Series, e: Episode) => `${s.id}::${e.id}`;
 
   const deleteEpisode = async (s: Series, e: Episode) => {
-    const ok = confirm(t("admin.confirmDeleteEpisode", { title: s.title, n: e.index }));
+    const ok = confirm(t("common.admin.confirmDeleteEpisode", { title: s.title, n: e.index }));
     if (!ok) return;
     try {
       const { res, json } = await fetchAdminJson<{ ok?: boolean; errorKey?: string }>(
@@ -139,10 +139,10 @@ export default function AdminEpisodeManagementPage() {
         next.delete(episodeKey(s, e));
         return next;
       });
-      showToast(t("admin.episodeDeleted"), "success");
+      showToast(t("common.admin.episodeDeleted"), "success");
       await load();
     } catch {
-      showToast(t("admin.networkErrorShort"));
+      showToast(t("common.admin.networkErrorShort"));
     }
   };
 
@@ -167,10 +167,10 @@ export default function AdminEpisodeManagementPage() {
   const batchDeleteEpisodes = async () => {
     const selectedRows = rows.filter(({ series: s, episode: e }) => selectedEpisodeKeys.has(episodeKey(s, e)));
     if (selectedRows.length === 0) {
-      showToast(t("admin.noEpisodeRows"), "info");
+      showToast(t("common.admin.noEpisodeRows"), "info");
       return;
     }
-    if (!confirm(t("admin.confirmDeleteSelectedEpisodes", { count: selectedRows.length }))) return;
+    if (!confirm(t("common.admin.confirmDeleteSelectedEpisodes", { count: selectedRows.length }))) return;
 
     let okCount = 0;
     for (const { series: s, episode: e } of selectedRows) {
@@ -187,7 +187,7 @@ export default function AdminEpisodeManagementPage() {
     }
 
     if (okCount > 0) {
-      showToast(t("admin.batchDeleteEpisodesDone", { ok: okCount, total: selectedRows.length }), "success");
+      showToast(t("common.admin.batchDeleteEpisodesDone", { ok: okCount, total: selectedRows.length }), "success");
       setSelectedEpisodeKeys((prev) => {
         const next = new Set(prev);
         selectedRows.forEach(({ series: s, episode: e }) => next.delete(episodeKey(s, e)));
@@ -195,13 +195,13 @@ export default function AdminEpisodeManagementPage() {
       });
       await load();
     } else {
-      showToast(t("admin.episodeDeleteFailed"), "error");
+      showToast(t("common.admin.episodeDeleteFailed"), "error");
     }
   };
 
   const refreshEpisodeStatus = async (s: Series, e: Episode) => {
     if (!e.videoStreamId) {
-      showToast(t("admin.videoStatusNoStreamId"), "info");
+      showToast(t("common.admin.videoStatusNoStreamId"), "info");
       return;
     }
     setRefreshingEpisodeId(e.id);
@@ -217,13 +217,13 @@ export default function AdminEpisodeManagementPage() {
       });
       const json = (await res.json()) as { ok?: boolean };
       if (!res.ok || !json?.ok) {
-        showToast(t("admin.videoStatusRefreshFailed"));
+        showToast(t("common.admin.videoStatusRefreshFailed"));
         return;
       }
       await load();
-      showToast(t("admin.videoStatusRefreshed"), "success");
+      showToast(t("common.admin.videoStatusRefreshed"), "success");
     } catch {
-      showToast(t("admin.networkErrorShort"));
+      showToast(t("common.admin.networkErrorShort"));
     } finally {
       setRefreshingEpisodeId(null);
     }
@@ -231,7 +231,7 @@ export default function AdminEpisodeManagementPage() {
 
   const refreshProcessingEpisodes = async () => {
     if (processingRows.length === 0) {
-      showToast(t("admin.videoStatusNoProcessing"), "info");
+      showToast(t("common.admin.videoStatusNoProcessing"), "info");
       return;
     }
     setBatchRefreshing(true);
@@ -266,14 +266,14 @@ export default function AdminEpisodeManagementPage() {
       await Promise.all(workers);
       await load();
       showToast(
-        t("admin.videoStatusBatchRefreshed", {
+        t("common.admin.videoStatusBatchRefreshed", {
           ok: okCount,
           total: processingRows.length
         }),
         "success"
       );
     } catch {
-      showToast(t("admin.videoStatusRefreshFailed"));
+      showToast(t("common.admin.videoStatusRefreshFailed"));
     } finally {
       setBatchRefreshing(false);
     }
@@ -321,9 +321,9 @@ export default function AdminEpisodeManagementPage() {
         }
       );
       setResourceHealth((prev) => ({ ...prev, [e.id]: next }));
-      showToast(t("admin.videoHealthChecked"), "success");
+      showToast(t("common.admin.videoHealthChecked"), "success");
     } catch {
-      showToast(t("admin.networkErrorShort"));
+      showToast(t("common.admin.networkErrorShort"));
     } finally {
       setCheckingEpisodeId(null);
     }
@@ -331,7 +331,7 @@ export default function AdminEpisodeManagementPage() {
 
   const checkVisibleResources = async () => {
     if (rows.length === 0) {
-      showToast(t("admin.noEpisodeRows"), "info");
+      showToast(t("common.admin.noEpisodeRows"), "info");
       return;
     }
     setBatchChecking(true);
@@ -389,9 +389,9 @@ export default function AdminEpisodeManagementPage() {
         }
       );
       await Promise.all(workers);
-      showToast(t("admin.videoHealthBatchChecked", { ok: okCount, total: rows.length }), "success");
+      showToast(t("common.admin.videoHealthBatchChecked", { ok: okCount, total: rows.length }), "success");
     } catch {
-      showToast(t("admin.videoHealthCheckFailed"));
+      showToast(t("common.admin.videoHealthCheckFailed"));
     } finally {
       setBatchChecking(false);
     }
@@ -413,53 +413,53 @@ export default function AdminEpisodeManagementPage() {
     `${origin}/series/${encodeURIComponent(s.id)}?episode=${e.index}`;
 
   const statusLabel = (status: Episode["videoStatus"]) => {
-    if (status === "ready") return t("admin.videoStatusReady");
-    if (status === "failed") return t("admin.videoStatusFailed");
-    return t("admin.videoStatusProcessing");
+    if (status === "ready") return t("common.admin.videoStatusReady");
+    if (status === "failed") return t("common.admin.videoStatusFailed");
+    return t("common.admin.videoStatusProcessing");
   };
 
   return (
     <main>
-      <p className="text-xs font-medium text-zinc-500">{t("admin.dramaResourceManagement")}</p>
-      <h4 className="mt-1 text-base font-bold text-zinc-100">{t("admin.episodeManagement")}</h4>
+      <p className="text-xs font-medium text-zinc-500">{t("common.admin.dramaResourceManagement")}</p>
+      <h4 className="mt-1 text-base font-bold text-zinc-100">{t("common.admin.episodeManagement")}</h4>
       <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-400">
-        {t("admin.episodeManagementIntro")}
+        {t("common.admin.episodeManagementIntro")}
       </p>
 
       <section className="mt-5 flex flex-wrap items-end gap-3 rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-4">
         <div>
           <label className="block text-xs font-semibold text-zinc-400">
-            {t("admin.dramaIdFilter")}
+            {t("common.admin.dramaIdFilter")}
           </label>
           <input
             type="text"
             value={draft.dramaId}
             onChange={(e) => setDraft((d) => ({ ...d, dramaId: e.target.value }))}
-            placeholder={t("admin.dramaIdFilterPh")}
+            placeholder={t("common.admin.dramaIdFilterPh")}
             className="mt-1 w-40 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500"
           />
         </div>
         <div>
           <label className="block text-xs font-semibold text-zinc-400">
-            {t("admin.originalNameFilter")}
+            {t("common.admin.originalNameFilter")}
           </label>
           <input
             type="text"
             value={draft.originalName}
             onChange={(e) => setDraft((d) => ({ ...d, originalName: e.target.value }))}
-            placeholder={t("admin.originalNameFilterPh")}
+            placeholder={t("common.admin.originalNameFilterPh")}
             className="mt-1 w-44 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500"
           />
         </div>
         <div>
           <label className="block text-xs font-semibold text-zinc-400">
-            {t("admin.dramaTitleFilter")}
+            {t("common.admin.dramaTitleFilter")}
           </label>
           <input
             type="text"
             value={draft.title}
             onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
-            placeholder={t("admin.dramaTitleFilterPh")}
+            placeholder={t("common.admin.dramaTitleFilterPh")}
             className="mt-1 w-44 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500"
           />
         </div>
@@ -470,7 +470,7 @@ export default function AdminEpisodeManagementPage() {
             disabled={rows.filter(({ series: s, episode: e }) => selectedEpisodeKeys.has(episodeKey(s, e))).length === 0}
             className="rounded-lg border border-red-500/50 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-300 hover:bg-red-500/20 disabled:opacity-50"
           >
-            {t("admin.batchDeleteWithCount", {
+            {t("common.admin.batchDeleteWithCount", {
               count: rows.filter(({ series: s, episode: e }) => selectedEpisodeKeys.has(episodeKey(s, e))).length
             })}
           </button>
@@ -481,8 +481,8 @@ export default function AdminEpisodeManagementPage() {
             className="rounded-lg border border-cyan-500/50 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-300 hover:bg-cyan-500/20 disabled:opacity-50"
           >
             {batchChecking
-              ? t("admin.videoHealthBatchChecking")
-              : t("admin.videoHealthBatchCheck", { count: rows.length })}
+              ? t("common.admin.videoHealthBatchChecking")
+              : t("common.admin.videoHealthBatchCheck", { count: rows.length })}
           </button>
           <button
             type="button"
@@ -491,22 +491,22 @@ export default function AdminEpisodeManagementPage() {
             className="rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-300 hover:bg-amber-500/20 disabled:opacity-50"
           >
             {batchRefreshing
-              ? t("admin.videoStatusBatchRefreshing")
-              : t("admin.videoStatusBatchRefresh", { count: processingRows.length })}
+              ? t("common.admin.videoStatusBatchRefreshing")
+              : t("common.admin.videoStatusBatchRefresh", { count: processingRows.length })}
           </button>
           <button
             type="button"
             onClick={handleReset}
             className="rounded-lg border border-zinc-600 bg-zinc-800/60 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-700/60"
           >
-            {t("admin.reset")}
+            {t("common.admin.reset")}
           </button>
           <button
             type="button"
             onClick={handleQuery}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500"
           >
-            {t("admin.query")}
+            {t("common.admin.query")}
           </button>
         </div>
       </section>
@@ -519,7 +519,7 @@ export default function AdminEpisodeManagementPage() {
             onClick={load}
             className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-100 hover:bg-red-500/20"
           >
-            {t("admin.query")}
+            {t("common.admin.query")}
           </button>
         </div>
       ) : null}
@@ -527,7 +527,7 @@ export default function AdminEpisodeManagementPage() {
       <section className="mt-6 overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/60">
         <div className="max-h-[calc(100vh-340px)] overflow-auto">
           {loading ? (
-            <div className="py-12 text-center text-zinc-500">{t("admin.tableLoading")}</div>
+            <div className="py-12 text-center text-zinc-500">{t("common.admin.tableLoading")}</div>
           ) : (
             <div className="overflow-x-auto scrollbar-thin">
               <table className="w-full min-w-[1180px] border-collapse">
@@ -541,22 +541,22 @@ export default function AdminEpisodeManagementPage() {
                         aria-label="Select all"
                       />
                     </th>
-                    <th className="whitespace-nowrap px-3 py-2 font-semibold">{t("admin.episodeColDramaId")}</th>
-                    <th className="whitespace-nowrap px-3 py-2 font-semibold">{t("admin.episodeColIndex")}</th>
-                    <th className="min-w-[100px] px-3 py-2 font-semibold">{t("admin.colOriginalName")}</th>
-                    <th className="min-w-[100px] px-3 py-2 font-semibold">{t("admin.colDramaTitle")}</th>
-                    <th className="whitespace-nowrap px-3 py-2 font-semibold">{t("admin.episodeColCover")}</th>
-                    <th className="whitespace-nowrap px-3 py-2 font-semibold">{t("admin.episodeColStreamStatus")}</th>
-                    <th className="min-w-[120px] px-3 py-2 font-semibold">{t("admin.episodeColLocalVideo")}</th>
-                    <th className="min-w-[120px] px-3 py-2 font-semibold">{t("admin.episodeColSiteLink")}</th>
-                    <th className="whitespace-nowrap px-3 py-2 font-semibold">{t("admin.action")}</th>
+                    <th className="whitespace-nowrap px-3 py-2 font-semibold">{t("common.admin.episodeColDramaId")}</th>
+                    <th className="whitespace-nowrap px-3 py-2 font-semibold">{t("common.admin.episodeColIndex")}</th>
+                    <th className="min-w-[100px] px-3 py-2 font-semibold">{t("common.admin.colOriginalName")}</th>
+                    <th className="min-w-[100px] px-3 py-2 font-semibold">{t("common.admin.colDramaTitle")}</th>
+                    <th className="whitespace-nowrap px-3 py-2 font-semibold">{t("common.admin.episodeColCover")}</th>
+                    <th className="whitespace-nowrap px-3 py-2 font-semibold">{t("common.admin.episodeColStreamStatus")}</th>
+                    <th className="min-w-[120px] px-3 py-2 font-semibold">{t("common.admin.episodeColLocalVideo")}</th>
+                    <th className="min-w-[120px] px-3 py-2 font-semibold">{t("common.admin.episodeColSiteLink")}</th>
+                    <th className="whitespace-nowrap px-3 py-2 font-semibold">{t("common.admin.action")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.length === 0 ? (
                     <tr>
                       <td colSpan={10} className="px-4 py-12 text-center text-sm text-zinc-500">
-                        {t("admin.noEpisodeRows")}
+                        {t("common.admin.noEpisodeRows")}
                       </td>
                     </tr>
                   ) : (
@@ -577,13 +577,13 @@ export default function AdminEpisodeManagementPage() {
                           {s.dramaId ?? "—"}
                         </td>
                         <td className="px-3 py-2 text-sm text-zinc-200">
-                          <div className="whitespace-nowrap">{t("admin.episodeRowLabel", { n: e.index })}</div>
+                          <div className="whitespace-nowrap">{t("common.admin.episodeRowLabel", { n: e.index })}</div>
                           {e.sourceFileName ? (
                             <div
                               className="mt-0.5 max-w-[200px] truncate text-[11px] text-zinc-500"
                               title={e.sourceFileName}
                             >
-                              {t("admin.episodeFileName", { name: e.sourceFileName })}
+                              {t("common.admin.episodeFileName", { name: e.sourceFileName })}
                             </div>
                           ) : null}
                         </td>
@@ -603,7 +603,7 @@ export default function AdminEpisodeManagementPage() {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="block w-10 shrink-0"
-                            title={t("admin.clickViewCover")}
+                            title={t("common.admin.clickViewCover")}
                           >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
@@ -631,8 +631,8 @@ export default function AdminEpisodeManagementPage() {
                               className="rounded-md border border-zinc-600 px-2 py-1 text-[11px] font-semibold text-zinc-200 hover:bg-zinc-700/60 disabled:opacity-50"
                             >
                               {refreshingEpisodeId === e.id
-                                ? t("admin.videoStatusRefreshing")
-                                : t("admin.videoStatusRefresh")}
+                                ? t("common.admin.videoStatusRefreshing")
+                                : t("common.admin.videoStatusRefresh")}
                             </button>
                           </div>
                         </td>
@@ -644,11 +644,11 @@ export default function AdminEpisodeManagementPage() {
                             className="text-xs text-blue-400 hover:underline"
                             title={
                               e.localVideoUrl?.startsWith("file:")
-                                ? t("admin.fileLinkBlockedHint")
-                                : e.sourceFileName ?? t("admin.localResourceFallback")
+                                ? t("common.admin.fileLinkBlockedHint")
+                                : e.sourceFileName ?? t("common.admin.localResourceFallback")
                             }
                           >
-                            {t("admin.openLocalResource")}
+                            {t("common.admin.openLocalResource")}
                           </a>
                           {playableStreamUrl(e) ? (
                             <a
@@ -656,9 +656,9 @@ export default function AdminEpisodeManagementPage() {
                               target="_blank"
                               rel="noopener noreferrer"
                               className="mt-1 block text-xs text-emerald-400/90 hover:underline"
-                              title={t("admin.episodeStreamUrlTitle")}
+                              title={t("common.admin.episodeStreamUrlTitle")}
                             >
-                              {t("admin.openStreamUrl")}
+                              {t("common.admin.openStreamUrl")}
                             </a>
                           ) : null}
                           {resourceHealth[e.id]?.videoUrl ? (
@@ -696,7 +696,7 @@ export default function AdminEpisodeManagementPage() {
                               rel="noopener noreferrer"
                               className="text-xs text-emerald-400 hover:underline"
                             >
-                              {t("admin.frontendPlayPage")}
+                              {t("common.admin.frontendPlayPage")}
                             </a>
                           ) : (
                             <span className="text-xs text-zinc-500">—</span>
@@ -711,15 +711,15 @@ export default function AdminEpisodeManagementPage() {
                               className="rounded-lg border border-cyan-500/50 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/15 disabled:opacity-50"
                             >
                               {checkingEpisodeId === e.id
-                                ? t("admin.videoHealthChecking")
-                                : t("admin.videoHealthCheck")}
+                                ? t("common.admin.videoHealthChecking")
+                                : t("common.admin.videoHealthCheck")}
                             </button>
                             <button
                               type="button"
                               onClick={() => deleteEpisode(s, e)}
                               className="rounded-lg border border-red-500/50 px-3 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/15"
                             >
-                              {t("admin.delete")}
+                              {t("common.admin.delete")}
                             </button>
                           </div>
                         </td>

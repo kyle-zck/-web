@@ -53,9 +53,9 @@ export function DramaEditDrawer({
   const [seriesHlsFirstN, setSeriesHlsFirstN] = useState(0);
 
   const statusLabel = (status?: Episode["videoStatus"]) => {
-    if (status === "ready") return t("admin.videoStatusReady");
-    if (status === "failed") return t("admin.videoStatusFailed");
-    return t("admin.videoStatusProcessing");
+    if (status === "ready") return t("common.admin.videoStatusReady");
+    if (status === "failed") return t("common.admin.videoStatusFailed");
+    return t("common.admin.videoStatusProcessing");
   };
 
   const statusTone = (status?: Episode["videoStatus"]) => {
@@ -135,7 +135,7 @@ export function DramaEditDrawer({
       body: JSON.stringify(payload)
     });
     if (res.ok && json?.ok && json.series) {
-      if (!opts?.silent) showToast(t("admin.episodeAddedToast"), "success");
+      if (!opts?.silent) showToast(t("common.admin.episodeAddedToast"), "success");
       onSeriesUpdated?.(json.series);
       setNewVideoUrl("");
       return true;
@@ -147,7 +147,7 @@ export function DramaEditDrawer({
   const handleDeleteEpisode = async (ep: Episode) => {
     if (!series) return;
     const ok = confirm(
-      t("admin.confirmDeleteEpisode", { title: series.title, n: ep.index })
+      t("common.admin.confirmDeleteEpisode", { title: series.title, n: ep.index })
     );
     if (!ok) return;
     setDeletingEpId(ep.id);
@@ -159,13 +159,13 @@ export function DramaEditDrawer({
         errorKey?: string;
       }>(`/admin/api/series/${series.id}/episodes/${ep.id}`, { method: "DELETE" });
       if (res.ok && json?.ok && json.series) {
-        showToast(t("admin.episodeDeletedToast"), "success");
+        showToast(t("common.admin.episodeDeletedToast"), "success");
         onSeriesUpdated?.(json.series);
       } else {
         showToast(translateAdminApiError(json, t, "admin.saveFailed"));
       }
     } catch {
-      showToast(t("admin.networkErrorShort"));
+      showToast(t("common.admin.networkErrorShort"));
     } finally {
       setDeletingEpId(null);
     }
@@ -175,7 +175,7 @@ export function DramaEditDrawer({
     if (!series) return;
     const url = newVideoUrl.trim();
     if (!url) {
-      showToast(t("admin.apiErrEpisodeVideoUrlRequired"));
+      showToast(t("common.admin.apiErrEpisodeVideoUrlRequired"));
       return;
     }
     setAddingEpisode(true);
@@ -193,12 +193,12 @@ export function DramaEditDrawer({
       .map((x) => x.trim())
       .filter(Boolean);
     if (lines.length === 0) {
-      showToast(t("admin.bulkUrlEmpty"), "info");
+      showToast(t("common.admin.bulkUrlEmpty"), "info");
       return;
     }
     const invalid = lines.find((x) => !/^https:\/\//i.test(x));
     if (invalid) {
-      showToast(t("admin.bulkUrlInvalidHttps"));
+      showToast(t("common.admin.bulkUrlInvalidHttps"));
       return;
     }
 
@@ -210,7 +210,7 @@ export function DramaEditDrawer({
         if (ok) okCount += 1;
       }
       showToast(
-        t("admin.bulkUrlAdded", {
+        t("common.admin.bulkUrlAdded", {
           ok: okCount,
           total: lines.length
         }),
@@ -241,11 +241,11 @@ export function DramaEditDrawer({
         totalJobs?: number;
       };
       if (!res.ok || !json?.ok) {
-        showToast(t("admin.hlsBatchRunFailed"));
+        showToast(t("common.admin.hlsBatchRunFailed"));
         return;
       }
       showToast(
-        t("admin.hlsBatchRunDone", {
+        t("common.admin.hlsBatchRunDone", {
           ok: json.okCount ?? 0,
           total: json.totalJobs ?? 0
         }),
@@ -257,7 +257,7 @@ export function DramaEditDrawer({
         if (latest) onSeriesUpdated?.(latest);
       }
     } catch {
-      showToast(t("admin.networkErrorShort"));
+      showToast(t("common.admin.networkErrorShort"));
     } finally {
       setSeriesHlsRunning(false);
     }
@@ -266,7 +266,7 @@ export function DramaEditDrawer({
   const refreshEpisodeStatus = async (ep: Episode) => {
     if (!series) return;
     if (!ep.videoStreamId) {
-      showToast(t("admin.videoStatusNoStreamId"), "info");
+      showToast(t("common.admin.videoStatusNoStreamId"), "info");
       return;
     }
     setRefreshingEpId(ep.id);
@@ -282,7 +282,7 @@ export function DramaEditDrawer({
       });
       const json = (await res.json()) as { ok?: boolean };
       if (!res.ok || !json?.ok) {
-        showToast(t("admin.videoStatusRefreshFailed"));
+        showToast(t("common.admin.videoStatusRefreshFailed"));
         return;
       }
       const all = await fetchAdminJson<{ ok?: boolean; series?: Series[] }>("/admin/api/series");
@@ -290,9 +290,9 @@ export function DramaEditDrawer({
         const latest = all.json.series.find((x) => x.id === series.id);
         if (latest) onSeriesUpdated?.(latest);
       }
-      showToast(t("admin.videoStatusRefreshed"), "success");
+      showToast(t("common.admin.videoStatusRefreshed"), "success");
     } catch {
-      showToast(t("admin.networkErrorShort"));
+      showToast(t("common.admin.networkErrorShort"));
     } finally {
       setRefreshingEpId(null);
     }
@@ -333,14 +333,14 @@ export function DramaEditDrawer({
         showToast(translateAdminApiError(json, t, "admin.saveFailed"));
         return;
       }
-      showToast(t("admin.episodeSampleVideoFallback"), "info");
+      showToast(t("common.admin.episodeSampleVideoFallback"), "info");
       await postAppendEpisode({
         videoUrl: sampleVideoUrl(),
         sourceFileName: file.name,
         localVideoUrl: `file:///${file.name.replace(/\\/g, "/")}`
       });
     } catch {
-      showToast(t("admin.networkErrorShort"));
+      showToast(t("common.admin.networkErrorShort"));
     } finally {
       setAddingEpisode(false);
     }
@@ -362,7 +362,7 @@ export function DramaEditDrawer({
   const save = async () => {
     if (!series) return;
     if (!form.title.trim()) {
-      showToast(t("admin.toastTitleEmpty"));
+      showToast(t("common.admin.toastTitleEmpty"));
       return;
     }
 
@@ -394,13 +394,13 @@ export function DramaEditDrawer({
         })
       });
       if (res.ok && json?.ok) {
-        showToast(t("admin.saveSuccess"), "success");
+        showToast(t("common.admin.saveSuccess"), "success");
         onSaved();
       } else {
         showToast(translateAdminApiError(json, t, "admin.saveFailed"));
       }
     } catch {
-      showToast(t("admin.networkErrorShort"));
+      showToast(t("common.admin.networkErrorShort"));
     } finally {
       setSaving(false);
     }
@@ -429,7 +429,7 @@ export function DramaEditDrawer({
         )}
       >
         <div className="flex items-center justify-between border-b border-zinc-800/80 p-4">
-          <h2 className="text-lg font-bold text-zinc-100">{t("admin.editDramaTitle")}</h2>
+          <h2 className="text-lg font-bold text-zinc-100">{t("common.admin.editDramaTitle")}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -441,7 +441,7 @@ export function DramaEditDrawer({
         <div className="flex-1 overflow-y-auto p-4">
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-zinc-400">{t("admin.editFieldTitle")}</label>
+              <label className="block text-xs font-semibold text-zinc-400">{t("common.admin.editFieldTitle")}</label>
               <input
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
@@ -449,7 +449,7 @@ export function DramaEditDrawer({
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-zinc-400">{t("admin.editFieldOriginal")}</label>
+              <label className="block text-xs font-semibold text-zinc-400">{t("common.admin.editFieldOriginal")}</label>
               <input
                 value={form.originalName}
                 onChange={(e) => setForm({ ...form, originalName: e.target.value })}
@@ -457,7 +457,7 @@ export function DramaEditDrawer({
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-zinc-400">{t("admin.editFieldType")}</label>
+              <label className="block text-xs font-semibold text-zinc-400">{t("common.admin.editFieldType")}</label>
               <select
                 value={form.localOrTranslated}
                 onChange={(e) =>
@@ -468,13 +468,13 @@ export function DramaEditDrawer({
                 }
                 className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-100"
               >
-                <option value="">{t("admin.phSelect")}</option>
-                <option value="local">{t("admin.localDrama")}</option>
-                <option value="translated">{t("admin.translatedDrama")}</option>
+                <option value="">{t("common.admin.phSelect")}</option>
+                <option value="local">{t("common.admin.localDrama")}</option>
+                <option value="translated">{t("common.admin.translatedDrama")}</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-zinc-400">{t("admin.editFieldSynopsis")}</label>
+              <label className="block text-xs font-semibold text-zinc-400">{t("common.admin.editFieldSynopsis")}</label>
               <textarea
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
@@ -483,7 +483,7 @@ export function DramaEditDrawer({
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-zinc-400">{t("admin.editFieldTags")}</label>
+              <label className="block text-xs font-semibold text-zinc-400">{t("common.admin.editFieldTags")}</label>
               <div className="mt-2 flex flex-wrap gap-2">
                 {tags.map((tagItem) => (
                   <button
@@ -503,7 +503,7 @@ export function DramaEditDrawer({
               </div>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-zinc-400">{t("admin.editFieldLock")}</label>
+              <label className="block text-xs font-semibold text-zinc-400">{t("common.admin.editFieldLock")}</label>
               <select
                 value={form.lockStartIndex}
                 onChange={(e) =>
@@ -516,21 +516,21 @@ export function DramaEditDrawer({
                   (_, i) => i + 1
                 ).map((n) => (
                   <option key={n} value={n}>
-                    {t("admin.lockFromEpisodeLabel", { n })}
+                    {t("common.admin.lockFromEpisodeLabel", { n })}
                   </option>
                 ))}
               </select>
             </div>
             <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-3">
               <label className="block text-xs font-semibold text-zinc-400">
-                {t("admin.editFieldEpisodes")}
+                {t("common.admin.editFieldEpisodes")}
               </label>
               <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
-                {t("admin.editEpisodesHint")}
+                {t("common.admin.editEpisodesHint")}
               </p>
               <div className="mt-3 max-h-48 space-y-2 overflow-y-auto pr-1">
                 {(series?.episodes?.length ?? 0) === 0 ? (
-                  <p className="text-xs text-zinc-500">{t("admin.episodeListEmpty")}</p>
+                  <p className="text-xs text-zinc-500">{t("common.admin.episodeListEmpty")}</p>
                 ) : (
                   (series?.episodes ?? []).map((ep) => (
                     <div
@@ -539,7 +539,7 @@ export function DramaEditDrawer({
                     >
                       <div className="min-w-0 flex-1">
                         <div className="text-xs font-medium text-zinc-200">
-                          {t("admin.episodeRowLabel", { n: ep.index })}
+                          {t("common.admin.episodeRowLabel", { n: ep.index })}
                         </div>
                         <div className="mt-1">
                           <span
@@ -557,8 +557,8 @@ export function DramaEditDrawer({
                             className="ml-2 rounded-md border border-zinc-600 px-2 py-1 text-[10px] font-semibold text-zinc-200 hover:bg-zinc-700/60 disabled:opacity-50"
                           >
                             {refreshingEpId === ep.id
-                              ? t("admin.videoStatusRefreshing")
-                              : t("admin.videoStatusRefresh")}
+                              ? t("common.admin.videoStatusRefreshing")
+                              : t("common.admin.videoStatusRefresh")}
                           </button>
                         </div>
                         {ep.sourceFileName ? (
@@ -577,7 +577,7 @@ export function DramaEditDrawer({
                         onClick={() => handleDeleteEpisode(ep)}
                         className="shrink-0 rounded-lg border border-red-500/40 px-2 py-1 text-[11px] font-semibold text-red-300 hover:bg-red-500/15 disabled:opacity-50"
                       >
-                        {t("admin.delete")}
+                        {t("common.admin.delete")}
                       </button>
                     </div>
                   ))
@@ -588,7 +588,7 @@ export function DramaEditDrawer({
                   type="url"
                   value={newVideoUrl}
                   onChange={(e) => setNewVideoUrl(e.target.value)}
-                  placeholder={t("admin.episodeVideoUrlPlaceholder")}
+                  placeholder={t("common.admin.episodeVideoUrlPlaceholder")}
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-xs text-zinc-100 placeholder-zinc-600"
                 />
                 <div className="flex flex-wrap gap-2">
@@ -598,7 +598,7 @@ export function DramaEditDrawer({
                     onClick={handleAddEpisodeByUrl}
                     className="rounded-lg bg-zinc-700 px-3 py-2 text-xs font-semibold text-zinc-100 hover:bg-zinc-600 disabled:opacity-50"
                   >
-                    {addingEpisode ? t("admin.savingShort") : t("admin.episodeAddByUrl")}
+                    {addingEpisode ? t("common.admin.savingShort") : t("common.admin.episodeAddByUrl")}
                   </button>
                   <label className="inline-flex cursor-pointer items-center rounded-lg border border-zinc-600 bg-zinc-800/60 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-700/60 disabled:opacity-50">
                     <input
@@ -608,16 +608,16 @@ export function DramaEditDrawer({
                       disabled={addingEpisode || bulkAdding || !series}
                       onChange={handleVideoFile}
                     />
-                    {t("admin.episodePickVideoFile")}
+                    {t("common.admin.episodePickVideoFile")}
                   </label>
                 </div>
                 <div className="rounded-lg border border-zinc-800/80 bg-zinc-950/60 p-2">
-                  <p className="mb-1 text-[11px] text-zinc-500">{t("admin.bulkUrlHint")}</p>
+                  <p className="mb-1 text-[11px] text-zinc-500">{t("common.admin.bulkUrlHint")}</p>
                   <textarea
                     rows={4}
                     value={bulkVideoUrls}
                     onChange={(e) => setBulkVideoUrls(e.target.value)}
-                    placeholder={t("admin.bulkUrlPlaceholder")}
+                    placeholder={t("common.admin.bulkUrlPlaceholder")}
                     className="w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-xs text-zinc-100 placeholder-zinc-600"
                   />
                   <div className="mt-2 flex items-center gap-2">
@@ -627,13 +627,13 @@ export function DramaEditDrawer({
                       onClick={handleBulkAddEpisodesByUrl}
                       className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50"
                     >
-                      {bulkAdding ? t("admin.bulkUrlAdding") : t("admin.bulkUrlAddAction")}
+                      {bulkAdding ? t("common.admin.bulkUrlAdding") : t("common.admin.bulkUrlAddAction")}
                     </button>
-                    <span className="text-[11px] text-zinc-500">{t("admin.bulkUrlOnlyHttps")}</span>
+                    <span className="text-[11px] text-zinc-500">{t("common.admin.bulkUrlOnlyHttps")}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 rounded-lg border border-zinc-800/80 bg-zinc-950/60 px-2 py-2">
-                  <span className="text-[11px] text-zinc-400">{t("admin.hlsFirstNEpisodes")}</span>
+                  <span className="text-[11px] text-zinc-400">{t("common.admin.hlsFirstNEpisodes")}</span>
                   <input
                     type="number"
                     min={0}
@@ -647,13 +647,13 @@ export function DramaEditDrawer({
                     onClick={runSeriesHls}
                     className="rounded-lg bg-fuchsia-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-fuchsia-500 disabled:opacity-50"
                   >
-                    {seriesHlsRunning ? t("admin.hlsHotRunning") : t("admin.hlsRunCurrentSeries")}
+                    {seriesHlsRunning ? t("common.admin.hlsHotRunning") : t("common.admin.hlsRunCurrentSeries")}
                   </button>
                 </div>
               </div>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-zinc-400">{t("admin.editFieldCover")}</label>
+              <label className="block text-xs font-semibold text-zinc-400">{t("common.admin.editFieldCover")}</label>
               <div className="mt-2">
                 <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/60 px-4 py-3 text-sm font-medium text-zinc-200 hover:bg-zinc-700/60">
                   <input
@@ -662,14 +662,14 @@ export function DramaEditDrawer({
                     onChange={handleCoverUpload}
                     className="hidden"
                   />
-                  {t("admin.clickUpload")}
+                  {t("common.admin.clickUpload")}
                 </label>
                 {form.coverUrl && (
                   <div className="mt-2">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={form.coverUrl}
-                      alt={t("admin.coverAlt")}
+                      alt={t("common.admin.coverAlt")}
                       className="aspect-[3/4] h-24 rounded-lg object-cover"
                     />
                   </div>
@@ -677,14 +677,14 @@ export function DramaEditDrawer({
               </div>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-zinc-400">{t("admin.editFieldListed")}</label>
+              <label className="block text-xs font-semibold text-zinc-400">{t("common.admin.editFieldListed")}</label>
               <select
                 value={form.listed ? "1" : "0"}
                 onChange={(e) => setForm({ ...form, listed: e.target.value === "1" })}
                 className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-100"
               >
-                <option value="1">{t("admin.listedOn")}</option>
-                <option value="0">{t("admin.listedOff")}</option>
+                <option value="1">{t("common.admin.listedOn")}</option>
+                <option value="0">{t("common.admin.listedOff")}</option>
               </select>
             </div>
           </div>
@@ -695,7 +695,7 @@ export function DramaEditDrawer({
             onClick={onClose}
             className="rounded-lg border border-zinc-600 px-4 py-2 text-sm font-semibold text-zinc-300"
           >
-            {t("admin.cancel")}
+            {t("common.admin.cancel")}
           </button>
           <button
             type="button"
@@ -703,7 +703,7 @@ export function DramaEditDrawer({
             disabled={saving}
             className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-60"
           >
-            {saving ? t("admin.savingShort") : t("admin.submit")}
+            {saving ? t("common.admin.savingShort") : t("common.admin.submit")}
           </button>
         </div>
       </div>

@@ -13,7 +13,7 @@ export default function AdminDistributionPage() {
     <main className="flex flex-col">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <h1 className="text-xl font-extrabold text-zinc-100">
-          {t("admin.distributionCenter")}
+          {t("common.admin.distributionCenter")}
         </h1>
       </div>
 
@@ -21,29 +21,29 @@ export default function AdminDistributionPage() {
       <section className="mb-4 flex flex-wrap items-end gap-3 rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-4">
         <div>
           <label className="block text-xs font-semibold text-zinc-400">
-            {t("admin.distributionDramaId")}
+            {t("common.admin.distributionDramaId")}
           </label>
           <input
             type="text"
             value={filter.dramaId}
             onChange={(e) => setFilter({ ...filter, dramaId: e.target.value })}
-            placeholder={t("admin.distributionPhInput")}
+            placeholder={t("common.admin.distributionPhInput")}
             className="mt-1 w-36 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500"
           />
         </div>
         <div>
           <label className="block text-xs font-semibold text-zinc-400">
-            {t("admin.distributionStatus")}
+            {t("common.admin.distributionStatus")}
           </label>
           <select
             value={filter.status}
             onChange={(e) => setFilter({ ...filter, status: e.target.value })}
             className="mt-1 w-32 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100"
           >
-            <option value="">{t("admin.distributionPhStatus")}</option>
-            <option value="published">{t("admin.statusPublished")}</option>
-            <option value="draft">{t("admin.statusDraft")}</option>
-            <option value="off">{t("admin.statusOff")}</option>
+            <option value="">{t("common.admin.distributionPhStatus")}</option>
+            <option value="published">{t("common.admin.statusPublished")}</option>
+            <option value="draft">{t("common.admin.statusDraft")}</option>
+            <option value="off">{t("common.admin.statusOff")}</option>
           </select>
         </div>
         <div className="flex gap-2">
@@ -52,23 +52,23 @@ export default function AdminDistributionPage() {
             onClick={() => setFilter({ dramaId: "", status: "" })}
             className="rounded-lg border border-zinc-600 bg-zinc-800/60 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-700/60"
           >
-            {t("admin.reset")}
+            {t("common.admin.reset")}
           </button>
           <button className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500">
-            {t("admin.query")}
+            {t("common.admin.query")}
           </button>
           <button className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500">
-            {t("admin.distributionAdd")}
+            {t("common.admin.distributionAdd")}
           </button>
           <button
             type="button"
             onClick={() => setStorageDrawerOpen(true)}
             className="rounded-lg border border-zinc-600 bg-zinc-800/60 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-700/60"
           >
-            {t("admin.storagePathManagement")}
+            {t("common.admin.storagePathManagement")}
           </button>
           <button className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500">
-            {t("admin.distributionBatchPath")}
+            {t("common.admin.distributionBatchPath")}
           </button>
         </div>
       </section>
@@ -87,18 +87,18 @@ export default function AdminDistributionPage() {
                 <th className="px-4 py-3 font-semibold">
                   <input type="checkbox" className="rounded" />
                 </th>
-                <th className="px-4 py-3 font-semibold">{t("admin.distributionDramaId")}</th>
-                <th className="px-4 py-3 font-semibold">{t("admin.distributionColName")}</th>
-                <th className="px-4 py-3 font-semibold">{t("admin.distributionColChannel")}</th>
-                <th className="px-4 py-3 font-semibold">{t("admin.distributionColTrack")}</th>
-                <th className="px-4 py-3 font-semibold">{t("admin.distributionStatus")}</th>
-                <th className="px-4 py-3 font-semibold">{t("admin.action")}</th>
+                <th className="px-4 py-3 font-semibold">{t("common.admin.distributionDramaId")}</th>
+                <th className="px-4 py-3 font-semibold">{t("common.admin.distributionColName")}</th>
+                <th className="px-4 py-3 font-semibold">{t("common.admin.distributionColChannel")}</th>
+                <th className="px-4 py-3 font-semibold">{t("common.admin.distributionColTrack")}</th>
+                <th className="px-4 py-3 font-semibold">{t("common.admin.distributionStatus")}</th>
+                <th className="px-4 py-3 font-semibold">{t("common.admin.action")}</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td colSpan={7} className="px-4 py-12 text-center text-sm text-zinc-500">
-                  {t("admin.distributionNoData")}
+                  {t("common.admin.distributionNoData")}
                 </td>
               </tr>
             </tbody>

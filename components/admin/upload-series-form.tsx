@@ -45,14 +45,14 @@ export function UploadSeriesForm({
     setSuccess(null);
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      const msg = t("admin.coverMustBeImage");
+      const msg = t("common.admin.coverMustBeImage");
       setError(msg);
       showToast(msg);
       return;
     }
     const maxSize = 4 * 1024 * 1024;
     if (file.size > maxSize) {
-      const msg = t("admin.coverTooLarge");
+      const msg = t("common.admin.coverTooLarge");
       setError(msg);
       showToast(msg);
       return;
@@ -73,31 +73,31 @@ export function UploadSeriesForm({
 
     const cleanTitle = title.trim();
     if (!cleanTitle) {
-      const msg = t("admin.titleRequired");
+      const msg = t("common.admin.titleRequired");
       setError(msg);
       showToast(msg);
       return;
     }
     if (!description.trim()) {
-      const msg = t("admin.descriptionRequired");
+      const msg = t("common.admin.descriptionRequired");
       setError(msg);
       showToast(msg);
       return;
     }
     if (!selectedTags.length) {
-      const msg = t("admin.selectAtLeastOneTag");
+      const msg = t("common.admin.selectAtLeastOneTag");
       setError(msg);
       showToast(msg);
       return;
     }
     if (!coverFile) {
-      const msg = t("admin.uploadCoverRequired");
+      const msg = t("common.admin.uploadCoverRequired");
       setError(msg);
       showToast(msg);
       return;
     }
     if (episodes.length === 0) {
-      const msg = t("admin.episodeUrlRequired");
+      const msg = t("common.admin.episodeUrlRequired");
       setError(msg);
       showToast(msg);
       return;
@@ -144,7 +144,7 @@ export function UploadSeriesForm({
         return;
       }
 
-      setSuccess(t("admin.uploadSuccess"));
+      setSuccess(t("common.admin.uploadSuccess"));
       setTitle("");
       setDescription("");
       setSelectedTags(["Romance"]);
@@ -157,7 +157,7 @@ export function UploadSeriesForm({
 
       onUploaded?.();
     } catch {
-      setError(t("admin.uploadFailed"));
+      setError(t("common.admin.uploadFailed"));
     } finally {
       setBusy(false);
     }
@@ -167,17 +167,17 @@ export function UploadSeriesForm({
     <form onSubmit={handleSubmit}>
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-bold text-zinc-100">{t("admin.addNewSeries")}</h2>
-          <p className="mt-1 text-xs text-zinc-400">{t("admin.uploadHint")}</p>
+          <h2 className="text-base font-bold text-zinc-100">{t("common.admin.addNewSeries")}</h2>
+          <p className="mt-1 text-xs text-zinc-400">{t("common.admin.uploadHint")}</p>
         </div>
         <Badge variant="pill" className="bg-brand/15 text-brand ring-1 ring-brand/40">
-          {t("admin.demoCms")}
+          {t("common.admin.demoCms")}
         </Badge>
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
         <label className="block">
-          <span className="text-xs font-semibold text-zinc-400">{t("admin.title")}</span>
+          <span className="text-xs font-semibold text-zinc-400">{t("common.admin.title")}</span>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -187,7 +187,7 @@ export function UploadSeriesForm({
         </label>
 
         <div className="rounded-2xl border border-zinc-800/80 bg-black/20 p-3">
-          <p className="text-xs font-semibold text-zinc-400">{t("admin.coverImageUpload")}</p>
+          <p className="text-xs font-semibold text-zinc-400">{t("common.admin.coverImageUpload")}</p>
           <input
             type="file"
             accept="image/*"
@@ -206,7 +206,7 @@ export function UploadSeriesForm({
             </div>
           ) : (
             <div className="mt-3 text-xs text-zinc-500">
-              {t("admin.coverUploadHint")}
+              {t("common.admin.coverUploadHint")}
             </div>
           )}
         </div>
@@ -216,13 +216,13 @@ export function UploadSeriesForm({
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder={t("admin.descriptionPlaceholder")}
+            placeholder={t("common.admin.descriptionPlaceholder")}
             className="mt-1 min-h-[110px] w-full rounded-2xl border border-zinc-800/80 bg-black/30 px-4 py-3 text-sm font-semibold text-zinc-100 outline-none ring-0 focus:border-brand/60"
           />
         </label>
 
         <div className="md:col-span-2">
-          <p className="text-xs font-semibold text-zinc-400">{t("admin.tagsMultiSelect")}</p>
+          <p className="text-xs font-semibold text-zinc-400">{t("common.admin.tagsMultiSelect")}</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {CATEGORY_TAGS.map((tag) => {
               const active = selectedTags.includes(tag);
@@ -247,14 +247,14 @@ export function UploadSeriesForm({
           <div className="flex items-end justify-between gap-2">
             <div>
               <span className="text-xs font-semibold text-zinc-400">
-                {t("admin.episodeUrlBulk")}
+                {t("common.admin.episodeUrlBulk")}
               </span>
               <p className="mt-1 text-[11px] leading-5 text-zinc-500">
-                {t("admin.episodeUrlHint")}
+                {t("common.admin.episodeUrlHint")}
               </p>
             </div>
             <div className="text-right text-[11px] text-zinc-500">
-              {t("admin.estimatedEpisodes", { count: episodes.length })}
+              {t("common.admin.estimatedEpisodes", { count: episodes.length })}
             </div>
           </div>
           <textarea
@@ -275,7 +275,7 @@ export function UploadSeriesForm({
           disabled={busy}
           className="w-full rounded-3xl bg-brand px-4 py-3 text-sm font-extrabold text-white shadow-soft-glow disabled:opacity-70"
         >
-          {busy ? t("admin.uploading") : t("admin.uploadSeries")}
+          {busy ? t("common.admin.uploading") : t("common.admin.uploadSeries")}
         </button>
       </div>
     </form>

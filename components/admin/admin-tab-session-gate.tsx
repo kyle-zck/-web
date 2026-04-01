@@ -31,7 +31,7 @@ export function AdminTabSessionGate({ children }: { children: ReactNode }) {
   if (!ready) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black text-sm text-zinc-400">
-        {t("admin.sessionChecking")}
+        {t("common.admin.sessionChecking")}
       </div>
     );
   }

@@ -45,7 +45,7 @@ export default function AdminAccessListPage() {
         setLoadError(translateAdminApiError(json, t));
       }
     } catch {
-      setLoadError(String(t("admin.networkError")));
+      setLoadError(String(t("common.admin.networkError")));
     } finally {
       setLoading(false);
     }
@@ -77,7 +77,7 @@ export default function AdminAccessListPage() {
         showToast(translateAdminApiError(json, t), "error");
         return;
       }
-      showToast(t("admin.saved"), "success");
+      showToast(t("common.admin.saved"), "success");
     } finally {
       setSaving(false);
     }
@@ -87,8 +87,8 @@ export default function AdminAccessListPage() {
     <main className="max-w-3xl space-y-6">
       <div className="flex items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-extrabold text-zinc-100">{t("admin.blackWhiteListManagement")}</h1>
-          <p className="mt-1 text-xs text-zinc-400">{t("admin.blackWhiteListHint")}</p>
+          <h1 className="text-xl font-extrabold text-zinc-100">{t("common.admin.blackWhiteListManagement")}</h1>
+          <p className="mt-1 text-xs text-zinc-400">{t("common.admin.blackWhiteListHint")}</p>
         </div>
         <button
           type="button"
@@ -96,13 +96,13 @@ export default function AdminAccessListPage() {
           disabled={saving}
           className="rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
         >
-          {saving ? t("admin.saving") : t("admin.save")}
+          {saving ? t("common.admin.saving") : t("common.admin.save")}
         </button>
       </div>
 
       {loading ? (
         <div className="rounded-3xl border border-zinc-800/80 bg-zinc-950/60 p-8 text-center text-zinc-500">
-          {t("admin.loading")}
+          {t("common.admin.loading")}
         </div>
       ) : (
         <>
@@ -114,13 +114,13 @@ export default function AdminAccessListPage() {
                 onClick={load}
                 className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-100 hover:bg-red-500/20"
               >
-                {t("admin.query")}
+                {t("common.admin.query")}
               </button>
             </div>
           ) : null}
           <section className="rounded-3xl border border-zinc-800/80 bg-zinc-950/60 p-4">
-            <h2 className="text-sm font-semibold text-zinc-100">{t("admin.whitelist")}</h2>
-            <p className="mt-1 text-xs text-zinc-500">{t("admin.whitelistHint")}</p>
+            <h2 className="text-sm font-semibold text-zinc-100">{t("common.admin.whitelist")}</h2>
+            <p className="mt-1 text-xs text-zinc-500">{t("common.admin.whitelistHint")}</p>
             <textarea
               value={whitelistText}
               onChange={(e) => setWhitelistText(e.target.value)}
@@ -129,13 +129,13 @@ export default function AdminAccessListPage() {
               className="mt-3 w-full rounded-2xl border border-zinc-800/80 bg-black/30 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-brand/60"
             />
             <p className="mt-2 text-xs text-zinc-500">
-              {t("admin.count")}: {whitelistIds.length}
+              {t("common.admin.count")}: {whitelistIds.length}
             </p>
           </section>
 
           <section className="rounded-3xl border border-zinc-800/80 bg-zinc-950/60 p-4">
-            <h2 className="text-sm font-semibold text-zinc-100">{t("admin.blacklist")}</h2>
-            <p className="mt-1 text-xs text-zinc-500">{t("admin.blacklistHint")}</p>
+            <h2 className="text-sm font-semibold text-zinc-100">{t("common.admin.blacklist")}</h2>
+            <p className="mt-1 text-xs text-zinc-500">{t("common.admin.blacklistHint")}</p>
             <textarea
               value={blacklistText}
               onChange={(e) => setBlacklistText(e.target.value)}
@@ -144,7 +144,7 @@ export default function AdminAccessListPage() {
               className="mt-3 w-full rounded-2xl border border-zinc-800/80 bg-black/30 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-brand/60"
             />
             <p className="mt-2 text-xs text-zinc-500">
-              {t("admin.count")}: {blacklistIds.length}
+              {t("common.admin.count")}: {blacklistIds.length}
             </p>
           </section>
         </>

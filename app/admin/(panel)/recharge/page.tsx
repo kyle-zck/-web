@@ -104,7 +104,7 @@ export default function AdminRechargePage() {
       showToast(translateAdminApiError(json, t), "error");
       return;
     }
-    showToast(t("admin.saved"), "success");
+    showToast(t("common.admin.saved"), "success");
     setAddOpen(false);
     setForm({ uid: "", date: "", price: 29.9, tier: templateTiers[0]?.label ?? "/", remainingDays: 30 });
     await load();
@@ -141,7 +141,7 @@ export default function AdminRechargePage() {
       showToast(translateAdminApiError(json, t), "error");
       return;
     }
-    showToast(t("admin.saved"), "success");
+    showToast(t("common.admin.saved"), "success");
     setEditOpen(false);
     setEditing(null);
   };
@@ -159,7 +159,7 @@ export default function AdminRechargePage() {
       showToast(translateAdminApiError(json, t), "error");
       return;
     }
-    showToast(t("admin.saved"), "success");
+    showToast(t("common.admin.saved"), "success");
     await load();
   };
 
@@ -198,7 +198,7 @@ export default function AdminRechargePage() {
   const batchDeleteRecharge = async () => {
     const rows = records.filter((r) => selectedRecordIds.has(r.id));
     if (rows.length === 0) return;
-    if (!confirm(t("admin.confirmDeleteSelectedRecharge", { count: rows.length }))) return;
+    if (!confirm(t("common.admin.confirmDeleteSelectedRecharge", { count: rows.length }))) return;
 
     let okCount = 0;
     for (const r of rows) {
@@ -225,9 +225,9 @@ export default function AdminRechargePage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-zinc-100">{t("admin.rechargeTitle")}</h1>
+      <h1 className="text-xl font-bold text-zinc-100">{t("common.admin.rechargeTitle")}</h1>
       <p className="mt-1 text-sm text-zinc-400">
-        {t("admin.rechargeHint")}
+        {t("common.admin.rechargeHint")}
       </p>
 
       <div className="mt-6 flex flex-wrap items-end gap-4 rounded-xl border border-zinc-700/80 bg-zinc-900/50 p-4">
@@ -242,13 +242,13 @@ export default function AdminRechargePage() {
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-zinc-400">{t("admin.tier")}</label>
+          <label className="block text-xs font-semibold text-zinc-400">{t("common.admin.tier")}</label>
           <select
             value={tierFilter}
             onChange={(e) => setTierFilter(e.target.value)}
             className="mt-1 rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-white"
           >
-            <option value="">{t("admin.all", "All")}</option>
+            <option value="">{t("common.admin.all", "All")}</option>
             {templateTiers.map((x) => (
               <option key={x.id} value={x.label}>
                 {x.label}
@@ -262,14 +262,14 @@ export default function AdminRechargePage() {
           onClick={load}
           className="rounded-lg border border-zinc-600 bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-100 hover:bg-zinc-700"
         >
-          {t("admin.query")}
+          {t("common.admin.query")}
         </button>
         <button
           type="button"
           onClick={() => setAddOpen(true)}
           className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-red-600"
         >
-          {t("admin.addRecord")}
+          {t("common.admin.addRecord")}
         </button>
         <button
           type="button"
@@ -277,7 +277,7 @@ export default function AdminRechargePage() {
           disabled={records.filter((r) => selectedRecordIds.has(r.id)).length === 0}
           className="rounded-lg border border-red-700/70 bg-red-950/30 px-4 py-2 text-sm font-semibold text-red-200 hover:bg-red-900/40 disabled:opacity-50"
         >
-          {t("admin.batchDeleteWithCount", { count: records.filter((r) => selectedRecordIds.has(r.id)).length })}
+          {t("common.admin.batchDeleteWithCount", { count: records.filter((r) => selectedRecordIds.has(r.id)).length })}
         </button>
       </div>
 
@@ -289,7 +289,7 @@ export default function AdminRechargePage() {
             onClick={load}
             className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-100 hover:bg-red-500/20"
           >
-            {t("admin.query")}
+            {t("common.admin.query")}
           </button>
         </div>
       ) : null}
@@ -298,13 +298,13 @@ export default function AdminRechargePage() {
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4">
           <div className="w-full max-w-xl rounded-2xl border border-zinc-800/80 bg-zinc-950 p-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-zinc-100">{t("admin.addRecord")}</h2>
+              <h2 className="text-base font-bold text-zinc-100">{t("common.admin.addRecord")}</h2>
               <button
                 type="button"
                 onClick={() => setAddOpen(false)}
                 className="rounded-lg border border-zinc-700 bg-black/40 px-3 py-1.5 text-xs font-semibold text-zinc-200"
               >
-                {t("admin.close")}
+                {t("common.admin.close")}
               </button>
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -317,7 +317,7 @@ export default function AdminRechargePage() {
                 />
               </label>
               <label className="flex flex-col gap-1 text-xs text-zinc-400">
-                {t("admin.date")}
+                {t("common.admin.date")}
                 <input
                   type="date"
                   value={form.date}
@@ -336,7 +336,7 @@ export default function AdminRechargePage() {
                 />
               </label>
               <label className="flex flex-col gap-1 text-xs text-zinc-400">
-                {t("admin.tier")}
+                {t("common.admin.tier")}
                 <select
                   value={form.tier}
                   onChange={(e) => handleTierChange(e.target.value)}
@@ -351,7 +351,7 @@ export default function AdminRechargePage() {
                 </select>
               </label>
               <label className="flex flex-col gap-1 text-xs text-zinc-400 sm:col-span-2">
-                {t("admin.remainingDays")}
+                {t("common.admin.remainingDays")}
                 <input
                   type="number"
                   value={form.remainingDays}
@@ -366,14 +366,14 @@ export default function AdminRechargePage() {
                 onClick={() => setAddOpen(false)}
                 className="rounded-xl border border-zinc-700 bg-black/40 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-900/60"
               >
-                {t("admin.cancel")}
+                {t("common.admin.cancel")}
               </button>
               <button
                 type="button"
                 onClick={submitAdd}
                 className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-red-600"
               >
-                {t("admin.submit")}
+                {t("common.admin.submit")}
               </button>
             </div>
           </div>
@@ -384,7 +384,7 @@ export default function AdminRechargePage() {
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4">
           <div className="w-full max-w-xl rounded-2xl border border-zinc-800/80 bg-zinc-950 p-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-zinc-100">{t("admin.editMembership")}</h2>
+              <h2 className="text-base font-bold text-zinc-100">{t("common.admin.editMembership")}</h2>
               <button
                 type="button"
                 onClick={() => {
@@ -393,7 +393,7 @@ export default function AdminRechargePage() {
                 }}
                 className="rounded-lg border border-zinc-700 bg-black/40 px-3 py-1.5 text-xs font-semibold text-zinc-200"
               >
-                {t("admin.close")}
+                {t("common.admin.close")}
               </button>
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -406,7 +406,7 @@ export default function AdminRechargePage() {
                 />
               </label>
               <label className="flex flex-col gap-1 text-xs text-zinc-400">
-                {t("admin.tier")}
+                {t("common.admin.tier")}
                 <select
                   value={form.tier}
                   onChange={(e) => handleTierChange(e.target.value)}
@@ -421,7 +421,7 @@ export default function AdminRechargePage() {
                 </select>
               </label>
               <label className="flex flex-col gap-1 text-xs text-zinc-400 sm:col-span-2">
-                {t("admin.remainingDays")}
+                {t("common.admin.remainingDays")}
                 <input
                   type="number"
                   value={form.remainingDays}
@@ -439,14 +439,14 @@ export default function AdminRechargePage() {
                 }}
                 className="rounded-xl border border-zinc-700 bg-black/40 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-900/60"
               >
-                {t("admin.cancel")}
+                {t("common.admin.cancel")}
               </button>
               <button
                 type="button"
                 onClick={submitEditMembership}
                 className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-red-600"
               >
-                {t("admin.save")}
+                {t("common.admin.save")}
               </button>
             </div>
           </div>
@@ -455,9 +455,9 @@ export default function AdminRechargePage() {
 
       <div className="mt-6 overflow-x-auto rounded-xl border border-zinc-700/80 bg-zinc-900/50">
         {loading ? (
-          <div className="p-8 text-center text-zinc-500">{t("admin.loading")}</div>
+          <div className="p-8 text-center text-zinc-500">{t("common.admin.loading")}</div>
         ) : records.length === 0 ? (
-          <div className="p-8 text-center text-zinc-500">{t("admin.noRecordsYet")}</div>
+          <div className="p-8 text-center text-zinc-500">{t("common.admin.noRecordsYet")}</div>
         ) : (
           <table className="w-full min-w-[980px]">
             <thead>
@@ -471,12 +471,12 @@ export default function AdminRechargePage() {
                   />
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">UID</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.date")}</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.amount")}</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.tier")}</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.remainingDays")}</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.time")}</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.action")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.date")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.amount")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.tier")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.remainingDays")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.time")}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.action")}</th>
               </tr>
             </thead>
             <tbody>
@@ -507,14 +507,14 @@ export default function AdminRechargePage() {
                         onClick={() => openEdit(r)}
                         className="rounded-lg border border-zinc-700 bg-black/40 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-900/60"
                       >
-                        {t("admin.edit")}
+                        {t("common.admin.edit")}
                       </button>
                       <button
                         type="button"
                         onClick={() => submitDelete(r)}
                         className="rounded-lg border border-red-700/70 bg-red-950/30 px-3 py-2 text-xs font-semibold text-red-200 hover:bg-red-900/40"
                       >
-                        {t("admin.delete", "Delete")}
+                        {t("common.admin.delete", "Delete")}
                       </button>
                     </div>
                   </td>

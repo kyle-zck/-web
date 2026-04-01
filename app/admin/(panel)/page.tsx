@@ -47,7 +47,7 @@ export default function AdminDashboardPage() {
       const cfg = json.config ?? {};
       if (cfg?.brandName) setBrandName(cfg.brandName);
     } catch {
-      setLoadError(String(t("admin.networkError")));
+      setLoadError(String(t("common.admin.networkError")));
     }
   };
 
@@ -72,7 +72,7 @@ export default function AdminDashboardPage() {
         showToast(translateAdminApiError(json, t), "error");
         return;
       }
-      showToast(t("admin.saved"), "success");
+      showToast(t("common.admin.saved"), "success");
     } finally {
       setSaving(false);
     }
@@ -106,25 +106,25 @@ export default function AdminDashboardPage() {
       <div className="flex flex-col gap-4">
         <div className="flex items-end justify-between gap-3">
           <div>
-            <h1 className="text-xl font-extrabold text-zinc-100">{t("admin.adminDashboard")}</h1>
+            <h1 className="text-xl font-extrabold text-zinc-100">{t("common.admin.adminDashboard")}</h1>
             <p className="mt-1 text-xs text-zinc-400">
-              {t("admin.internalMetrics")}
+              {t("common.admin.internalMetrics")}
             </p>
           </div>
           <Badge variant="pill" className="bg-zinc-900 text-zinc-200 ring-1 ring-zinc-700">
-            {t("admin.appBrandingConfig")}
+            {t("common.admin.appBrandingConfig")}
           </Badge>
         </div>
 
         {/* App 品牌配置：Navbar Logo & 标题文案 */}
         <section className="rounded-3xl border border-zinc-800/80 bg-zinc-950/60 p-4">
-          <h2 className="text-sm font-semibold text-zinc-100">{t("admin.branding")}</h2>
+          <h2 className="text-sm font-semibold text-zinc-100">{t("common.admin.branding")}</h2>
           <p className="mt-1 text-xs text-zinc-500">
-            {t("admin.brandingHint")}
+            {t("common.admin.brandingHint")}
           </p>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             <label className="flex flex-col gap-1 text-xs text-zinc-400">
-              {t("admin.brandName")}
+              {t("common.admin.brandName")}
               <input
                 value={brandName}
                 onChange={(e) => setBrandName(e.target.value)}
@@ -138,7 +138,7 @@ export default function AdminDashboardPage() {
             disabled={saving}
             className="mt-3 inline-flex items-center rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
           >
-            {saving ? t("admin.saving") : t("admin.saveBranding")}
+            {saving ? t("common.admin.saving") : t("common.admin.saveBranding")}
           </button>
           {loadError ? (
             <div className="mt-3 flex items-center justify-between rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
@@ -148,7 +148,7 @@ export default function AdminDashboardPage() {
                 onClick={loadBranding}
                 className="rounded-lg border border-red-400/40 bg-red-500/10 px-2.5 py-1 font-semibold text-red-100 hover:bg-red-500/20"
               >
-                {t("admin.query")}
+                {t("common.admin.query")}
               </button>
             </div>
           ) : null}
@@ -158,8 +158,8 @@ export default function AdminDashboardPage() {
       <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <section className="rounded-3xl border border-zinc-800/80 bg-zinc-950/60 p-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-zinc-100">{t("admin.dailyRevenue")}</h2>
-            <p className="text-xs text-zinc-500">{t("admin.last7Days")}</p>
+            <h2 className="text-sm font-semibold text-zinc-100">{t("common.admin.dailyRevenue")}</h2>
+            <p className="text-xs text-zinc-500">{t("common.admin.last7Days")}</p>
           </div>
           <div className="mt-3 h-56">
             <ResponsiveContainer width="100%" height="100%">
@@ -183,8 +183,8 @@ export default function AdminDashboardPage() {
 
         <section className="rounded-3xl border border-zinc-800/80 bg-zinc-950/60 p-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-zinc-100">{t("admin.userRetention")}</h2>
-            <p className="text-xs text-zinc-500">{t("admin.sampleFunnel")}</p>
+            <h2 className="text-sm font-semibold text-zinc-100">{t("common.admin.userRetention")}</h2>
+            <p className="text-xs text-zinc-500">{t("common.admin.sampleFunnel")}</p>
           </div>
           <div className="mt-3 h-56">
             <ResponsiveContainer width="100%" height="100%">
@@ -209,8 +209,8 @@ export default function AdminDashboardPage() {
 
       <section className="mt-4 rounded-3xl border border-zinc-800/80 bg-zinc-950/60 p-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-zinc-100">{t("admin.top5Trending")}</h2>
-          <p className="text-xs text-zinc-500">{t("admin.basedOnLocal")}</p>
+          <h2 className="text-sm font-semibold text-zinc-100">{t("common.admin.top5Trending")}</h2>
+          <p className="text-xs text-zinc-500">{t("common.admin.basedOnLocal")}</p>
         </div>
         <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
           {topTrending.map((s) => (
@@ -224,7 +224,7 @@ export default function AdminDashboardPage() {
               </div>
               <div className="min-w-0">
                 <p className="line-clamp-1 text-xs font-semibold text-zinc-100">{s.title}</p>
-                <p className="mt-1 text-[11px] text-zinc-500">{t("admin.score")}: {s.score}</p>
+                <p className="mt-1 text-[11px] text-zinc-500">{t("common.admin.score")}: {s.score}</p>
               </div>
             </div>
           ))}

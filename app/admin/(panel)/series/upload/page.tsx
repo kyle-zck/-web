@@ -85,7 +85,7 @@ export default function AdminDramaUploadPage() {
       }
     } catch {
       setTags([]);
-      setTagsLoadError(String(t("admin.networkError")));
+      setTagsLoadError(String(t("common.admin.networkError")));
     }
   };
 
@@ -113,12 +113,12 @@ export default function AdminDramaUploadPage() {
         return false;
       }
       if (json?.duplicate) {
-        showToast(t("admin.toastTitleExists"));
+        showToast(t("common.admin.toastTitleExists"));
         return false;
       }
       return true;
     } catch {
-      showToast(t("admin.networkErrorShort"), "error");
+      showToast(t("common.admin.networkErrorShort"), "error");
       return false;
     } finally {
       setChecking(false);
@@ -126,17 +126,17 @@ export default function AdminDramaUploadPage() {
   };
 
   const validate = (): string | null => {
-    if (!form.title.trim()) return t("admin.valTitleRequired");
-    if (!form.originalName.trim()) return t("admin.valOriginalRequired");
-    if (!form.localOrTranslated) return t("admin.valLocalTypeRequired");
-    if (!form.totalEpisodes || form.totalEpisodes < 1) return t("admin.valEpisodesPositive");
-    if (!form.description.trim()) return t("admin.valSynopsisRequired");
-    if (form.tagIds.length === 0) return t("admin.valTagsRequired");
-    if (!form.lockStartIndex || form.lockStartIndex < 1) return t("admin.valLockRequired");
-    if (!form.coverUrl) return t("admin.valCoverRequired");
-    if (form.videoFiles.length === 0) return t("admin.valVideosRequired");
+    if (!form.title.trim()) return t("common.admin.valTitleRequired");
+    if (!form.originalName.trim()) return t("common.admin.valOriginalRequired");
+    if (!form.localOrTranslated) return t("common.admin.valLocalTypeRequired");
+    if (!form.totalEpisodes || form.totalEpisodes < 1) return t("common.admin.valEpisodesPositive");
+    if (!form.description.trim()) return t("common.admin.valSynopsisRequired");
+    if (form.tagIds.length === 0) return t("common.admin.valTagsRequired");
+    if (!form.lockStartIndex || form.lockStartIndex < 1) return t("common.admin.valLockRequired");
+    if (!form.coverUrl) return t("common.admin.valCoverRequired");
+    if (form.videoFiles.length === 0) return t("common.admin.valVideosRequired");
     if (form.videoFiles.length !== form.totalEpisodes) {
-      return t("admin.valVideoCountMismatch", {
+      return t("common.admin.valVideoCountMismatch", {
         a: form.videoFiles.length,
         b: form.totalEpisodes
       });
@@ -148,7 +148,7 @@ export default function AdminDramaUploadPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!["image/png", "image/jpeg", "image/jpg", "image/webp"].includes(file.type)) {
-      showToast(t("admin.toastCoverFormat"));
+      showToast(t("common.admin.toastCoverFormat"));
       return;
     }
     const fd = new FormData();
@@ -168,7 +168,7 @@ export default function AdminDramaUploadPage() {
         showToast(translateAdminApiError(json, t, "admin.toastCoverUploadFail"), "error");
       }
     } catch {
-      showToast(t("admin.networkErrorShort"), "error");
+      showToast(t("common.admin.networkErrorShort"), "error");
     }
     e.target.value = "";
   };
@@ -191,7 +191,7 @@ export default function AdminDramaUploadPage() {
       .filter((x) => x.index > 0)
       .sort((a, b) => a.index - b.index);
     if (parsed.length === 0 && files.length > 0) {
-      showToast(t("admin.toastVideoNameParse"));
+      showToast(t("common.admin.toastVideoNameParse"));
       return;
     }
     setForm((f) => ({ ...f, videoFiles: parsed }));
@@ -214,7 +214,7 @@ export default function AdminDramaUploadPage() {
         .map((id) => tags.find((t) => t.id === id)?.name?.trim())
         .filter((e): e is string => Boolean(e));
       if (finalTags.length === 0) {
-        showToast(t("admin.valTagsRequired"));
+        showToast(t("common.admin.valTagsRequired"));
         setSubmitting(false);
         return;
       }
@@ -387,7 +387,7 @@ export default function AdminDramaUploadPage() {
           })
         });
         if (seriesRes.ok && seriesJson?.ok) {
-          showToast(t("admin.uploadSuccessShort"), "success");
+          showToast(t("common.admin.uploadSuccessShort"), "success");
           setUploadFilesProgress([]);
           setForm((f) => ({ ...f, title: "", originalName: "", localOrTranslated: "", totalEpisodes: 0, description: "", tagIds: [], lockStartIndex: 1, coverUrl: "", videoFiles: [], uploadVideoMode: "mp4", listed: true }));
         } else {
@@ -445,7 +445,7 @@ export default function AdminDramaUploadPage() {
 
       const succeeded = byOrder.filter((x): x is NonNullable<typeof x> => Boolean(x));
       if (succeeded.length === 0) {
-        showToast(t("admin.uploadDirectFailedUseHttps"));
+        showToast(t("common.admin.uploadDirectFailedUseHttps"));
         setSubmitting(false);
         return;
       }
@@ -481,7 +481,7 @@ export default function AdminDramaUploadPage() {
           setUploadFilesProgress((prev) =>
             prev.map((it) => (it.stage === "completing" ? { ...it, stage: "failed" } : it))
           );
-          showToast(t("admin.submitFailed"));
+          showToast(t("common.admin.submitFailed"));
           setSubmitting(false);
           return;
         }
@@ -546,7 +546,7 @@ export default function AdminDramaUploadPage() {
         })
       });
       if (seriesRes.ok && seriesJson?.ok) {
-        showToast(t("admin.uploadSuccessShort"), "success");
+        showToast(t("common.admin.uploadSuccessShort"), "success");
         setUploadFilesProgress([]);
         setForm((f) => ({ ...f, title: "", originalName: "", localOrTranslated: "", totalEpisodes: 0, description: "", tagIds: [], lockStartIndex: 1, coverUrl: "", videoFiles: [], uploadVideoMode: "mp4", listed: true }));
       } else {
@@ -554,7 +554,7 @@ export default function AdminDramaUploadPage() {
         showToast(seriesJson?.traceId ? `${base} (trace: ${seriesJson.traceId})` : base);
       }
     } catch {
-      showToast(t("admin.networkErrorShort"));
+      showToast(t("common.admin.networkErrorShort"));
     } finally {
       setUploadProgress(null);
       setSubmitting(false);
@@ -575,7 +575,7 @@ export default function AdminDramaUploadPage() {
       uploadVideoMode: "mp4",
       listed: true
     });
-    showToast(t("admin.toastCancelled"), "info");
+    showToast(t("common.admin.toastCancelled"), "info");
   };
 
   const toggleTag = (id: string) => {
@@ -588,9 +588,9 @@ export default function AdminDramaUploadPage() {
   return (
     <main className="max-w-2xl">
       <h1 className="text-xl font-extrabold text-zinc-100">
-        {t("admin.dramaUpload")}
+        {t("common.admin.dramaUpload")}
       </h1>
-      <p className="mt-1 text-xs text-zinc-400">{t("admin.uploadPageSubtitle")}</p>
+      <p className="mt-1 text-xs text-zinc-400">{t("common.admin.uploadPageSubtitle")}</p>
 
       <form
         onSubmit={(e) => {
@@ -601,35 +601,35 @@ export default function AdminDramaUploadPage() {
       >
         <div>
           <label className="block text-sm font-semibold text-zinc-300">
-            {t("admin.fieldDramaTitle")} <span className="text-red-400">*</span>
+            {t("common.admin.fieldDramaTitle")} <span className="text-red-400">*</span>
           </label>
           <input
             type="text"
             name="title"
             value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
-            placeholder={t("admin.phTitleDupCheck")}
+            placeholder={t("common.admin.phTitleDupCheck")}
             className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-zinc-100 placeholder-zinc-500"
           />
         </div>
 
         <div>
           <label className="block text-sm font-semibold text-zinc-300">
-            {t("admin.fieldOriginalTitle")} <span className="text-red-400">*</span>
+            {t("common.admin.fieldOriginalTitle")} <span className="text-red-400">*</span>
           </label>
           <input
             type="text"
             name="originalName"
             value={form.originalName}
             onChange={(e) => setForm({ ...form, originalName: e.target.value })}
-            placeholder={t("admin.phManualInput")}
+            placeholder={t("common.admin.phManualInput")}
             className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-zinc-100 placeholder-zinc-500"
           />
         </div>
 
         <div>
           <label className="block text-sm font-semibold text-zinc-300">
-            {t("admin.fieldLocalOrTranslated")} <span className="text-red-400">*</span>
+            {t("common.admin.fieldLocalOrTranslated")} <span className="text-red-400">*</span>
           </label>
           <select
             name="localOrTranslated"
@@ -642,15 +642,15 @@ export default function AdminDramaUploadPage() {
             }
             className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-zinc-100"
           >
-            <option value="">{t("admin.phSelect")}</option>
-            <option value="local">{t("admin.localDrama")}</option>
-            <option value="translated">{t("admin.translatedDrama")}</option>
+            <option value="">{t("common.admin.phSelect")}</option>
+            <option value="local">{t("common.admin.localDrama")}</option>
+            <option value="translated">{t("common.admin.translatedDrama")}</option>
           </select>
         </div>
 
         <div>
           <label className="block text-sm font-semibold text-zinc-300">
-            {t("admin.fieldTotalEpisodes")} <span className="text-red-400">*</span>
+            {t("common.admin.fieldTotalEpisodes")} <span className="text-red-400">*</span>
           </label>
           <input
             type="number"
@@ -663,30 +663,30 @@ export default function AdminDramaUploadPage() {
                 totalEpisodes: Math.max(0, parseInt(e.target.value, 10) || 0)
               })
             }
-            placeholder={t("admin.phManualInput")}
+            placeholder={t("common.admin.phManualInput")}
             className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-zinc-100 placeholder-zinc-500"
           />
         </div>
 
         <div>
           <label className="block text-sm font-semibold text-zinc-300">
-            {t("admin.fieldSynopsis")} <span className="text-red-400">*</span>
+            {t("common.admin.fieldSynopsis")} <span className="text-red-400">*</span>
           </label>
           <textarea
             name="description"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             rows={4}
-            placeholder={t("admin.phSynopsis")}
+            placeholder={t("common.admin.phSynopsis")}
             className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-zinc-100 placeholder-zinc-500"
           />
         </div>
 
         <div>
           <label className="block text-sm font-semibold text-zinc-300">
-            {t("admin.fieldTagsRequired")} <span className="text-red-400">*</span>
+            {t("common.admin.fieldTagsRequired")} <span className="text-red-400">*</span>
           </label>
-          <p className="mt-1 text-xs text-zinc-500">{t("admin.tagsPickHint")}</p>
+          <p className="mt-1 text-xs text-zinc-500">{t("common.admin.tagsPickHint")}</p>
           {tagsLoadError ? (
             <div className="mt-2 flex items-center justify-between rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
               <span>{tagsLoadError}</span>
@@ -695,7 +695,7 @@ export default function AdminDramaUploadPage() {
                 onClick={loadTags}
                 className="rounded-md border border-red-400/40 bg-red-500/10 px-2.5 py-1 font-semibold text-red-100 hover:bg-red-500/20"
               >
-                {t("admin.query")}
+                {t("common.admin.query")}
               </button>
             </div>
           ) : null}
@@ -719,9 +719,9 @@ export default function AdminDramaUploadPage() {
 
         <div>
           <label className="block text-sm font-semibold text-zinc-300">
-            {t("admin.fieldLockStart")} <span className="text-red-400">*</span>
+            {t("common.admin.fieldLockStart")} <span className="text-red-400">*</span>
           </label>
-          <p className="mt-1 text-xs text-zinc-500">{t("admin.lockStartHint")}</p>
+          <p className="mt-1 text-xs text-zinc-500">{t("common.admin.lockStartHint")}</p>
           <select
             name="lockStartIndex"
             value={form.lockStartIndex}
@@ -735,7 +735,7 @@ export default function AdminDramaUploadPage() {
               (_, i) => i + 1
             ).map((n) => (
               <option key={n} value={n}>
-                {t("admin.lockFromEpisodeLabel", { n })}
+                {t("common.admin.lockFromEpisodeLabel", { n })}
               </option>
             ))}
           </select>
@@ -743,9 +743,9 @@ export default function AdminDramaUploadPage() {
 
         <div>
           <label className="block text-sm font-semibold text-zinc-300">
-            {t("admin.fieldCover")} <span className="text-red-400">*</span>
+            {t("common.admin.fieldCover")} <span className="text-red-400">*</span>
           </label>
-          <p className="mt-1 text-xs text-zinc-500">{t("admin.coverFormatHint")}</p>
+          <p className="mt-1 text-xs text-zinc-500">{t("common.admin.coverFormatHint")}</p>
           <div className="mt-2">
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/60 px-4 py-3 text-sm font-medium text-zinc-200 hover:bg-zinc-700/60">
               <input
@@ -755,17 +755,17 @@ export default function AdminDramaUploadPage() {
                 onChange={handleCoverUpload}
                 className="hidden"
               />
-              {t("admin.clickUpload")}
+              {t("common.admin.clickUpload")}
             </label>
             {form.coverUrl && (
               <div className="mt-2 flex items-center gap-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={form.coverUrl}
-                  alt={t("admin.coverAlt")}
+                  alt={t("common.admin.coverAlt")}
                   className="aspect-[3/4] h-24 rounded-lg object-cover"
                 />
-                <span className="text-xs text-emerald-400">{t("admin.uploaded")}</span>
+                <span className="text-xs text-emerald-400">{t("common.admin.uploaded")}</span>
               </div>
             )}
           </div>
@@ -773,9 +773,9 @@ export default function AdminDramaUploadPage() {
 
         <div>
           <label className="block text-sm font-semibold text-zinc-300">
-            {t("admin.fieldVideoFiles")} <span className="text-red-400">*</span>
+            {t("common.admin.fieldVideoFiles")} <span className="text-red-400">*</span>
           </label>
-          <p className="mt-1 text-xs text-zinc-500">{t("admin.videoBatchHint")}</p>
+          <p className="mt-1 text-xs text-zinc-500">{t("common.admin.videoBatchHint")}</p>
           <div className="mt-2 flex flex-wrap gap-2">
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/60 px-4 py-3 text-sm font-medium text-zinc-200 hover:bg-zinc-700/60">
               <input
@@ -786,7 +786,7 @@ export default function AdminDramaUploadPage() {
                 onChange={handleVideoUpload}
                 className="hidden"
               />
-              {t("admin.videoUploadSelectFiles")}
+              {t("common.admin.videoUploadSelectFiles")}
             </label>
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/60 px-4 py-3 text-sm font-medium text-zinc-200 hover:bg-zinc-700/60">
               <input
@@ -796,21 +796,21 @@ export default function AdminDramaUploadPage() {
                 className="hidden"
                 {...({ webkitdirectory: "", mozdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
               />
-              {t("admin.videoUploadSelectFolder")}
+              {t("common.admin.videoUploadSelectFolder")}
             </label>
           </div>
           {form.videoFiles.length > 0 ? (
             <p className="mt-2 text-xs text-emerald-400">
-              {t("admin.selectedEpisodes", { count: form.videoFiles.length })}
+              {t("common.admin.selectedEpisodes", { count: form.videoFiles.length })}
             </p>
           ) : null}
         </div>
 
         <div>
           <label className="block text-sm font-semibold text-zinc-300">
-            {t("admin.fieldVideoMode")}
+            {t("common.admin.fieldVideoMode")}
           </label>
-          <p className="mt-1 text-xs text-zinc-500">{t("admin.videoModeUploadHint")}</p>
+          <p className="mt-1 text-xs text-zinc-500">{t("common.admin.videoModeUploadHint")}</p>
           <select
             name="uploadVideoMode"
             value={form.uploadVideoMode}
@@ -819,14 +819,14 @@ export default function AdminDramaUploadPage() {
             }
             className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-zinc-100"
           >
-            <option value="mp4">{t("admin.videoModeMp4Default")}</option>
-            <option value="hls">{t("admin.videoModeHlsPreferred")}</option>
+            <option value="mp4">{t("common.admin.videoModeMp4Default")}</option>
+            <option value="hls">{t("common.admin.videoModeHlsPreferred")}</option>
           </select>
         </div>
 
         <div>
           <label className="block text-sm font-semibold text-zinc-300">
-            {t("admin.fieldListed")} <span className="text-red-400">*</span>
+            {t("common.admin.fieldListed")} <span className="text-red-400">*</span>
           </label>
           <select
             name="listed"
@@ -834,8 +834,8 @@ export default function AdminDramaUploadPage() {
             onChange={(e) => setForm({ ...form, listed: e.target.value === "1" })}
             className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-zinc-100"
           >
-            <option value="1">{t("admin.listedVisible")}</option>
-            <option value="0">{t("admin.listedHidden")}</option>
+            <option value="1">{t("common.admin.listedVisible")}</option>
+            <option value="0">{t("common.admin.listedHidden")}</option>
           </select>
         </div>
 
@@ -845,7 +845,7 @@ export default function AdminDramaUploadPage() {
             onClick={handleCancel}
             className="rounded-lg border border-zinc-600 px-6 py-3 text-sm font-semibold text-zinc-300 hover:bg-zinc-800"
           >
-            {t("admin.cancel")}
+            {t("common.admin.cancel")}
           </button>
           <button
             type="submit"
@@ -854,19 +854,19 @@ export default function AdminDramaUploadPage() {
           >
             {submitting
               ? uploadProgress
-                ? t("admin.videoUploadingProgress", {
+                ? t("common.admin.videoUploadingProgress", {
                     current: uploadProgress.current,
                     total: uploadProgress.total
                   })
-                : t("admin.submitting")
+                : t("common.admin.submitting")
               : checking
-                ? t("admin.submitting")
-                : t("admin.submit")}
+                ? t("common.admin.submitting")
+                : t("common.admin.submit")}
           </button>
         </div>
         {uploadProgress ? (
           <p className="text-xs text-amber-300">
-            {t("admin.videoUploadingFile", { name: uploadProgress.fileName })}
+            {t("common.admin.videoUploadingFile", { name: uploadProgress.fileName })}
           </p>
         ) : null}
         {uploadFilesProgress.length > 0 ? (

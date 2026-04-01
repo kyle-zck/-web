@@ -68,7 +68,7 @@ export function ManageTagsModal({ open, onClose }: ManageTagsModalProps) {
     };
     const c = newCategory && map[newCategory];
     if (!c || categories.some((x) => x.id === c.id)) {
-      showToast(t("admin.tagLibCategoryExists"));
+      showToast(t("common.admin.tagLibCategoryExists"));
       return;
     }
     const res = await fetch("/admin/api/tags", {
@@ -90,7 +90,7 @@ export function ManageTagsModal({ open, onClose }: ManageTagsModalProps) {
   };
 
   const addTag = async (categoryId: string) => {
-    const nameZh = window.prompt(t("admin.tagLibPromptTagName"));
+    const nameZh = window.prompt(t("common.admin.tagLibPromptTagName"));
     if (!nameZh?.trim()) return;
     const res = await fetch("/admin/api/tags", {
       method: "POST",
@@ -112,7 +112,7 @@ export function ManageTagsModal({ open, onClose }: ManageTagsModalProps) {
   };
 
   const deleteTag = async (id: string) => {
-    if (!window.confirm(t("admin.tagLibConfirmDeleteTag"))) return;
+    if (!window.confirm(t("common.admin.tagLibConfirmDeleteTag"))) return;
     const res = await fetch("/admin/api/tags", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -139,9 +139,9 @@ export function ManageTagsModal({ open, onClose }: ManageTagsModalProps) {
   if (!open) return null;
 
   const newCatOptionLabel: Record<"theme" | "role" | "plot", string> = {
-    theme: t("admin.tagLibNewCatTheme"),
-    role: t("admin.tagLibNewCatRole"),
-    plot: t("admin.tagLibNewCatPlot")
+    theme: t("common.admin.tagLibNewCatTheme"),
+    role: t("common.admin.tagLibNewCatRole"),
+    plot: t("common.admin.tagLibNewCatPlot")
   };
 
   return (
@@ -153,7 +153,7 @@ export function ManageTagsModal({ open, onClose }: ManageTagsModalProps) {
       />
       <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-800/80 bg-zinc-950 shadow-2xl">
         <div className="flex items-center justify-between border-b border-zinc-800/80 p-4">
-          <h2 className="text-lg font-bold text-zinc-100">{t("admin.tagLibTitle")}</h2>
+          <h2 className="text-lg font-bold text-zinc-100">{t("common.admin.tagLibTitle")}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -167,13 +167,13 @@ export function ManageTagsModal({ open, onClose }: ManageTagsModalProps) {
           <div className="flex flex-wrap items-end gap-3">
             <div>
               <label className="block text-xs font-semibold text-zinc-400">
-                {t("admin.tagLibFilterLabel")}
+                {t("common.admin.tagLibFilterLabel")}
               </label>
               <input
                 type="text"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                placeholder={t("admin.tagLibFilterPh")}
+                placeholder={t("common.admin.tagLibFilterPh")}
                 className="mt-1 w-40 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100"
               />
             </div>
@@ -182,7 +182,7 @@ export function ManageTagsModal({ open, onClose }: ManageTagsModalProps) {
               onClick={() => load()}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500"
             >
-              {t("admin.query")}
+              {t("common.admin.query")}
             </button>
             <div className="ml-auto flex gap-2">
               <select
@@ -190,7 +190,7 @@ export function ManageTagsModal({ open, onClose }: ManageTagsModalProps) {
                 onChange={(e) => setNewCategory(e.target.value as typeof newCategory)}
                 className="rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100"
               >
-                <option value="">{t("admin.tagLibNewCategorySelect")}</option>
+                <option value="">{t("common.admin.tagLibNewCategorySelect")}</option>
                 <option value="theme">{newCatOptionLabel.theme}</option>
                 <option value="role">{newCatOptionLabel.role}</option>
                 <option value="plot">{newCatOptionLabel.plot}</option>
@@ -201,7 +201,7 @@ export function ManageTagsModal({ open, onClose }: ManageTagsModalProps) {
                 disabled={!newCategory}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
               >
-                {t("admin.tagLibAddCategoryBtn")}
+                {t("common.admin.tagLibAddCategoryBtn")}
               </button>
             </div>
           </div>
@@ -210,9 +210,9 @@ export function ManageTagsModal({ open, onClose }: ManageTagsModalProps) {
             <table className="w-full border-collapse">
               <thead className="sticky top-0 bg-zinc-900/95">
                 <tr className="text-left text-xs text-zinc-400">
-                  <th className="px-4 py-3 font-semibold">{t("admin.tagLibColNameZh")}</th>
-                  <th className="px-4 py-3 font-semibold">{t("admin.tagLibColCategory")}</th>
-                  <th className="px-4 py-3 font-semibold">{t("admin.action")}</th>
+                  <th className="px-4 py-3 font-semibold">{t("common.admin.tagLibColNameZh")}</th>
+                  <th className="px-4 py-3 font-semibold">{t("common.admin.tagLibColCategory")}</th>
+                  <th className="px-4 py-3 font-semibold">{t("common.admin.action")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -234,14 +234,14 @@ export function ManageTagsModal({ open, onClose }: ManageTagsModalProps) {
                           onClick={() => setEditing(tag)}
                           className="text-sm font-medium text-blue-400 hover:text-blue-300"
                         >
-                          {t("admin.edit")}
+                          {t("common.admin.edit")}
                         </button>
                         <button
                           type="button"
                           onClick={() => deleteTag(tag.id)}
                           className="text-sm font-medium text-red-400 hover:text-red-300"
                         >
-                          {t("admin.delete")}
+                          {t("common.admin.delete")}
                         </button>
                       </div>
                     </td>
@@ -250,7 +250,7 @@ export function ManageTagsModal({ open, onClose }: ManageTagsModalProps) {
               </tbody>
             </table>
             {!filteredTags.length && (
-              <div className="py-12 text-center text-sm text-zinc-500">{t("admin.tagLibNoTags")}</div>
+              <div className="py-12 text-center text-sm text-zinc-500">{t("common.admin.tagLibNoTags")}</div>
             )}
           </div>
 
@@ -263,7 +263,7 @@ export function ManageTagsModal({ open, onClose }: ManageTagsModalProps) {
                   onClick={() => addTag(c.id)}
                   className="rounded-lg border border-zinc-600 bg-zinc-800/60 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-700/60"
                 >
-                  {t("admin.tagLibAddUnder", { name: categoryDisplayName(c, i18n.language) })}
+                  {t("common.admin.tagLibAddUnder", { name: categoryDisplayName(c, i18n.language) })}
                 </button>
               ))}
             </div>
@@ -278,11 +278,11 @@ export function ManageTagsModal({ open, onClose }: ManageTagsModalProps) {
                 a.download = `tags-i18n-${new Date().toISOString().slice(0, 10)}.json`;
                 a.click();
                 URL.revokeObjectURL(url);
-                showToast(t("admin.tagLibExportedToast"), "success");
+                showToast(t("common.admin.tagLibExportedToast"), "success");
               }}
               className="rounded-lg border border-emerald-600/60 bg-emerald-600/20 px-4 py-2 text-sm font-semibold text-emerald-300 hover:bg-emerald-600/30"
             >
-              {t("admin.tagLibExportJson")}
+              {t("common.admin.tagLibExportJson")}
             </button>
           </div>
         </div>
@@ -339,7 +339,7 @@ function EditTagModal({
     <>
       <div className="fixed inset-0 z-[60] bg-black/60" onClick={onClose} aria-hidden />
       <div className="fixed left-1/2 top-1/2 z-[61] w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-        <h3 className="mb-4 text-base font-bold text-zinc-100">{t("admin.tagLibEditTag")}</h3>
+        <h3 className="mb-4 text-base font-bold text-zinc-100">{t("common.admin.tagLibEditTag")}</h3>
         <div className="space-y-3">
           {TAG_LANG_FIELDS.map((field) => (
             <div key={field}>
@@ -355,7 +355,7 @@ function EditTagModal({
           ))}
           <div>
             <label className="block text-xs font-semibold text-zinc-400">
-              {t("admin.tagLibFieldCategory")}
+              {t("common.admin.tagLibFieldCategory")}
             </label>
             <select
               value={form.categoryId}
@@ -376,14 +376,14 @@ function EditTagModal({
             onClick={onClose}
             className="rounded-lg border border-zinc-600 px-4 py-2 text-sm font-semibold text-zinc-300"
           >
-            {t("admin.cancel")}
+            {t("common.admin.cancel")}
           </button>
           <button
             type="button"
             onClick={save}
             className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white"
           >
-            {t("admin.tagLibConfirmBtn")}
+            {t("common.admin.tagLibConfirmBtn")}
           </button>
         </div>
       </div>

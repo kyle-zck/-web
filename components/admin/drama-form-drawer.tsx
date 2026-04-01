@@ -56,11 +56,11 @@ export function DramaFormDrawer({
 
   const validateStep0 = () => {
     if (!form.coverVertical) {
-      showToast(t("admin.uploadCoverRequired"));
+      showToast(t("common.admin.uploadCoverRequired"));
       return false;
     }
     if (!form.title.trim()) {
-      showToast(t("admin.titleRequired"));
+      showToast(t("common.admin.titleRequired"));
       return false;
     }
     return true;
@@ -75,7 +75,7 @@ export function DramaFormDrawer({
     }
   };
 
-  const steps = [t("admin.dramaBasicInfo"), t("admin.dramaExtended")];
+  const steps = [t("common.admin.dramaBasicInfo"), t("common.admin.dramaExtended")];
 
   if (!open) return null;
 
@@ -94,13 +94,13 @@ export function DramaFormDrawer({
       >
         <div className="flex items-center justify-between border-b border-zinc-800/80 p-4">
           <h2 className="text-lg font-bold text-zinc-100">
-            {initialData?.id ? t("admin.dramaFormEdit") : t("admin.dramaFormCreate")}
+            {initialData?.id ? t("common.admin.dramaFormEdit") : t("common.admin.dramaFormCreate")}
           </h2>
           <button
             type="button"
             onClick={onClose}
             className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
-            aria-label={t("admin.close")}
+            aria-label={t("common.admin.close")}
           >
             ✕
           </button>
@@ -152,34 +152,34 @@ export function DramaFormDrawer({
               </div>
               <div>
                 <label className="block text-xs font-semibold text-zinc-400">
-                  {t("admin.title")} *
+                  {t("common.admin.title")} *
                 </label>
                 <input
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  placeholder={t("admin.dramaFormPhTitle")}
+                  placeholder={t("common.admin.dramaFormPhTitle")}
                   className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-100 placeholder-zinc-500"
                 />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-zinc-400">
-                  {t("admin.dramaFormAlias")}
+                  {t("common.admin.dramaFormAlias")}
                 </label>
                 <input
                   value={form.alias}
                   onChange={(e) => setForm({ ...form, alias: e.target.value })}
-                  placeholder={t("admin.dramaFormPhAlias")}
+                  placeholder={t("common.admin.dramaFormPhAlias")}
                   className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-100 placeholder-zinc-500"
                 />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-zinc-400">
-                  {t("admin.dramaFormSynopsisStar")}
+                  {t("common.admin.dramaFormSynopsisStar")}
                 </label>
                 <textarea
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  placeholder={t("admin.descriptionPlaceholder")}
+                  placeholder={t("common.admin.descriptionPlaceholder")}
                   rows={4}
                   className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-100 placeholder-zinc-500"
                 />
@@ -190,7 +190,7 @@ export function DramaFormDrawer({
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-zinc-400">
-                  {t("admin.dramaFormTotalEpStar")}
+                  {t("common.admin.dramaFormTotalEpStar")}
                 </label>
                 <input
                   type="number"
@@ -202,13 +202,13 @@ export function DramaFormDrawer({
                       totalEpisodes: Number(e.target.value) || 0
                     })
                   }
-                  placeholder={t("admin.dramaFormPhEpisodes")}
+                  placeholder={t("common.admin.dramaFormPhEpisodes")}
                   className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-100 placeholder-zinc-500"
                 />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-zinc-400">
-                  {t("admin.dramaFormReleaseDate")}
+                  {t("common.admin.dramaFormReleaseDate")}
                 </label>
                 <input
                   type="date"
@@ -219,18 +219,18 @@ export function DramaFormDrawer({
               </div>
               <div>
                 <label className="block text-xs font-semibold text-zinc-400">
-                  {t("admin.dramaFormRegion")}
+                  {t("common.admin.dramaFormRegion")}
                 </label>
                 <input
                   value={form.region}
                   onChange={(e) => setForm({ ...form, region: e.target.value })}
-                  placeholder={t("admin.dramaFormPhRegion")}
+                  placeholder={t("common.admin.dramaFormPhRegion")}
                   className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-100 placeholder-zinc-500"
                 />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-zinc-400">
-                  {t("admin.dramaFormStatusStar")}
+                  {t("common.admin.dramaFormStatusStar")}
                 </label>
                 <select
                   value={form.status}
@@ -245,10 +245,10 @@ export function DramaFormDrawer({
                   {STATUS_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.value === "draft"
-                        ? t("admin.statusDraft")
+                        ? t("common.admin.statusDraft")
                         : o.value === "published"
-                          ? t("admin.statusPublished")
-                          : t("admin.statusOff")}
+                          ? t("common.admin.statusPublished")
+                          : t("common.admin.statusOff")}
                     </option>
                   ))}
                 </select>
@@ -263,14 +263,14 @@ export function DramaFormDrawer({
             onClick={onClose}
             className="rounded-lg border border-zinc-600 px-4 py-2 text-sm font-semibold text-zinc-300 hover:bg-zinc-800"
           >
-            {t("admin.cancel")}
+            {t("common.admin.cancel")}
           </button>
           <button
             type="button"
             onClick={handleNext}
             className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-red-600"
           >
-            {step < 1 ? t("admin.dramaFormNext") : t("admin.dramaFormConfirm")}
+            {step < 1 ? t("common.admin.dramaFormNext") : t("common.admin.dramaFormConfirm")}
           </button>
         </div>
       </div>

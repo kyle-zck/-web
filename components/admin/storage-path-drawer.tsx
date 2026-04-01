@@ -46,7 +46,7 @@ export function StoragePathDrawer({ open, onClose }: StoragePathDrawerProps) {
   const save = async () => {
     for (const p of paths) {
       if (!p.baseUrl?.trim()) {
-        showToast(t("admin.pathEmptyToast"));
+        showToast(t("common.admin.pathEmptyToast"));
         return;
       }
     }
@@ -58,20 +58,20 @@ export function StoragePathDrawer({ open, onClose }: StoragePathDrawerProps) {
       });
       const json = await res.json();
       if (json?.ok) {
-        showToast(t("admin.pathSavedToast"), "success");
+        showToast(t("common.admin.pathSavedToast"), "success");
         onClose();
       } else {
-        showToast(json?.error ?? t("admin.pathSaveFailedToast"));
+        showToast(json?.error ?? t("common.admin.pathSaveFailedToast"));
       }
     } catch {
-      showToast(t("admin.networkErrorShort"));
+      showToast(t("common.admin.networkErrorShort"));
     }
   };
 
   const addPath = () => {
     setPaths([
       ...paths,
-      { id: `p${Date.now()}`, name: t("admin.newPathDefault"), baseUrl: "", enabled: true }
+      { id: `p${Date.now()}`, name: t("common.admin.newPathDefault"), baseUrl: "", enabled: true }
     ]);
   };
 
@@ -96,7 +96,7 @@ export function StoragePathDrawer({ open, onClose }: StoragePathDrawerProps) {
       >
         <div className="flex items-center justify-between border-b border-zinc-800/80 p-4">
           <h2 className="text-lg font-bold text-zinc-100">
-            {t("admin.storagePathManagement")}
+            {t("common.admin.storagePathManagement")}
           </h2>
           <button
             type="button"
@@ -107,7 +107,7 @@ export function StoragePathDrawer({ open, onClose }: StoragePathDrawerProps) {
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-4">
-          <p className="mb-4 text-xs text-zinc-500">{t("admin.storagePathHint")}</p>
+          <p className="mb-4 text-xs text-zinc-500">{t("common.admin.storagePathHint")}</p>
           <div className="space-y-4">
             {paths.map((p, i) => (
               <div
@@ -118,7 +118,7 @@ export function StoragePathDrawer({ open, onClose }: StoragePathDrawerProps) {
                   <input
                     value={p.name}
                     onChange={(e) => updatePath(i, { name: e.target.value })}
-                    placeholder={t("admin.namePh")}
+                    placeholder={t("common.admin.namePh")}
                     className="w-32 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100"
                   />
                   <button
@@ -126,7 +126,7 @@ export function StoragePathDrawer({ open, onClose }: StoragePathDrawerProps) {
                     onClick={() => removePath(i)}
                     className="text-sm text-red-400 hover:text-red-300"
                   >
-                    {t("admin.delete")}
+                    {t("common.admin.delete")}
                   </button>
                 </div>
                 <input
@@ -142,7 +142,7 @@ export function StoragePathDrawer({ open, onClose }: StoragePathDrawerProps) {
                     onChange={(e) => updatePath(i, { enabled: e.target.checked })}
                     className="rounded"
                   />
-                  <span className="text-xs text-zinc-400">{t("admin.enabledLabel")}</span>
+                  <span className="text-xs text-zinc-400">{t("common.admin.enabledLabel")}</span>
                 </label>
               </div>
             ))}
@@ -152,7 +152,7 @@ export function StoragePathDrawer({ open, onClose }: StoragePathDrawerProps) {
             onClick={addPath}
             className="mt-4 w-full rounded-lg border border-dashed border-zinc-600 py-3 text-sm font-semibold text-zinc-400 hover:border-zinc-500 hover:text-zinc-300"
           >
-            {t("admin.addPathBtn")}
+            {t("common.admin.addPathBtn")}
           </button>
         </div>
         <div className="flex justify-end gap-2 border-t border-zinc-800/80 p-4">
@@ -161,14 +161,14 @@ export function StoragePathDrawer({ open, onClose }: StoragePathDrawerProps) {
             onClick={onClose}
             className="rounded-lg border border-zinc-600 px-4 py-2 text-sm font-semibold text-zinc-300"
           >
-            {t("admin.cancel")}
+            {t("common.admin.cancel")}
           </button>
           <button
             type="button"
             onClick={save}
             className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white"
           >
-            {t("admin.save")}
+            {t("common.admin.save")}
           </button>
         </div>
       </div>

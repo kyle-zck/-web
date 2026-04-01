@@ -44,7 +44,7 @@ export default function AdminViewsPage() {
           historyJson?.ok || favoritesJson?.ok || likesJson?.ok || viewsJson?.ok
         );
         if (!anyOk) {
-          setLoadError(String(t("admin.submitFailed")));
+          setLoadError(String(t("common.admin.submitFailed")));
         }
         setHistoryByClient(
           historyJson?.ok && historyJson.byClient
@@ -108,13 +108,13 @@ export default function AdminViewsPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-zinc-100">{t("admin.watchInfoManagement")}</h1>
-      <p className="mt-1 text-sm text-zinc-400">{t("admin.viewsHint")}</p>
+      <h1 className="text-xl font-bold text-zinc-100">{t("common.admin.watchInfoManagement")}</h1>
+      <p className="mt-1 text-sm text-zinc-400">{t("common.admin.viewsHint")}</p>
       <div className="mt-4 flex flex-wrap gap-2">
-        {tabBtn("history", t("admin.watchHistory"))}
-        {tabBtn("favorites", t("admin.userFavorites"))}
-        {tabBtn("likes", t("admin.userLikes"))}
-        {tabBtn("views", t("admin.userViews"))}
+        {tabBtn("history", t("common.admin.watchHistory"))}
+        {tabBtn("favorites", t("common.admin.userFavorites"))}
+        {tabBtn("likes", t("common.admin.userLikes"))}
+        {tabBtn("views", t("common.admin.userViews"))}
       </div>
 
       {loadError ? (
@@ -125,7 +125,7 @@ export default function AdminViewsPage() {
             onClick={loadAll}
             className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-100 hover:bg-red-500/20"
           >
-            {t("admin.query")}
+            {t("common.admin.query")}
           </button>
         </div>
       ) : null}
@@ -133,18 +133,18 @@ export default function AdminViewsPage() {
       {activeTab === "history" ? (
         <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-700/80 bg-zinc-900/50">
           {loading ? (
-            <div className="p-8 text-center text-zinc-500">{t("admin.loading")}</div>
+            <div className="p-8 text-center text-zinc-500">{t("common.admin.loading")}</div>
           ) : historyRows.length === 0 ? (
-            <div className="p-8 text-center text-zinc-500">{t("admin.noHistoryYet")}</div>
+            <div className="p-8 text-center text-zinc-500">{t("common.admin.noHistoryYet")}</div>
           ) : (
             <table className="w-full min-w-[760px]">
               <thead>
                 <tr className="border-b border-zinc-700/80">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.clientId")}</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.series")}</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.episode")}</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.progress")}</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.lastWatched")}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.clientId")}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.series")}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.episode")}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.progress")}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.lastWatched")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -166,15 +166,15 @@ export default function AdminViewsPage() {
       {activeTab === "favorites" ? (
         <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-700/80 bg-zinc-900/50">
           {loading ? (
-            <div className="p-8 text-center text-zinc-500">{t("admin.loading")}</div>
+            <div className="p-8 text-center text-zinc-500">{t("common.admin.loading")}</div>
           ) : favRows.length === 0 ? (
-            <div className="p-8 text-center text-zinc-500">{t("admin.noFavoritesYet")}</div>
+            <div className="p-8 text-center text-zinc-500">{t("common.admin.noFavoritesYet")}</div>
           ) : (
             <table className="w-full min-w-[500px]">
               <thead>
                 <tr className="border-b border-zinc-700/80">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.clientId")}</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.seriesId")}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.clientId")}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.seriesId")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -193,15 +193,15 @@ export default function AdminViewsPage() {
       {activeTab === "likes" ? (
         <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-700/80 bg-zinc-900/50">
           {loading ? (
-            <div className="p-8 text-center text-zinc-500">{t("admin.loading")}</div>
+            <div className="p-8 text-center text-zinc-500">{t("common.admin.loading")}</div>
           ) : likeRows.length === 0 ? (
-            <div className="p-8 text-center text-zinc-500">{t("admin.noLikesYet")}</div>
+            <div className="p-8 text-center text-zinc-500">{t("common.admin.noLikesYet")}</div>
           ) : (
             <table className="w-full min-w-[500px]">
               <thead>
                 <tr className="border-b border-zinc-700/80">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.clientId")}</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.seriesId")}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.clientId")}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.seriesId")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -220,15 +220,15 @@ export default function AdminViewsPage() {
       {activeTab === "views" ? (
         <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-700/80 bg-zinc-900/50">
           {loading ? (
-            <div className="p-8 text-center text-zinc-500">{t("admin.loading")}</div>
+            <div className="p-8 text-center text-zinc-500">{t("common.admin.loading")}</div>
           ) : viewRows.length === 0 ? (
-            <div className="p-8 text-center text-zinc-500">{t("admin.noViewsYet")}</div>
+            <div className="p-8 text-center text-zinc-500">{t("common.admin.noViewsYet")}</div>
           ) : (
             <table className="w-full min-w-[500px]">
               <thead>
                 <tr className="border-b border-zinc-700/80">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.clientId")}</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("admin.seriesId")}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.clientId")}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">{t("common.admin.seriesId")}</th>
                 </tr>
               </thead>
               <tbody>

@@ -34,15 +34,15 @@ export default function AdminSecurityPage() {
       const json = (await res.json()) as { ok?: boolean; errorKey?: string };
       if (!res.ok || !json.ok) {
         const k = json.errorKey;
-        setError(k ? String(t(`admin.${k}`)) : String(t("admin.submitFailed")));
+        setError(k ? String(t(`admin.${k}`)) : String(t("common.admin.submitFailed")));
         return;
       }
-      showToast(t("admin.passwordChangeSuccess"), "success");
+      showToast(t("common.admin.passwordChangeSuccess"), "success");
       setOldPw("");
       setNewPw("");
       setConfirmPw("");
     } catch {
-      setError(t("admin.networkError"));
+      setError(t("common.admin.networkError"));
     } finally {
       window.clearTimeout(timer);
       setLoading(false);
@@ -52,15 +52,15 @@ export default function AdminSecurityPage() {
   return (
     <main>
       <div>
-        <h1 className="text-xl font-extrabold text-zinc-100">{t("admin.securityPassword")}</h1>
-        <p className="mt-1 text-xs text-zinc-400">{t("admin.accountMgmtHint")}</p>
+        <h1 className="text-xl font-extrabold text-zinc-100">{t("common.admin.securityPassword")}</h1>
+        <p className="mt-1 text-xs text-zinc-400">{t("common.admin.accountMgmtHint")}</p>
       </div>
 
       <section className="mt-6 max-w-lg rounded-3xl border border-zinc-800/80 bg-zinc-950/60 p-5">
-        <h2 className="text-sm font-semibold text-brand">{t("admin.accountManagement")}</h2>
+        <h2 className="text-sm font-semibold text-brand">{t("common.admin.accountManagement")}</h2>
         <form onSubmit={onChangePassword} className="mt-4 space-y-3">
           <label className="block">
-            <span className="text-xs font-semibold text-zinc-400">{t("admin.currentPassword")}</span>
+            <span className="text-xs font-semibold text-zinc-400">{t("common.admin.currentPassword")}</span>
             <input
               type="password"
               autoComplete="current-password"
@@ -70,7 +70,7 @@ export default function AdminSecurityPage() {
             />
           </label>
           <label className="block">
-            <span className="text-xs font-semibold text-zinc-400">{t("admin.newPassword")}</span>
+            <span className="text-xs font-semibold text-zinc-400">{t("common.admin.newPassword")}</span>
             <input
               type="password"
               autoComplete="new-password"
@@ -80,7 +80,7 @@ export default function AdminSecurityPage() {
             />
           </label>
           <label className="block">
-            <span className="text-xs font-semibold text-zinc-400">{t("admin.confirmPassword")}</span>
+            <span className="text-xs font-semibold text-zinc-400">{t("common.admin.confirmPassword")}</span>
             <input
               type="password"
               autoComplete="new-password"
@@ -95,7 +95,7 @@ export default function AdminSecurityPage() {
             disabled={loading}
             className="w-full rounded-2xl bg-brand px-4 py-3 text-sm font-semibold text-white shadow-soft-glow disabled:opacity-60"
           >
-            {loading ? t("admin.saving") : t("admin.saveNewPassword")}
+            {loading ? t("common.admin.saving") : t("common.admin.saveNewPassword")}
           </button>
         </form>
       </section>

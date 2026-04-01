@@ -67,8 +67,8 @@ export function AdminSidebar() {
       <div className="flex items-center gap-2 px-2">
         <div className="h-9 w-9 rounded-xl bg-brand/15 ring-1 ring-brand/40" />
         <div>
-          <p className="text-sm font-semibold text-zinc-100">{t("admin.cms")}</p>
-          <p className="text-[11px] text-zinc-400">{t("admin.internalDashboard")}</p>
+          <p className="text-sm font-semibold text-zinc-100">{t("common.admin.cms")}</p>
+          <p className="text-[11px] text-zinc-400">{t("common.admin.internalDashboard")}</p>
         </div>
       </div>
 
@@ -85,7 +85,7 @@ export function AdminSidebar() {
                 : "text-zinc-300 hover:bg-zinc-900/60 hover:ring-zinc-800/80"
             )}
           >
-            {t("admin.dramaManagement")}
+            {t("common.admin.dramaManagement")}
             <svg
               className={cn("h-4 w-4 transition-transform", dramaOpen && "rotate-180")}
               fill="none"
@@ -127,7 +127,7 @@ export function AdminSidebar() {
                 : "text-zinc-300 hover:bg-zinc-900/60 hover:ring-zinc-800/80"
             )}
           >
-            {t("admin.assetManagement")}
+            {t("common.admin.assetManagement")}
             <svg
               className={cn("h-4 w-4 transition-transform", assetOpen && "rotate-180")}
               fill="none"
@@ -182,7 +182,7 @@ export function AdminSidebar() {
           onClick={onLogout}
           className="w-full rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-300 hover:bg-red-500/20"
         >
-          {t("admin.logout")}
+          {t("common.admin.logout")}
         </button>
         <select
           value={lang}
@@ -196,7 +196,7 @@ export function AdminSidebar() {
           ))}
         </select>
         <p className="text-[11px] leading-5 text-zinc-500">
-          {t("admin.securityNote")}
+          {t("common.admin.securityNote")}
         </p>
       </div>
     </aside>

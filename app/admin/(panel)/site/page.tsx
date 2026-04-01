@@ -137,7 +137,7 @@ export default function AdminSiteSettingsPage() {
         setSeriesList([]);
       }
     } catch {
-      setLoadError(String(t("admin.networkError")));
+      setLoadError(String(t("common.admin.networkError")));
     } finally {
       setLoaded(true);
     }
@@ -302,7 +302,7 @@ export default function AdminSiteSettingsPage() {
         showToast(translateAdminApiError(json, t), "error");
         return;
       }
-      showToast(t("admin.saved"), "success");
+      showToast(t("common.admin.saved"), "success");
     } finally {
       setSaving(false);
     }
@@ -311,7 +311,7 @@ export default function AdminSiteSettingsPage() {
   if (!loaded) {
     return (
       <main>
-        <p className="text-sm text-zinc-400">{t("admin.loading")}</p>
+        <p className="text-sm text-zinc-400">{t("common.admin.loading")}</p>
       </main>
     );
   }
@@ -326,8 +326,8 @@ export default function AdminSiteSettingsPage() {
     <main className="max-w-5xl space-y-8">
       <div className="flex items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-extrabold text-zinc-100">{t("admin.siteSettings")}</h1>
-          <p className="mt-1 text-xs text-zinc-400">{t("admin.siteSettingsHint")}</p>
+          <h1 className="text-xl font-extrabold text-zinc-100">{t("common.admin.siteSettings")}</h1>
+          <p className="mt-1 text-xs text-zinc-400">{t("common.admin.siteSettingsHint")}</p>
         </div>
         <button
           type="button"
@@ -335,7 +335,7 @@ export default function AdminSiteSettingsPage() {
           disabled={saving}
           className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
         >
-          {saving ? t("admin.saving") : t("admin.save")}
+          {saving ? t("common.admin.saving") : t("common.admin.save")}
         </button>
       </div>
 
@@ -347,7 +347,7 @@ export default function AdminSiteSettingsPage() {
             onClick={loadConfig}
             className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-100 hover:bg-red-500/20"
           >
-            {t("admin.query")}
+            {t("common.admin.query")}
           </button>
         </div>
       ) : null}
