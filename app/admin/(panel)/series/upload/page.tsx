@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import { showToast } from "@/components/ui/toast";
 import { translateAdminApiError } from "@/lib/admin/api-error";
@@ -242,7 +243,7 @@ export default function AdminDramaUploadPage() {
     if (!dupOk) return;
 
     if (!bgUpload.isEnabled) {
-      showToast(t("common.admin.bgUploadNotSupported"), "warning");
+      showToast(t("common.admin.bgUploadNotSupported"), "info");
       handleSubmit();
       return;
     }
@@ -957,12 +958,15 @@ export default function AdminDramaUploadPage() {
             </label>
             {form.coverUrl && (
               <div className="mt-2 flex items-center gap-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={form.coverUrl}
-                  alt={t("common.admin.coverAlt")}
-                  className="aspect-[3/4] h-24 rounded-lg object-cover"
-                />
+                <div className="relative aspect-[3/4] h-24 overflow-hidden rounded-lg">
+                  <Image
+                    src={form.coverUrl}
+                    alt={t("common.admin.coverAlt")}
+                    fill
+                    className="object-cover"
+                    sizes="96px"
+                  />
+                </div>
                 <span className="text-xs text-emerald-400">{t("common.admin.uploaded")}</span>
               </div>
             )}
