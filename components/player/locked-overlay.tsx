@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { playbackUrlIndicatesHls } from "@/lib/video/playback";
@@ -91,7 +92,7 @@ function LockPreviewMedia({
     };
 
     // 等海报先渲染完成（img onload），再启动视频加载
-    const img = new Image();
+    const img = document.createElement("img");
     img.onload = startVideo;
     img.src = poster;
     // 如果海报本身就是视频 poster 属性（同源），img onload 会在 poster 渲染后触发
@@ -118,7 +119,7 @@ function LockPreviewMedia({
         /* ignore */
       }
     };
-  }, [playUrl, isHls, bumpToFirstFrame]);
+  }, [playUrl, isHls, bumpToFirstFrame, poster]);
 
   const hasPlay = Boolean(playUrl);
   const hasPoster = Boolean(poster);
@@ -132,12 +133,14 @@ function LockPreviewMedia({
   return (
     <>
       {hasPoster ? (
-        <img
+        <Image
           src={poster}
           alt=""
-          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
+          fill
+          className={`absolute object-cover transition-opacity duration-500 ${
             hidePosterLayer ? "pointer-events-none opacity-0" : "opacity-100"
           }`}
+          sizes="100vw"
           draggable={false}
           aria-hidden
         />

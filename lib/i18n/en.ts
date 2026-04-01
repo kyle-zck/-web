@@ -768,7 +768,6 @@ export const en = {
       hide: "Hide",
       show: "Show",
       moreFiles: "more files",
-      submit: "Submit",
       storagePathDrawerTitle: "Storage paths",
       storagePathHint:
         "Configure CDN or object storage base URL for video paths",

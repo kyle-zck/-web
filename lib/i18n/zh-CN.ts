@@ -696,7 +696,6 @@ export const zhCN = {
       hide: "收起",
       show: "展开",
       moreFiles: "更多文件",
-      submit: "提交",
       storagePathDrawerTitle: "存储路径",
       storagePathHint: "配置 CDN 或对象存储（S3/OSS）根路径，用于拼接视频流地址",
       namePh: "名称",

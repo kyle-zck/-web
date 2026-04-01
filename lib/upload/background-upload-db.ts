@@ -149,7 +149,7 @@ export async function deleteFileData(sessionId: string): Promise<void> {
     req.onerror = () => reject(req.error);
     req.onsuccess = () => {
       const toDelete = req.result.filter((item: UploadFileData) => item.sessionId === sessionId);
-      toDelete.forEach((item: UploadFileData) => store.delete(item));
+      toDelete.forEach((item: UploadFileData) => store.delete([item.sessionId, item.fileIndex]));
       resolve();
     };
   });

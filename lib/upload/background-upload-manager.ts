@@ -266,13 +266,13 @@ class BackgroundUploadManager {
           fileData: {
             name: fileName,
             type: fileType,
-            size: formFiles.file.size,
+            size: fileData.size,
             data: arrayBuffer,
           },
           presignedUrl: fileInfo.uploadUrl,
         });
       } else {
-        await this.uploadDirect(sessionId, fileInfo, arrayBuffer, formFiles.file.type);
+        await this.uploadDirect(sessionId, fileInfo, arrayBuffer, fileType);
       }
     } catch (err) {
       this.statusCallback?.(
@@ -295,7 +295,7 @@ class BackgroundUploadManager {
 
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
-      xhr.open("PUT", fileInfo.uploadUrl, true);
+      xhr.open("PUT", fileInfo.uploadUrl!, true);
       xhr.setRequestHeader("Content-Type", fileType);
       xhr.timeout = 300_000;
 

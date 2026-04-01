@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Episode, Series } from "@/constants/mock-data";
@@ -319,10 +320,12 @@ export function ImmersivePlayer({
           aria-hidden={!unlocked}
         />
         {unlocked && playbackPosterUrl && !ready && !loadFailed ? (
-          <img
+          <Image
             src={playbackPosterUrl}
             alt=""
-            className="pointer-events-none absolute inset-0 z-[1] h-full w-full object-cover"
+            fill
+            className="pointer-events-none absolute inset-0 z-[1] object-cover"
+            sizes="100vw"
             aria-hidden
           />
         ) : null}
