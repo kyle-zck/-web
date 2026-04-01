@@ -144,6 +144,7 @@ export function SubscriptionModal({ open, onClose, plans: plansProp }: Subscript
             gridCols={2}
             planGridLoading={refreshing && plans.length === 0}
             theme="dark"
+            planColClass="grid-cols-2"
           />
         </div>
       </Modal>

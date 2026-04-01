@@ -63,6 +63,8 @@ export interface SubscriptionPlanSectionProps {
   paying: boolean;
   isSubscribed?: boolean;
   gridCols?: 1 | 2 | 3;
+  /** Override grid column class for individual plan cards */
+  planColClass?: string;
   /** 配置拉取中且无套餐数据时显示骨架，避免空白闪烁 */
   planGridLoading?: boolean;
   /** "dark" 用于 Modal 覆盖层（手机端深色背景）；"light" 用于 Store 页面（琥珀色全页主题） */
@@ -80,6 +82,7 @@ export function SubscriptionPlanSection({
   paying,
   isSubscribed,
   gridCols = 3,
+  planColClass,
   planGridLoading = false,
   theme = "dark"
 }: SubscriptionPlanSectionProps) {
@@ -108,7 +111,7 @@ export function SubscriptionPlanSection({
         </div>
       )}
 
-      <div className={cn("grid gap-4", gridColsClass)}>
+      <div className={cn("grid gap-3", planColClass ?? gridColsClass)}>
         {planGridLoading ? (
           <>
             <div className="h-48 animate-pulse rounded-2xl bg-zinc-800/80" aria-hidden />
