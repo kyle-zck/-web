@@ -211,6 +211,17 @@ async function initIfNeeded() {
       PRIMARY KEY (provider, event_id)
     );
     CREATE INDEX IF NOT EXISTS idx_payment_events_uid ON payment_events(uid);
+
+    -- RLS: restrict to authenticated inserts only; no public read/write
+    ALTER TABLE payment_events ENABLE ROW LEVEL SECURITY;
+    CREATE POLICY payment_events_insert_authenticated
+      ON payment_events FOR INSERT
+      TO authenticated
+      WITH CHECK (true);
+    CREATE POLICY payment_events_select_authenticated
+      ON payment_events FOR SELECT
+      TO authenticated
+      USING (true);
   `);
   initialized = true;
 }
