@@ -146,18 +146,18 @@ export function SubscriptionPlanSection({
                   const remaining = end ? end - now : null;
                   const countdown = remaining != null ? formatCountdown(remaining, t) : null;
                   return (
-                    <div className="absolute right-4 top-4 z-10">
-                      <div className="rounded-xl bg-red-600 px-4 py-3 text-white shadow-lg ring-1 ring-red-300/40">
-                        <div className="text-lg font-extrabold leading-none">
-                          <span className="mr-2">{dp}%</span>
-                          <span className="mr-2">OFF</span>
-                          <span>{t("common.subscription.limitedTime")}</span>
+                    <div className="absolute right-0 top-0 z-10">
+                      <div className="rounded-b-xl bg-red-600 px-2 py-2 text-white shadow-lg ring-1 ring-red-300/40 sm:rounded-xl sm:px-4 sm:py-3">
+                        <div className="text-sm font-extrabold leading-none sm:text-lg">
+                          <span className="mr-1 sm:mr-2">{dp}%</span>
+                          <span className="mr-1 sm:mr-2">OFF</span>
+                          <span className="hidden sm:inline">{t("common.subscription.limitedTime")}</span>
                         </div>
                       </div>
                       {countdown ? (
                         <div
                           className={cn(
-                            "mt-1 text-sm font-bold tabular-nums",
+                            "pr-2 text-right text-xs font-bold tabular-nums sm:pr-4 sm:text-sm",
                             isDark ? "text-zinc-300" : "text-black"
                           )}
                         >
