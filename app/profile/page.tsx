@@ -253,13 +253,13 @@ export default function ProfilePage() {
   }, [isLoggedIn, favoriteSeriesIds, localFavoriteIds, seriesList]);
 
   const NAV: { id: TabId; labelKey: string; icon: string }[] = [
-    { id: "history", labelKey: "profile.history", icon: "🕐" },
-    { id: "mylist", labelKey: "profile.myList", icon: "📁" },
-    { id: "wallet", labelKey: "profile.wallet", icon: "💰" }
+    { id: "history", labelKey: "common.profile.history", icon: "🕐" },
+    { id: "mylist", labelKey: "common.profile.myList", icon: "📁" },
+    { id: "wallet", labelKey: "common.profile.wallet", icon: "💰" }
   ];
 
   const vipStatusText = isSubscribed
-    ? (subscriptionTier ?? t("subscription.active", "Active"))
+    ? (subscriptionTier ?? t("common.subscription.active", "Active"))
     : t("common.subscription.inactive");
 
   return (
@@ -380,8 +380,8 @@ export default function ProfilePage() {
                         </p>
                         <p className="mt-0.5 text-xs text-zinc-300">
                           {lang === "zh-CN"
-                            ? t("series.episodeLabelZh", { index: row.episode.index })
-                            : t("series.episodeLabel", { index: row.episode.index })}{" "}
+                            ? t("common.series.episodeLabelZh", { index: row.episode.index })
+                            : t("common.series.episodeLabel", { index: row.episode.index })}{" "}
                           · {formatSeconds(row.seconds)}
                         </p>
                       </div>

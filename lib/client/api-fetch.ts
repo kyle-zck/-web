@@ -64,27 +64,27 @@ export async function postStripeCheckoutSession(
 export function mapCheckoutErrorToMessage(error: string | undefined, t: TFunction): string {
   switch ((error ?? "").trim()) {
     case "stripe_not_configured":
-      return t("store.errStripeNotConfigured", "Payment not configured: STRIPE_SECRET_KEY is missing.");
+      return t("common.store.errStripeNotConfigured", "Payment not configured: STRIPE_SECRET_KEY is missing.");
     case "stripe_price_missing":
       return t(
         "store.errStripePriceMissing",
         "Plan is not linked to a Stripe Price. Please configure stripePriceId or STRIPE_PRICE_MAP_JSON in admin."
       );
     case "stripe_price_invalid":
-      return t("store.errStripePriceInvalid", "Stripe Price is invalid or does not exist. Please check price_xxx.");
+      return t("common.store.errStripePriceInvalid", "Stripe Price is invalid or does not exist. Please check price_xxx.");
     case "stripe_secret_key_invalid":
-      return t("store.errStripeSecretInvalid", "Stripe Secret Key is invalid. Please check production environment keys.");
+      return t("common.store.errStripeSecretInvalid", "Stripe Secret Key is invalid. Please check production environment keys.");
     case "stripe_checkout_failed":
       return t(
         "store.errStripeCheckoutFailed",
         "Failed to create Stripe checkout session. Please try again later or contact administrator."
       );
     case "plan_not_found":
-      return t("store.errPlanNotFound", "Plan not found. Please refresh the page and try again.");
+      return t("common.store.errPlanNotFound", "Plan not found. Please refresh the page and try again.");
     case "clientId_and_planId_required":
-      return t("store.errMissingParams", "Payment parameters missing. Please select a plan again.");
+      return t("common.store.errMissingParams", "Payment parameters missing. Please select a plan again.");
     default:
-      return t("store.paymentNotReady", "Payment is temporarily unavailable. Please try again.");
+      return t("common.store.paymentNotReady", "Payment is temporarily unavailable. Please try again.");
   }
 }
 

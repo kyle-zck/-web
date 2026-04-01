@@ -343,14 +343,14 @@ export function ImmersivePlayer({
 
         {runtimeVideoStatus === "processing" && unlocked ? (
           <div className="absolute inset-0 grid place-items-center text-xs text-zinc-400">
-            {t("loading")} · Transcoding...
+            {t("common.loading")} · Transcoding...
           </div>
         ) : null}
 
         {(runtimeVideoStatus === "failed" || loadFailed) && unlocked ? (
           <div className="absolute inset-0 grid place-items-center px-6 text-center text-xs text-zinc-300">
             <div>
-              <p className="font-medium">{t("loading")} failed</p>
+              <p className="font-medium">{t("common.loading")} failed</p>
               <p className="mt-1 text-zinc-400">
                 Video source is unavailable. Please refresh status or replace URL.
               </p>
@@ -360,7 +360,7 @@ export function ImmersivePlayer({
 
         {!ready && !loadFailed && unlocked && runtimeVideoStatus !== "processing" ? (
           <div className="absolute inset-0 grid place-items-center text-xs text-zinc-400">
-            {t("loading")}
+            {t("common.loading")}
           </div>
         ) : null}
 

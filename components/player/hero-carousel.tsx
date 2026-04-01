@@ -142,17 +142,17 @@ export function HeroCarousel({ items, countsBySeriesId }: HeroCarouselProps) {
                       </p>
                       {eng ? (
                         <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] font-semibold tabular-nums text-zinc-200 [text-shadow:0_1px_3px_rgba(0,0,0,0.95)]">
-                          <span className="inline-flex items-center gap-0.5" title={t("seriesDetail.views")}>
+                          <span className="inline-flex items-center gap-0.5" title={t("common.seriesDetail.views")}>
                             <PlayGlyph className="shrink-0 opacity-90" />
                             {formatEngagementCount(eng.viewsCount)}
                           </span>
-                          <span className="inline-flex items-center gap-0.5" title={t("seriesDetail.favorites")}>
+                          <span className="inline-flex items-center gap-0.5" title={t("common.seriesDetail.favorites")}>
                             <span className="text-[11px]" aria-hidden>
                               ★
                             </span>
                             {formatEngagementCount(eng.collectionCount)}
                           </span>
-                          <span className="inline-flex items-center gap-0.5" title={t("seriesDetail.likes")}>
+                          <span className="inline-flex items-center gap-0.5" title={t("common.seriesDetail.likes")}>
                             <span className="text-[11px]" aria-hidden>
                               ♥
                             </span>

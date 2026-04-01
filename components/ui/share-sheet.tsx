@@ -101,7 +101,7 @@ export function ShareSheet({ open, onClose, title, url }: ShareSheetProps) {
             <div className="h-1 w-10 rounded-full bg-zinc-700" />
           </div>
 
-          <p className="mb-5 text-sm font-semibold text-zinc-300">{t("seriesDetail.share")}</p>
+          <p className="mb-5 text-sm font-semibold text-zinc-300">{t("common.seriesDetail.share")}</p>
 
           <div className="grid grid-cols-3 gap-4">
             {/* Facebook */}
