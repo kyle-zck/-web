@@ -46,7 +46,7 @@ function ShareButton({ title, compact, onClick }: { title: string; compact?: boo
       <div className="relative">
         <button
           type="button"
-          aria-label={t("seriesDetail.share")}
+          aria-label={t("common.seriesDetail.share")}
           onClick={onClick}
           className="inline-flex items-center gap-2 rounded-lg py-1 text-zinc-400 transition-colors hover:bg-zinc-800/50 hover:text-zinc-200"
         >
@@ -66,7 +66,7 @@ function ShareButton({ title, compact, onClick }: { title: string; compact?: boo
             <polyline points="16 6 12 2 8 6" />
             <line x1="12" y1="2" x2="12" y2="15" />
           </svg>
-          <span className="text-sm font-medium text-zinc-500">{t("seriesDetail.share")}</span>
+          <span className="text-sm font-medium text-zinc-500">{t("common.seriesDetail.share")}</span>
         </button>
       </div>
     );
@@ -74,7 +74,7 @@ function ShareButton({ title, compact, onClick }: { title: string; compact?: boo
 
   return (
     <div className="relative">
-      <IconButton label={t("seriesDetail.share")} onClick={onClick}>
+      <IconButton label={t("common.seriesDetail.share")} onClick={onClick}>
         ⤴
       </IconButton>
     </div>
@@ -174,7 +174,7 @@ export function ImmersiveSeriesDetail({
 
   const seriesTitle = getSeriesI18nText(series, lang).title;
   const description = getSeriesI18nText(series, lang).description ?? getSeriesI18nText(series, lang).tagline ?? "";
-  const episodeLabel = lang === "zh-CN" ? t("series.episodeLabelZh", { index: episode.index }) : t("series.episodeLabel", { index: episode.index });
+  const episodeLabel = lang === "zh-CN" ? t("common.series.episodeLabelZh", { index: episode.index }) : t("common.series.episodeLabel", { index: episode.index });
 
   const tabs = useMemo(() => {
     const total = series.episodes.length;
@@ -250,7 +250,7 @@ export function ImmersiveSeriesDetail({
               {tagLabel(series.category, t)}
             </p>
             <h2 className="mt-1.5 text-xs font-bold text-zinc-500">
-              {t("seriesDetail.plotOfEpisode", { index: episode.index })}
+              {t("common.seriesDetail.plotOfEpisode", { index: episode.index })}
             </h2>
             <p
               className={cn(
@@ -266,7 +266,7 @@ export function ImmersiveSeriesDetail({
                 onClick={() => setPlotExpanded((v) => !v)}
                 className="mt-1 text-xs font-medium text-brand hover:underline"
               >
-                {plotExpanded ? "↑ " + t("seriesDetail.less") : t("seriesDetail.more")}
+                {plotExpanded ? "↑ " + t("common.seriesDetail.less") : t("common.seriesDetail.more")}
               </button>
             )}
           </section>
@@ -286,14 +286,14 @@ export function ImmersiveSeriesDetail({
             {/* 与 Explore 一致：观看 → 收藏 → 点赞；左图标右数字 */}
             <div
               className="flex min-w-0 flex-1 items-center justify-center"
-              title={t("seriesDetail.views")}
+              title={t("common.seriesDetail.views")}
             >
               <div className="inline-flex items-center gap-1.5 text-zinc-400 sm:gap-2">
                 <PlayGlyph className="h-[18px] w-[18px] shrink-0 text-zinc-400 sm:h-[22px] sm:w-[22px]" aria-hidden />
                 <span className="text-sm font-medium tabular-nums text-zinc-500 sm:text-base">
                   {formatEngagementCount(viewsCount)}
                 </span>
-                <span className="sr-only">{t("seriesDetail.views")}</span>
+                <span className="sr-only">{t("common.seriesDetail.views")}</span>
               </div>
             </div>
             <button
@@ -327,7 +327,7 @@ export function ImmersiveSeriesDetail({
               <span className="text-sm font-medium tabular-nums text-zinc-500 sm:text-base">
                 {formatEngagementCount(collectionCount)}
               </span>
-              <span className="sr-only">{t("seriesDetail.favorites")}</span>
+              <span className="sr-only">{t("common.seriesDetail.favorites")}</span>
             </button>
             <button
               type="button"
@@ -361,7 +361,7 @@ export function ImmersiveSeriesDetail({
               <span className="text-sm font-medium tabular-nums text-zinc-500 sm:text-base">
                 {formatEngagementCount(likesCount)}
               </span>
-              <span className="sr-only">{t("seriesDetail.likes")}</span>
+              <span className="sr-only">{t("common.seriesDetail.likes")}</span>
             </button>
             <div className="flex min-w-0 flex-1 items-center justify-center">
               <ShareButton
@@ -374,7 +374,7 @@ export function ImmersiveSeriesDetail({
 
           <section className="mt-6">
             <h2 className="text-base font-bold text-zinc-100">
-              {t("seriesDetail.selectEpisodes")}
+              {t("common.seriesDetail.selectEpisodes")}
             </h2>
             {/* 每50集为一组，超过50集显示范围 Tab，与 All Episodes 同排 */}
             {tabs.length > 1 ? (
@@ -398,7 +398,7 @@ export function ImmersiveSeriesDetail({
                   onClick={() => setAllEpisodesOpen(true)}
                   className="text-base font-medium text-zinc-400 hover:text-white"
                 >
-                  {t("seriesDetail.allEpisodes")} &gt;
+                  {t("common.seriesDetail.allEpisodes")} &gt;
                 </button>
               </div>
             ) : (
@@ -408,7 +408,7 @@ export function ImmersiveSeriesDetail({
                   onClick={() => setAllEpisodesOpen(true)}
                   className="text-base font-medium text-brand hover:underline"
                 >
-                  {t("seriesDetail.allEpisodes")} &gt;
+                  {t("common.seriesDetail.allEpisodes")} &gt;
                 </button>
               </div>
             )}
@@ -450,7 +450,7 @@ export function ImmersiveSeriesDetail({
                     {isLockedCandidate && (
                       <span
                         className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[11px] text-white"
-                        title={t("series.locked")}
+                        title={t("common.series.locked")}
                       >
                         <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
                       </span>
@@ -468,7 +468,7 @@ export function ImmersiveSeriesDetail({
       <Modal
         open={allEpisodesOpen}
         onClose={() => setAllEpisodesOpen(false)}
-        title={t("seriesDetail.allEpisodes")}
+        title={t("common.seriesDetail.allEpisodes")}
         footer={null}
       >
         <div className="episode-scroll-hide max-h-[420px] overflow-y-auto scroll-smooth">
@@ -503,7 +503,7 @@ export function ImmersiveSeriesDetail({
                   {isLockedCandidate && (
                     <span
                       className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[11px] text-white"
-                      title={t("series.locked")}
+                      title={t("common.series.locked")}
                     >
                       <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
                     </span>

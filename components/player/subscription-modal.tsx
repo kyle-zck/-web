@@ -124,10 +124,10 @@ export function SubscriptionModal({ open, onClose, plans: plansProp }: Subscript
         <div className="space-y-5">
           <div>
             <h2 className="text-xl font-bold text-white">
-              {storeCfg?.title ?? t("subscription.title", "VIP Unlock all series for free")}
+              {storeCfg?.title ?? t("common.subscription.title")}
             </h2>
             <p className="mt-1 text-sm text-zinc-400">
-              {storeCfg?.subtitle ?? t("subscription.subtitle", "Auto renew. Cancel anytime.")}
+              {storeCfg?.subtitle ?? t("common.subscription.subtitle")}
             </p>
           </div>
 

@@ -314,10 +314,10 @@ export function TopNavV2() {
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-white">
-                        {isLoggedIn ? t("profile.user") : t("profile.guest")}
+                        {isLoggedIn ? t("common.profile.user") : t("common.profile.guest")}
                       </p>
                       <p className="mt-1 text-[11px] text-zinc-400">
-                        {t("uidLabel")} {uidDisplay}
+                        {t("common.uidLabel")} {uidDisplay}
                       </p>
                     </div>
                   </div>
@@ -325,15 +325,15 @@ export function TopNavV2() {
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     <div className="rounded-2xl bg-black/40 p-3">
                       <p className="text-[11px] font-semibold text-zinc-400">
-                        {t("subscription.status", "VIP Status")}
+                        {t("common.subscription.status")}
                       </p>
                       <p className="mt-2 text-xl font-extrabold text-white">
-                        {isSubscribed ? t("subscription.active", "Active") : t("subscription.inactive", "Inactive")}
+                        {isSubscribed ? t("common.subscription.active") : t("common.subscription.inactive")}
                       </p>
                     </div>
                     <div className="rounded-2xl bg-black/40 p-3">
                       <p className="text-[11px] font-semibold text-zinc-400">
-                        {t("subscription.daysRemaining", "Days Remaining")}
+                        {t("common.subscription.daysRemaining")}
                       </p>
                       <p className="mt-2 text-xl font-extrabold text-white">{getDaysRemaining()}</p>
                     </div>
@@ -343,7 +343,7 @@ export function TopNavV2() {
                     href="/store"
                     className="mt-4 block w-full rounded-full bg-[#EE2737] px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-red-500"
                   >
-                    {t("profile.toStore")}
+                    {t("common.profile.toStore")}
                   </Link>
                 </div>
               ) : null}
@@ -393,7 +393,7 @@ export function TopNavV2() {
                   autoFocus
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
-                  placeholder={t("search.placeholder")}
+                  placeholder={t("common.search.placeholder")}
                   className="w-full bg-transparent text-sm font-semibold text-zinc-100 outline-none placeholder:text-zinc-400"
                   onKeyDown={(e) => {
                     if (e.key === "Enter") submitSearch();
@@ -418,9 +418,9 @@ export function TopNavV2() {
                 onClick={submitSearch}
                 className="rounded-full bg-brand px-6 py-3 text-sm font-extrabold text-white shadow-soft-glow"
               >
-                {t("search.button")}
+                {t("common.search.button")}
               </button>
-              <p className="text-[11px] text-zinc-400">{t("search.help")}</p>
+              <p className="text-[11px] text-zinc-400">{t("common.search.help")}</p>
             </div>
           </div>
         </div>

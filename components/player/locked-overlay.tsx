@@ -186,14 +186,14 @@ export function LockedOverlay({ onUnlock, posterUrl, previewPlayableUrl }: Locke
             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
           </svg>
           <p className="text-center text-lg font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
-            {t("locked.paidMessage", "This is a paid episode. Please unlock to watch.")}
+            {t("common.locked.paidMessage")}
           </p>
           <button
             type="button"
             onClick={onUnlock}
             className="rounded-xl bg-brand px-8 py-3 text-base font-semibold text-white shadow-lg shadow-black/40 transition-colors hover:bg-red-600"
           >
-            {t("locked.unlockNow", "Unlock Now")}
+            {t("common.locked.unlockNow")}
           </button>
         </div>
       </div>

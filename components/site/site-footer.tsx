@@ -34,7 +34,7 @@ export function SiteFooter() {
     <footer className="mt-auto border-t border-zinc-800/50 bg-black py-6">
       <div className="page-gutter-x mx-auto flex max-w-[1400px] flex-col items-center justify-between gap-4 text-xs text-zinc-300 sm:flex-row">
         <p>
-          {t("footer.rights", {
+          {t("common.footer.rights", {
             year,
             brand: displayBrand
           })}
@@ -47,7 +47,7 @@ export function SiteFooter() {
               rel="noopener noreferrer"
               className="font-medium text-zinc-300 underline-offset-4 hover:text-brand hover:underline"
             >
-              {t("footer.terms")}
+              {t("common.footer.terms")}
             </Link>
           ) : null}
           {legal.privacy ? (
@@ -57,7 +57,7 @@ export function SiteFooter() {
               rel="noopener noreferrer"
               className="font-medium text-zinc-300 underline-offset-4 hover:text-brand hover:underline"
             >
-              {t("footer.privacy")}
+              {t("common.footer.privacy")}
             </Link>
           ) : null}
         </div>

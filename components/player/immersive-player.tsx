@@ -118,8 +118,8 @@ export function ImmersivePlayer({
 
   const episodeLabel =
     lang === "zh-CN"
-      ? t("series.episodeLabelZh", { index: episode.index })
-      : t("series.episodeLabel", { index: episode.index });
+      ? t("common.series.episodeLabelZh", { index: episode.index })
+      : t("common.series.episodeLabel", { index: episode.index });
 
   const lockPreviewPosterUrl = useMemo(() => {
     for (const raw of [episode.thumbnail, series.poster, series.cover]) {

@@ -49,7 +49,7 @@ function formatCountdown(ms: number, t: (key: string, opts?: any) => string): st
   const hh = String(h).padStart(2, "0");
   const mm = String(m).padStart(2, "0");
   const sss = String(ss).padStart(2, "0");
-  return `${dd}${t("countdown.day", "d")} ${hh}${t("countdown.hour", "h")} ${mm}${t("countdown.min", "m")} ${sss}${t("countdown.sec", "s")}`;
+  return `${dd}${t("common.countdown.day")} ${hh}${t("common.countdown.hour")} ${mm}${t("common.countdown.min")} ${sss}${t("common.countdown.sec")}`;
 }
 
 export interface SubscriptionPlanSectionProps {
@@ -94,17 +94,17 @@ export function SubscriptionPlanSection({
         : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
 
   const defaultTips = [
-    t("store.tip1", "Free and paid content available. You decide which to unlock."),
-    t("store.tip2", "VIP subscription unlocks all paid content."),
-    t("store.tip3", "Refill and countdown days are equal value. Recharge does not support refund."),
-    t("store.tip4", "Contact us if you have other problems.")
+    t("common.store.tip1"),
+    t("common.store.tip2"),
+    t("common.store.tip3"),
+    t("common.store.tip4")
   ];
 
   return (
     <>
       {isSubscribed && (
         <div className="rounded-xl bg-green-500/20 px-4 py-2 text-sm font-semibold text-green-300">
-          {t("subscription.active", "You are a VIP member. All episodes unlocked.")}
+          {t("common.subscription.active")}
         </div>
       )}
 
@@ -148,7 +148,7 @@ export function SubscriptionPlanSection({
                         <div className="text-lg font-extrabold leading-none">
                           <span className="mr-2">{dp}%</span>
                           <span className="mr-2">OFF</span>
-                          <span>{t("subscription.limitedTime", "Limited")}</span>
+                          <span>{t("common.subscription.limitedTime")}</span>
                         </div>
                       </div>
                       {countdown ? (
@@ -244,7 +244,7 @@ export function SubscriptionPlanSection({
                       isDark ? (isSelected ? "text-red-200/70" : "text-zinc-500") : "text-amber-800/80"
                     )}
                   >
-                    {t("subscription.autoRenew", "Auto-renew. Cancel anytime.")}
+                    {t("common.subscription.autoRenew")}
                   </p>
                   <div
                     className={cn(
@@ -265,7 +265,7 @@ export function SubscriptionPlanSection({
                       )}
                     >
                       <span aria-hidden>📺</span>
-                      {t("subscription.unlimited", "Unlimited Viewing")}
+                      {t("common.subscription.unlimited")}
                     </span>
                     <span
                       className={cn(
@@ -289,7 +289,7 @@ export function SubscriptionPlanSection({
                       >
                         1080
                       </span>
-                      {t("subscription.hd", "1080p High Quality")}
+                      {t("common.subscription.hd")}
                     </span>
                   </div>
                 </div>
@@ -301,7 +301,7 @@ export function SubscriptionPlanSection({
       <section className="mt-8 rounded-2xl border p-4 bg-zinc-900/60">
         <div className="rounded-xl bg-black/30 p-4">
           <p className="text-xs font-semibold text-zinc-400">
-            {t("store.tips", "Tips:")}
+            {t("common.store.tips")}
           </p>
           <ol className="mt-2 space-y-1 text-xs leading-5 text-zinc-500">
             {(storeCfg?.tips?.length ? storeCfg.tips : defaultTips).map((line, idx) => (
@@ -321,16 +321,16 @@ export function SubscriptionPlanSection({
               className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
             />
             <span className="leading-4">
-              {t("subscription.agreeTermsPrefix", "I have read and agree to the")}
+              {t("common.subscription.agreeTermsPrefix")}
               <a
                 href="/legal/subscription-terms"
                 target="_blank"
                 rel="noreferrer"
                 className="mx-1 font-semibold text-brand/90 underline underline-offset-4"
               >
-                {t("subscription.autoRenewTerms", "Auto-renewal & Premium Services Agreement")}
+                {t("common.subscription.autoRenewTerms")}
               </a>
-              {t("subscription.agreeTermsSuffix", ", and understand that auto-renewal is enabled by default. To cancel, please cancel in your payment channel.")}
+              {t("common.subscription.agreeTermsSuffix")}
             </span>
           </label>
         </div>
@@ -348,10 +348,10 @@ export function SubscriptionPlanSection({
           {paying ? (
             <>
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" aria-hidden />
-              {t("auth.working", "Processing...")}
+              {t("common.auth.working")}
             </>
           ) : (
-            t("store.payNow", "Pay Now")
+            t("common.store.payNow")
           )}
         </button>
       </section>

@@ -181,7 +181,7 @@ function ExploreContent() {
                 : "bg-zinc-900 text-zinc-300 hover:bg-zinc-800"
             }`}
           >
-            {t("explore.all")}
+            {t("common.explore.all")}
           </button>
           {tabTags.map((tag) => (
             <button
@@ -204,7 +204,7 @@ function ExploreContent() {
           <div className="mb-4 mt-5">
             <h1 className="section-title-fluid font-semibold text-zinc-100">{t("common.nav.search")}</h1>
             <p className="text-body-fluid mt-2 text-zinc-400">
-              {t("home.resultsFound", {
+              {t("common.home.resultsFound", {
                 count: filtered.length,
                 query: qRaw
               })}
@@ -214,7 +214,7 @@ function ExploreContent() {
 
         {/* 区块标题 */}
         <h2 className="section-title-fluid mt-6 font-semibold text-zinc-100">
-          {t("explore.moviesOfAllActors")}
+          {t("common.explore.moviesOfAllActors")}
         </h2>
 
         {/* 内容卡片网格 */}
@@ -244,7 +244,7 @@ function ExploreContent() {
                     href={`/series/${s.id}`}
                     prefetch={false}
                     onMouseEnter={() => router.prefetch(`/series/${s.id}`)}
-                    aria-label={`${localized.title} — ${t("series.play")}`}
+                    aria-label={`${localized.title} — ${t("common.series.play")}`}
                     className="group flex gap-4 rounded-2xl bg-zinc-950/80 p-4 shadow-[0_0_18px_rgba(0,0,0,0.7)] transition-colors duration-200 hover:bg-zinc-900"
                   >
                     <div className="poster-card-drama relative aspect-[2/3] w-44 shrink-0 overflow-hidden transition-transform duration-200 group-hover:scale-[1.03]">
@@ -282,7 +282,7 @@ function ExploreContent() {
                         />
                         {/* <a> 内不可嵌套 <button>，否则浏览器可能拦截点击导致无法跳转 */}
                         <span className="inline-flex rounded-full bg-white px-6 py-2 text-sm font-extrabold text-black transition-colors duration-150 group-hover:bg-red-600 group-hover:text-white lg:px-7 lg:py-2.5 lg:text-base">
-                          {t("series.play")}
+                          {t("common.series.play")}
                         </span>
                       </div>
                     </div>
@@ -303,7 +303,7 @@ export default function ExplorePage() {
       fallback={
         <main className="flex min-h-screen flex-col">
           <div className="page-gutter-x flex-1 pb-24 pt-3">
-            <div className="text-xs text-zinc-500">{t("loading")}</div>
+            <div className="text-xs text-zinc-500">{t("common.loading")}</div>
           </div>
         </main>
       }

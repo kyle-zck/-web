@@ -37,7 +37,7 @@ export function CategoryTags({
         <div className="mb-2 flex items-end justify-between px-1">
           <h2 className="text-sm font-semibold text-zinc-100">{t(titleKey)}</h2>
           <a href={viewAllHref} className="text-xs font-medium text-zinc-400 hover:text-zinc-200">
-            {t("home.viewAll")}
+            {t("common.home.viewAll")}
           </a>
         </div>
       ) : null}

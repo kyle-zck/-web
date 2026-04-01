@@ -38,7 +38,7 @@ export function SeriesRow({ titleKey, titleText, items }: SeriesRowProps) {
           href="/explore"
           className="text-xs font-semibold text-zinc-400 hover:text-zinc-100 lg:text-sm"
         >
-          {t("home.viewAll")}
+          {t("common.home.viewAll")}
         </Link>
       </div>
       <div className="relative px-1">

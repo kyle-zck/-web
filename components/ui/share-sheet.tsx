@@ -135,7 +135,7 @@ export function ShareSheet({ open, onClose, title, url }: ShareSheetProps) {
             >
               {copied ? <CheckIcon /> : <CopyIcon />}
               <span className={cn("text-xs font-medium", copied ? "text-green-400" : "text-zinc-300")}>
-                {copied ? t("seriesDetail.copiedLink") : t("common.copyLink", "Copy Link")}
+                {copied ? t("common.seriesDetail.copiedLink") : t("common.copyLink")}
               </span>
             </button>
           </div>

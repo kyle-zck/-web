@@ -63,10 +63,10 @@ export function ContinueWatching() {
     <section className="mt-2 sm:mt-3">
       <div className="mb-2 flex items-end justify-between px-1 sm:mb-2.5">
         <h2 className="section-title-fluid font-extrabold tracking-tight text-zinc-50">
-          {t("home.continueWatching")}
+          {t("common.home.continueWatching")}
         </h2>
         <p className="text-[11px] text-zinc-500">
-          {t("home.itemsCount", { count: watched.length })}
+          {t("common.home.itemsCount", { count: watched.length })}
         </p>
       </div>
 

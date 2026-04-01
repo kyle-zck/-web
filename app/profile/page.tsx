@@ -260,7 +260,7 @@ export default function ProfilePage() {
 
   const vipStatusText = isSubscribed
     ? (subscriptionTier ?? t("subscription.active", "Active"))
-    : t("subscription.inactive", "Inactive");
+    : t("common.subscription.inactive");
 
   return (
     <main className="page-gutter-x flex min-h-screen flex-col bg-black lg:flex-row">
@@ -270,7 +270,7 @@ export default function ProfilePage() {
           <div className="h-10 w-10 shrink-0 rounded-full bg-zinc-700/80 lg:h-12 lg:w-12" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-bold text-white">
-              {isLoggedIn ? (userId ?? t("profile.user")) : t("profile.guest")}
+              {isLoggedIn ? (userId ?? t("common.profile.user")) : t("common.profile.guest")}
             </p>
             <p className="text-xs text-zinc-400">
               {t("common.uidLabel", "UID")}: {uid ?? "—"}
@@ -282,7 +282,7 @@ export default function ProfilePage() {
               onClick={logout}
               className="touch-target shrink-0 rounded-lg border border-zinc-600 px-2 py-1.5 text-xs font-semibold text-zinc-300 hover:bg-zinc-800"
             >
-              {t("profile.logout")}
+              {t("common.profile.logout")}
             </button>
           ) : (
             <button
@@ -290,7 +290,7 @@ export default function ProfilePage() {
               onClick={() => setAuthOpen(true)}
               className="touch-target shrink-0 rounded-lg bg-red-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-red-500"
             >
-              {t("profile.login")}
+              {t("common.profile.login")}
             </button>
           )}
         </div>
@@ -300,13 +300,13 @@ export default function ProfilePage() {
           <div className="grid grid-cols-2 gap-3 lg:gap-4">
             <div>
               <p className="text-xs font-medium text-zinc-400">
-                {t("subscription.status", "VIP Status")}
+                {t("common.subscription.status")}
               </p>
               <p className="mt-0.5 text-base font-bold text-white lg:mt-1 lg:text-xl">{vipStatusText}</p>
             </div>
             <div>
               <p className="text-xs font-medium text-zinc-400">
-                {t("subscription.daysRemaining", "Days Remaining")}
+                {t("common.subscription.daysRemaining")}
               </p>
               <p className="mt-0.5 text-base font-bold text-white lg:mt-1 lg:text-xl">{getDaysRemaining()}</p>
             </div>
@@ -315,7 +315,7 @@ export default function ProfilePage() {
             href="/store"
             className="mt-3 block w-full rounded-2xl bg-red-600 py-2.5 text-center text-sm font-semibold text-white hover:bg-red-500 lg:mt-4 lg:py-3"
           >
-            {t("profile.toStore")}
+            {t("common.profile.toStore")}
           </Link>
         </div>
 
@@ -345,10 +345,10 @@ export default function ProfilePage() {
         {activeTab === "history" && (
           <section>
             <h1 className="text-lg font-bold text-white">
-              {t("profile.history", "History")}
+              {t("common.profile.history")}
             </h1>
             <p className="mt-1 text-sm text-zinc-400">
-              {t("profile.watchedHistory", "Watched History")}
+              {t("common.profile.watchedHistory")}
             </p>
             <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
               {watchedHistory.length ? (
@@ -394,7 +394,7 @@ export default function ProfilePage() {
                 <div className="col-span-full flex flex-col items-center justify-center rounded-xl border border-zinc-700/80 bg-zinc-900/30 py-16">
                   <span className="text-4xl opacity-40">🕐</span>
                   <p className="mt-3 text-sm text-zinc-500">
-                    {t("profile.nothingInside", "Nothing inside...")}
+                    {t("common.profile.nothingInside")}
                   </p>
                 </div>
               )}
@@ -405,10 +405,10 @@ export default function ProfilePage() {
         {activeTab === "mylist" && (
           <section>
             <h1 className="text-lg font-bold text-white">
-              {t("profile.myList", "My list")}
+              {t("common.profile.myList")}
             </h1>
             <p className="mt-1 text-sm text-zinc-400">
-              {t("profile.likedShows", "Liked shows")}
+              {t("common.profile.likedShows")}
             </p>
             <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
               {favoriteSeries.length ? (
@@ -447,7 +447,7 @@ export default function ProfilePage() {
                 <div className="col-span-full flex flex-col items-center justify-center rounded-xl border border-zinc-700/80 bg-zinc-900/30 py-16">
                   <span className="text-4xl opacity-40">📁</span>
                   <p className="mt-3 text-sm text-zinc-500">
-                    {t("profile.nothingInside", "Nothing inside...")}
+                    {t("common.profile.nothingInside")}
                   </p>
                 </div>
               )}
@@ -458,26 +458,26 @@ export default function ProfilePage() {
         {activeTab === "wallet" && (
           <section>
             <h1 className="text-lg font-bold text-white">
-              {t("profile.wallet", "Wallet")}
+              {t("common.profile.wallet")}
             </h1>
             <p className="mt-1 text-sm text-zinc-400">
-              {t("profile.transactionHistory", "Transaction History")}
+              {t("common.profile.transactionHistory")}
             </p>
             <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-700/80 bg-zinc-900/50">
               <table className="w-full min-w-[400px]">
                 <thead>
                   <tr className="border-b border-zinc-700/80">
                     <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">
-                      {t("profile.date", "Date")}
+                      {t("common.profile.date")}
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">
-                      {t("profile.amount", "Amount")}
+                      {t("common.profile.amount")}
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">
-                      {t("profile.tier", "Tier")}
+                      {t("common.profile.tier")}
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-400">
-                      {t("profile.tradingHours", "Time")}
+                      {t("common.profile.tradingHours")}
                     </th>
                   </tr>
                 </thead>
@@ -508,7 +508,7 @@ export default function ProfilePage() {
                       >
                         <span className="text-4xl opacity-40">💰</span>
                         <p className="mt-3 text-sm text-zinc-500">
-                          {t("profile.nothingInside", "Nothing inside...")}
+                          {t("common.profile.nothingInside")}
                         </p>
                       </td>
                     </tr>

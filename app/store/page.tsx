@@ -39,23 +39,17 @@ export default function StorePage() {
   const [payResult, setPayResult] = useState<null | "success" | "cancel">(null);
 
   const payResultTitle = useMemo(() => {
-    if (payResult === "success") return t("store.paySuccessTitle", "Payment Successful");
-    if (payResult === "cancel") return t("store.payCancelTitle", "Payment Cancelled");
+    if (payResult === "success") return {t("common.store.paySuccessTitle")};
+    if (payResult === "cancel") return {t("common.store.payCancelTitle")};
     return "";
   }, [payResult, t]);
 
   const payResultDesc = useMemo(() => {
     if (payResult === "success") {
-      return t(
-        "store.paySuccessDesc",
-        "Your payment has been completed. Close this dialog to start a new payment if needed."
-      );
+      return t("common.store.paySuccessDesc");
     }
     if (payResult === "cancel") {
-      return t(
-        "store.payCancelDesc",
-        "You have cancelled this payment. You can select a plan and try again."
-      );
+      return t("common.store.payCancelDesc");
     }
     return "";
   }, [payResult, t]);
@@ -128,10 +122,10 @@ export default function StorePage() {
       <header className="page-gutter-x pt-4">
         <div>
           <h1 className="section-title-fluid font-bold text-zinc-100">
-            {storeCfg?.title ?? t("subscription.title", "VIP Unlock all series for free")}
+            {storeCfg?.title ?? t("common.subscription.title")}
           </h1>
           <p className="text-body-fluid mt-1 text-zinc-500">
-            {storeCfg?.subtitle ?? t("subscription.subtitle", "Auto renew. Cancel anytime.")}
+            {storeCfg?.subtitle ?? t("common.subscription.subtitle")}
           </p>
         </div>
       </header>
@@ -175,7 +169,7 @@ export default function StorePage() {
                 onClick={closePayResult}
                 className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-red-600"
               >
-                {t("store.continue", "Continue")}
+                {t("common.store.continue")}
               </button>
             </div>
           </div>

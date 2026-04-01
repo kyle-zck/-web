@@ -25,7 +25,7 @@ function SocialButton({
         const { error } = await signInWithOAuth(provider);
         setBusy(false);
         if (error === "not_configured") {
-          window.alert(t("auth.notConfigured"));
+          window.alert(t("common.auth.notConfigured"));
         } else if (error) {
           window.alert(error);
         }
@@ -33,7 +33,7 @@ function SocialButton({
       className="flex w-full items-center justify-center gap-2 rounded-2xl border border-zinc-800/80 bg-black/40 px-4 py-3 text-sm font-semibold text-zinc-100 hover:border-brand/60 disabled:opacity-50"
     >
       <span className="text-base">●</span>
-      {busy ? t("auth.working") : label}
+      {busy ? t("common.auth.working") : label}
     </button>
   );
 }
@@ -54,7 +54,7 @@ export function AuthModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={t("auth.signinTitle")}
+      title={t("common.auth.signinTitle")}
       footer={
         <div className="flex items-center justify-between">
           <div />
@@ -63,7 +63,7 @@ export function AuthModal({
             onClick={onClose}
             className="text-sm font-semibold text-zinc-300 hover:text-zinc-100"
           >
-            {t("auth.later")}
+            {t("common.auth.later")}
           </button>
         </div>
       }
@@ -71,17 +71,17 @@ export function AuthModal({
       {isLoggedIn ? (
         <p className="text-sm text-zinc-300">
           {displayEmail
-            ? t("auth.loggedInAs", { email: displayEmail })
-            : t("auth.loggedInDemo")}
+            ? t("common.auth.loggedInAs", { email: displayEmail })
+            : t("common.auth.loggedInDemo")}
         </p>
       ) : (
         <>
-          <p className="mt-1 text-xs text-zinc-500">{t("auth.socialDemo")}</p>
+          <p className="mt-1 text-xs text-zinc-500">{t("common.auth.socialDemo")}</p>
           <div className="mt-3 space-y-2">
-            <SocialButton provider="google" label={t("auth.continueGoogle")} />
-            <SocialButton provider="facebook" label={t("auth.continueFacebook")} />
+            <SocialButton provider="google" label={t("common.auth.continueGoogle")} />
+            <SocialButton provider="facebook" label={t("common.auth.continueFacebook")} />
           </div>
-          <p className="mt-3 text-[11px] leading-5 text-zinc-500">{t("auth.note")}</p>
+          <p className="mt-3 text-[11px] leading-5 text-zinc-500">{t("common.auth.note")}</p>
         </>
       )}
     </Modal>
