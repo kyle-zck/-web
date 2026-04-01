@@ -876,7 +876,7 @@ export default function AdminDramaUploadPage() {
                 <div className="flex items-center justify-between gap-3 text-xs">
                   <span className="max-w-[70%] truncate text-zinc-300">{it.fileName}</span>
                   <span className="text-zinc-400">
-                    {t(`admin.uploadStage_${it.stage}`)} {it.stage === "uploading" ? `${it.percent}%` : ""}
+                    {t(`common.admin.uploadStage_${it.stage}`)} {it.stage === "uploading" ? `${it.percent}%` : ""}
                   </span>
                 </div>
                 <div className="h-1.5 overflow-hidden rounded bg-zinc-800">

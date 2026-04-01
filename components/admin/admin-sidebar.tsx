@@ -108,7 +108,7 @@ export function AdminSidebar() {
                       : "text-zinc-400 hover:bg-zinc-900/50 hover:text-zinc-200"
                   )}
                 >
-                  {t(`admin.${item.key}`)}
+                  {t(`common.admin.${item.key}`)}
                 </Link>
               ))}
             </div>
@@ -150,7 +150,7 @@ export function AdminSidebar() {
                       : "text-zinc-400 hover:bg-zinc-900/50 hover:text-zinc-200"
                   )}
                 >
-                  {t(`admin.${item.key}`)}
+                  {t(`common.admin.${item.key}`)}
                 </Link>
               ))}
             </div>
@@ -170,7 +170,7 @@ export function AdminSidebar() {
                   : "text-zinc-300 hover:bg-zinc-900/60 hover:ring-zinc-800/80"
               )}
             >
-              {t(`admin.${item.key}`)}
+              {t(`common.admin.${item.key}`)}
             </Link>
           ))}
         </div>

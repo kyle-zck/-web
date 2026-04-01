@@ -34,7 +34,7 @@ export default function AdminSecurityPage() {
       const json = (await res.json()) as { ok?: boolean; errorKey?: string };
       if (!res.ok || !json.ok) {
         const k = json.errorKey;
-        setError(k ? String(t(`admin.${k}`)) : String(t("common.admin.submitFailed")));
+        setError(k ? String(t(`common.admin.${k}`)) : String(t("common.admin.submitFailed")));
         return;
       }
       showToast(t("common.admin.passwordChangeSuccess"), "success");

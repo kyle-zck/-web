@@ -344,7 +344,7 @@ function EditTagModal({
           {TAG_LANG_FIELDS.map((field) => (
             <div key={field}>
               <label className="block text-xs font-semibold text-zinc-400">
-                {t(`admin.${LABEL_KEY_BY_FIELD[field]}`)}
+                {t(`common.admin.${LABEL_KEY_BY_FIELD[field]}`)}
               </label>
               <input
                 value={form[field]}
