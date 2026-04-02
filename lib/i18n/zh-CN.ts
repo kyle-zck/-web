@@ -553,7 +553,8 @@ export const zhCN = {
       clickUpload: "点我上传",
       uploaded: "已上传",
       coverAlt: "封面",
-      videoBatchHint: "两种方式任选：点「选择视频文件」多选，或点「选择文件夹」整夹导入；文件名需含集数（如 ep1.mp4、第1集.mp4）",
+      videoBatchHint:
+        "任选「选择视频文件」多选或「选择文件夹」导入；文件名需含集数（如 ep1.mp4）。若选的是包含多个子文件夹的上级目录，只会导入按路径排序后首个文件所在文件夹内的视频。",
       videoUploadSelectFiles: "选择视频文件",
       videoUploadSelectFolder: "选择文件夹",
       selectedEpisodes: "已选 {{count}} 集",
@@ -573,6 +574,8 @@ export const zhCN = {
       toastCoverFormat: "封面仅支持 png、jpg、webp 格式",
       toastCoverUploadFail: "封面上传失败",
       toastVideoNameParse: "无法从文件名解析集数，请确保文件名包含数字（如 ep1.mp4、第1集.mp4）",
+      toastFolderOtherDirsSkipped:
+        "已跳过其他同级文件夹中的 {{count}} 个视频，仅导入按路径排序后首个文件所在文件夹内的视频。",
       toastCancelled: "已取消",
       episodeColDramaId: "剧ID",
       episodeColIndex: "集数",

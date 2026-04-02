@@ -18,10 +18,19 @@ interface TagItem {
 type UploadStage = "queued" | "presign" | "uploading" | "completing" | "done" | "failed";
 type UploadFileProgress = {
   key: string;
+  /** Episode index parsed from filename; matches background upload `fileIndex`. */
+  episodeIndex: number;
   fileName: string;
   stage: UploadStage;
   percent: number;
 };
+
+/** Parent path of a file under the chosen folder (`webkitRelativePath`). */
+function dirRelativePath(webkitRelativePath: string): string {
+  if (!webkitRelativePath) return "";
+  const i = webkitRelativePath.lastIndexOf("/");
+  return i < 0 ? "" : webkitRelativePath.slice(0, i);
+}
 
 interface BackgroundUploadState {
   isEnabled: boolean;
@@ -66,6 +75,8 @@ export default function AdminDramaUploadPage() {
   });
   const [showBgUploadsPanel, setShowBgUploadsPanel] = useState(false);
   const cleanupRef = useRef<(() => void) | null>(null);
+  /** Only merge SW progress into the inline list for this background session. */
+  const activeBgUploadSessionRef = useRef<string | null>(null);
 
   const suggestWorkerCount = (total: number) => {
     if (total <= 1) return total;
@@ -126,38 +137,40 @@ export default function AdminDramaUploadPage() {
       if (!mounted) return;
 
       if (initialized) {
-        backgroundUploadManager.onStatusChange((sessionId, fileIndex, stage, percent, error) => {
+        backgroundUploadManager.onStatusChange((sessionId, fileIndex, stage, percent) => {
           setUploadFilesProgress((prev) => {
-            const key = prev.find((p) => p.key.includes(`-${fileIndex}-`))?.key ||
-              `${fileIndex}-unknown-unknown`;
-            const existing = prev.find((p) => p.key === key);
-            if (!existing) {
-              const newKey = `${fileIndex}-file-${fileIndex}`;
-              return [...prev, { key: newKey, fileName: `Episode ${fileIndex}`, stage, percent: percent || 0 }];
-            }
-            return prev.map((p) =>
-              p.key === key ? { ...p, stage, percent: percent || p.percent } : p
+            if (activeBgUploadSessionRef.current !== sessionId) return prev;
+            const i = prev.findIndex((p) => p.episodeIndex === fileIndex);
+            if (i < 0) return prev;
+            return prev.map((p, idx) =>
+              idx === i
+                ? {
+                    ...p,
+                    stage,
+                    percent: percent ?? p.percent,
+                  }
+                : p
             );
           });
         });
 
-        backgroundUploadManager.onSessionChange((session) => {
-          setBgUpload((prev) => {
-            const exists = prev.backgroundSessions.some((s) => s.id === session.id);
-            if (exists) {
-              return {
-                ...prev,
-                backgroundSessions: prev.backgroundSessions.map((s) =>
-                  s.id === session.id ? session : s
-                ),
-              };
-            }
-            return {
-              ...prev,
-              backgroundSessions: [...prev.backgroundSessions, session],
-            };
-          });
-        });
+    backgroundUploadManager.onSessionChange((session) => {
+      setBgUpload((prev) => {
+        const existsIdx = prev.backgroundSessions.findIndex((s) => s.id === session.id);
+        if (existsIdx >= 0) {
+          return {
+            ...prev,
+            backgroundSessions: prev.backgroundSessions.map((s) =>
+              s.id === session.id ? session : s
+            ),
+          };
+        }
+        return {
+          ...prev,
+          backgroundSessions: [...prev.backgroundSessions, session],
+        };
+      });
+    });
 
         const sessions = await getAllUploadSessions();
         setBgUpload({
@@ -265,6 +278,7 @@ export default function AdminDramaUploadPage() {
     setUploadFilesProgress(
       sortedVideos.map((v, idx) => ({
         key: `${idx}-${v.file.name}-${v.file.size}`,
+        episodeIndex: v.index,
         fileName: v.file.name,
         stage: "queued" as const,
         percent: 0
@@ -284,10 +298,11 @@ export default function AdminDramaUploadPage() {
         uploadVideoMode: form.uploadVideoMode,
         listed: form.listed
       },
-      sortedVideos
+      sortedVideos,
+      (id) => {
+        activeBgUploadSessionRef.current = id;
+      }
     );
-
-    backgroundUploadManager.setActiveFiles(sessionId, sortedVideos);
 
     setBgUpload((prev) => ({
       ...prev,
@@ -335,6 +350,9 @@ export default function AdminDramaUploadPage() {
 
   const handleBgUploadRemove = useCallback(async (sessionId: string) => {
     await backgroundUploadManager.cancelUpload(sessionId);
+    if (activeBgUploadSessionRef.current === sessionId) {
+      activeBgUploadSessionRef.current = null;
+    }
     setBgUpload((prev) => ({
       ...prev,
       backgroundSessions: prev.backgroundSessions.filter((s) => s.id !== sessionId),
@@ -378,8 +396,54 @@ export default function AdminDramaUploadPage() {
     return ["mp4", "webm", "mov", "m4v", "mkv", "avi", "mpeg", "mpg"].includes(ext);
   };
 
+  /**
+   * Extracts the first-level directory from a webkitRelativePath.
+   * e.g. "Episode 01/01.mp4" → "Episode 01"
+   *      "01.mp4" (no slash) → ""  (file is directly under the chosen folder)
+   */
+  function topLevelDir(webkitRelativePath: string): string {
+    if (!webkitRelativePath) return "";
+    const slashIdx = webkitRelativePath.indexOf("/");
+    return slashIdx < 0 ? "" : webkitRelativePath.slice(0, slashIdx);
+  }
+
   const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []).filter(isVideoLikeFile);
+    const raw = Array.from(e.target.files ?? []).filter(isVideoLikeFile);
+    if (raw.length === 0) {
+      e.target.value = "";
+      return;
+    }
+
+    const sorted = [...raw].sort((a, b) =>
+      (a.webkitRelativePath || a.name).localeCompare(b.webkitRelativePath || b.name, undefined, {
+        numeric: true,
+      })
+    );
+
+    // Determine the first-level directory present in the selection.
+    // If webkitRelativePath is empty → the file is directly under the chosen folder.
+    // If webkitRelativePath contains "/" → the file is inside a subdirectory.
+    //
+    // Strategy: accept only files that are directly under the chosen folder root
+    // (i.e. topLevelDir === "").  This correctly ignores sibling subfolders.
+    const dirs = new Set(sorted.map((f) => topLevelDir(f.webkitRelativePath || "")));
+    const hasSubfolders = dirs.size > 1 || (!dirs.has("") && dirs.size === 1);
+    const chosenDir = dirs.size === 1 && dirs.has("") ? "" : [...dirs][0] ?? "";
+
+    const files = hasSubfolders
+      ? sorted.filter((f) => topLevelDir(f.webkitRelativePath || "") === chosenDir)
+      : sorted;
+
+    if (hasSubfolders) {
+      const skipped = sorted.length - files.length;
+      if (skipped > 0) {
+        showToast(
+          t("common.admin.toastFolderOtherDirsSkipped", { count: skipped }),
+          "info"
+        );
+      }
+    }
+
     const parsed = files
       .map((f) => {
         const m = f.name.match(/(\d+)/);
@@ -432,6 +496,7 @@ export default function AdminDramaUploadPage() {
       setUploadFilesProgress(
         sortedVideos.map((v, idx) => ({
           key: `${idx}-${v.file.name}-${v.file.size}`,
+          episodeIndex: v.index,
           fileName: v.file.name,
           stage: "queued",
           percent: 0

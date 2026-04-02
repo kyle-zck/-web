@@ -613,7 +613,7 @@ export const en = {
       uploaded: "Uploaded",
       coverAlt: "Cover",
       videoBatchHint:
-        "Use either button: pick multiple video files, or pick a folder. Filenames must contain episode number (e.g. ep1.mp4)",
+        "Pick multiple files or a folder; filenames must include an episode number (e.g. ep1.mp4). If you choose a parent folder with several subfolders, only videos in the same folder as the first file (by path) are imported.",
       videoUploadSelectFiles: "Select video files",
       videoUploadSelectFolder: "Select folder",
       selectedEpisodes: "{{count}} episode(s) selected",
@@ -635,6 +635,8 @@ export const en = {
       toastCoverUploadFail: "Cover upload failed",
       toastVideoNameParse:
         "Cannot parse episode number from filenames; include digits (e.g. ep1.mp4)",
+      toastFolderOtherDirsSkipped:
+        "Skipped {{count}} video(s) in other folders — only the folder of the first file (by path) is imported.",
       toastCancelled: "Cancelled",
       episodeColDramaId: "Drama ID",
       episodeColIndex: "Episode",

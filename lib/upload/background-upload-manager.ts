@@ -123,9 +123,12 @@ class BackgroundUploadManager {
 
   async startUpload(
     formData: UploadSession["formData"],
-    files: { file: File; index: number }[]
+    files: { file: File; index: number }[],
+    /** Called synchronously with the new id before any await (avoids UI progress race). */
+    onSessionId?: (sessionId: string) => void
   ): Promise<string> {
     const sessionId = generateSessionId();
+    onSessionId?.(sessionId);
 
     const session: UploadSession = {
       id: sessionId,
@@ -389,10 +392,14 @@ class BackgroundUploadManager {
       .filter((f) => f.stage === "done")
       .sort((a, b) => a.index - b.index);
 
-    if (completedFiles.length === 0) return;
+    if (completedFiles.length === 0) {
+      session.status = "failed";
+      await saveUploadSession(session);
+      return;
+    }
 
     const episodeUrls = completedFiles.map((f) => f.publicUrl || "");
-    const episodeVideoMeta = completedFiles.map((f, idx) => ({
+    const episodeVideoMeta = completedFiles.map((f) => ({
       fileName: f.fileName,
       localVideoUrl: `file:///${f.fileName.replace(/\\/g, "/")}`,
       videoStreamId: undefined,
