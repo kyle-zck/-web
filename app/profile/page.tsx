@@ -221,13 +221,6 @@ export default function ProfilePage() {
     [seriesList]
   );
 
-  const watchedHistoryWithArtwork = useMemo(() => {
-    return watchedHistory.map((row) => ({
-      ...row,
-      artworkChain: getSeriesArtworkChain(row.series)
-    }));
-  }, [watchedHistory]);
-
   const favoriteSeriesWithArtwork = useMemo(() => {
     return favoriteSeries.map((s) => ({
       ...s,
@@ -261,6 +254,13 @@ export default function ProfilePage() {
       seconds: number;
     }>;
   }, [watchHistoryEntries, progressSeconds, seriesById]);
+
+  const watchedHistoryWithArtwork = useMemo(() => {
+    return watchedHistory.map((row) => ({
+      ...row,
+      artworkChain: getSeriesArtworkChain(row.series)
+    }));
+  }, [watchedHistory]);
 
   const favoriteSeries = useMemo(() => {
     const ids = isLoggedIn ? favoriteSeriesIds : localFavoriteIds;
