@@ -221,13 +221,6 @@ export default function ProfilePage() {
     [seriesList]
   );
 
-  const favoriteSeriesWithArtwork = useMemo(() => {
-    return favoriteSeries.map((s) => ({
-      ...s,
-      artworkChain: getSeriesArtworkChain(s)
-    }));
-  }, [favoriteSeries]);
-
   const watchedHistory = useMemo(() => {
     // History 同步后优先展示服务端口径；无服务端数据时回落到本地 progressSeconds。
     const entries =
@@ -267,6 +260,13 @@ export default function ProfilePage() {
     const idSet = new Set(ids);
     return seriesList.filter((s) => idSet.has(s.id));
   }, [isLoggedIn, favoriteSeriesIds, localFavoriteIds, seriesList]);
+
+  const favoriteSeriesWithArtwork = useMemo(() => {
+    return favoriteSeries.map((s) => ({
+      ...s,
+      artworkChain: getSeriesArtworkChain(s)
+    }));
+  }, [favoriteSeries]);
 
   const NAV: { id: TabId; labelKey: string; icon: string }[] = [
     { id: "history", labelKey: "common.profile.history", icon: "🕐" },
