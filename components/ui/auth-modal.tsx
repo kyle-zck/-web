@@ -166,31 +166,28 @@ export function AuthModal({
               />
             </div>
 
-            {/* Legal links */}
-            <div className="mt-5 flex items-center justify-center gap-4 text-[11px] text-zinc-500">
+            <p className="mt-5 text-center text-[11px] leading-relaxed text-zinc-500">
+              By continuing. I agree to this{" "}
               <Link
                 href="/terms"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="underline-offset-2 hover:text-zinc-300 hover:underline"
+                className="underline-offset-2 text-zinc-400 hover:text-white hover:underline"
                 onClick={onClose}
               >
-                {t("common.footer.terms")}
-              </Link>
-              <span className="text-white/20" aria-hidden>·</span>
+                Service agreement
+              </Link>{" "}
+              and{" "}
               <Link
                 href="/privacy"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="underline-offset-2 hover:text-zinc-300 hover:underline"
+                className="underline-offset-2 text-zinc-400 hover:text-white hover:underline"
                 onClick={onClose}
               >
-                {t("common.footer.privacy")}
+                Privacy policy
               </Link>
-            </div>
-
-            <p className="mt-4 text-center text-[11px] leading-relaxed text-zinc-600">
-              {t("common.auth.socialDemo")}
+              .
             </p>
 
             {/* Later */}
