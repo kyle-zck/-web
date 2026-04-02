@@ -506,7 +506,7 @@ export default function AdminDramaUploadPage() {
         }))
       );
 
-      const       putByXhr = (
+      const putByXhr = (
         url: string,
         file: File,
         onProgress?: (percent: number) => void,
@@ -524,10 +524,16 @@ export default function AdminDramaUploadPage() {
           };
           xhr.onload = () => {
             if (xhr.status >= 200 && xhr.status < 300) resolve();
-            else reject(new Error(`put failed: ${xhr.status}`));
+            else reject(new Error(`HTTP ${xhr.status}`));
           };
-          xhr.onerror = () => reject(new Error("put network error - check R2 CORS configuration"));
-          xhr.ontimeout = () => reject(new Error("put timeout"));
+          xhr.onerror = () => reject(
+            new Error(
+              "Network error during upload. Check R2 CORS configuration: " +
+              "Cloudflare Dashboard → R2 → your bucket → Settings → CORS Policy → " +
+              "AllowedOrigin: *, AllowedMethods: PUT, AllowedHeaders: *."
+            )
+          );
+          xhr.ontimeout = () => reject(new Error("Upload timed out. Check your network connection."));
           xhr.send(file);
         });
 

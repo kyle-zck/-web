@@ -69,6 +69,19 @@ class BackgroundUploadManager {
         scope: "/",
       });
 
+      // Auto-update: when a new SW version is installed, reload the page
+      // so all code runs against the fresh SW instead of a stale cached copy.
+      this.swRegistration.addEventListener("updatefound", () => {
+        const newSw = this.swRegistration!.installing;
+        if (!newSw) return;
+        newSw.addEventListener("statechange", () => {
+          if (newSw.state === "installed" && navigator.serviceWorker.controller) {
+            console.info("[SW] New service worker installed — reloading to activate.");
+            window.location.reload();
+          }
+        });
+      });
+
       this.broadcastChannel = new BroadcastChannel(CHANNEL_NAME);
       this.broadcastChannel.onmessage = this.handleServiceWorkerMessage.bind(this);
 
@@ -521,8 +534,9 @@ class BackgroundUploadManager {
   ): Promise<void> {
     if (!fileInfo.uploadUrl) {
       fileInfo.stage = "failed";
+      fileInfo.error = "Missing upload URL";
       await this.updateFileProgress(sessionId, fileInfo);
-      this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, "Missing upload URL");
+      this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, fileInfo.error);
       return;
     }
 
@@ -547,30 +561,39 @@ class BackgroundUploadManager {
             await this.updateFileProgress(sessionId, fileInfo);
             resolve();
           } else {
-            this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, `HTTP ${xhr.status}`);
+            const hint = xhr.responseText?.slice(0, 200) ?? "";
+            const errorMsg = `HTTP ${xhr.status}${hint ? ` (${hint})` : ""}`;
+            this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, errorMsg);
             fileInfo.stage = "failed";
+            fileInfo.error = errorMsg;
             await this.updateFileProgress(sessionId, fileInfo);
-            reject(new Error(`Upload failed: ${xhr.status}`));
+            reject(new Error(`Upload failed: ${errorMsg}`));
           }
         })();
       };
 
-    xhr.onerror = () => {
-      void (async () => {
-        const errorMsg = "Network error during upload. Check CORS configuration.";
-        this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, errorMsg);
-        fileInfo.stage = "failed";
-        await this.updateFileProgress(sessionId, fileInfo);
-        reject(new Error(errorMsg));
-      })();
-    };
+      xhr.onerror = () => {
+        void (async () => {
+          const errorMsg =
+            "Network error during upload. Check CORS configuration: " +
+            "Cloudflare Dashboard → R2 → your bucket → Settings → CORS Policy. " +
+            "AllowedOrigin: *, AllowedMethods: PUT, AllowedHeaders: *.";
+          this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, errorMsg);
+          fileInfo.stage = "failed";
+          fileInfo.error = errorMsg;
+          await this.updateFileProgress(sessionId, fileInfo);
+          reject(new Error(errorMsg));
+        })();
+      };
 
       xhr.ontimeout = () => {
         void (async () => {
-          this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, "Timeout");
+          const errorMsg = "Upload timed out. Check your network connection.";
+          this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, errorMsg);
           fileInfo.stage = "failed";
+          fileInfo.error = errorMsg;
           await this.updateFileProgress(sessionId, fileInfo);
-          reject(new Error("Timeout"));
+          reject(new Error(errorMsg));
         })();
       };
 

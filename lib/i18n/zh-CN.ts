@@ -404,6 +404,8 @@ export const zhCN = {
       episodeUrlRequired: "请在 Episode 视频 URL 中至少输入一条（每行一个）。",
       uploadSuccess: "上传成功（已同步到用户端）。",
       uploadFailed: "添加失败，请稍后重试。",
+      uploadCorsError:
+        "上传被 CORS 策略阻止。请到 Cloudflare Dashboard → R2 → 你的桶 → Settings → CORS Policy 添加规则：AllowedOrigin: *，AllowedMethods: PUT，AllowedHeaders: *。详细步骤见 docs/R2-CORS-SETUP.md。",
       coverUploadHint: "可上传图片文件（Demo：最多 4MB）",
       episodeUrlHint: "每行一个 URL。前 3 集为 Free，其余为 Locked（需 Coins）。",
       estimatedEpisodes: "预计：{{count}} 集（最多 50）",
