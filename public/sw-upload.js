@@ -1,5 +1,48 @@
 const UPLOAD_TASK_CHANNEL = "bg-upload-channel";
 const HEARTBEAT_INTERVAL = 30000;
+// How often (in bytes) to emit a progress update — balances smoothness vs message overhead
+const PROGRESS_CHUNK_BYTES = 256 * 1024; // 256 KB
+// Minimum ms between progress broadcasts to avoid flooding the main thread
+const PROGRESS_THROTTLE_MS = 150;
+
+/**
+ * Wraps a Blob as a ReadableStream that reports upload progress via TransformStream.
+ * Each chunk flows through immediately; progress broadcasts are throttled.
+ * The upstream AbortController aborts the entire stream (including the in-flight fetch body).
+ */
+function createProgressStream(blob, { onProgress, totalBytes, throttleMs = PROGRESS_THROTTLE_MS }) {
+  let bytesRead = 0;
+  let lastBroadcastAt = 0;
+  const blobReader = blob.stream().getReader();
+
+  const transport = new ReadableStream({
+    async pull(controller) {
+      const { done, value } = await blobReader.read();
+      if (done) {
+        controller.close();
+        return;
+      }
+
+      // Report progress every PROGRESS_CHUNK_BYTES or on the last chunk
+      bytesRead += value.byteLength;
+      const now = Date.now();
+      const isLast = bytesRead >= totalBytes;
+      if (isLast || now - lastBroadcastAt >= throttleMs) {
+        const percent = Math.min(99, Math.round((bytesRead / totalBytes) * 100));
+        onProgress(bytesRead, totalBytes, percent);
+        lastBroadcastAt = now;
+      }
+
+      controller.enqueue(value);
+    },
+
+    cancel() {
+      blobReader.cancel();
+    },
+  });
+
+  return transport;
+}
 
 // Key: `${tabId}-${sessionId}-${fileIndex}` — isolated per tab so pause/cancel only affect the right tab
 const activeUploads = new Map();
@@ -19,57 +62,76 @@ function broadcastProgress(tabId, message) {
 }
 
 async function uploadFile(tabId, sessionId, fileIndex, uploadUrl, fileData, fileName, fileType) {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    const controller = new AbortController();
+  const controller = new AbortController();
+  const key = `${tabId}-${sessionId}-${fileIndex}`;
+  activeUploads.set(key, { controller, fileData, fileName });
 
-    const key = `${tabId}-${sessionId}-${fileIndex}`;
-    activeUploads.set(key, { controller, xhr, fileData, fileName });
+  const blob = new Blob([fileData], { type: fileType || "video/mp4" });
+  const totalBytes = blob.size;
 
-    xhr.open("PUT", uploadUrl, true);
-    xhr.setRequestHeader("Content-Type", fileType || "video/mp4");
-    xhr.timeout = 300_000;
+  // AbortController drives timeout — clears itself on success/error/abort
+  const timeoutMs = 300_000;
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
 
-    xhr.upload.onprogress = (evt) => {
-      if (!evt.lengthComputable) return;
-      const percent = Math.max(0, Math.min(100, Math.round((evt.loaded / evt.total) * 100)));
+  // Create the progress-aware stream; abort signal stops the fetch body mid-flight
+  const bodyStream = createProgressStream(blob, {
+    totalBytes,
+    onProgress: (bytesRead, _total, percent) => {
       broadcastProgress(tabId, {
         type: "progress",
         sessionId,
         fileIndex,
         percent,
+        bytesRead,
+        totalBytes,
       });
-    };
-
-    xhr.onload = () => {
-      activeUploads.delete(key);
-      if (xhr.status >= 200 && xhr.status < 300) {
-        const key2 = extractKeyFromUrl(uploadUrl);
-        const publicUrl = extractPublicUrl(uploadUrl);
-        resolve({ publicUrl, key: key2 });
-      } else {
-        reject(new Error(`Upload failed: ${xhr.status}`));
-      }
-    };
-
-    xhr.onerror = () => {
-      activeUploads.delete(key);
-      reject(new Error("Network error"));
-    };
-
-    xhr.ontimeout = () => {
-      activeUploads.delete(key);
-      reject(new Error("Upload timeout"));
-    };
-
-    controller.signal.addEventListener("abort", () => {
-      xhr.abort();
-      activeUploads.delete(key);
-    });
-
-    const blob = new Blob([fileData], { type: fileType });
-    xhr.send(blob);
+    },
   });
+
+  let res;
+  try {
+    res = await fetch(uploadUrl, {
+      method: "PUT",
+      body: bodyStream,
+      headers: {
+        "Content-Type": fileType || "video/mp4",
+        // Required by R2 CORS when body is a stream (avoids preflight)
+        "Content-Length": String(totalBytes),
+      },
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timeoutId);
+    activeUploads.delete(key);
+    if (err && err.name === "AbortError") {
+      throw new Error("Upload aborted or timed out");
+    }
+    throw err instanceof Error ? err : new Error(String(err));
+  }
+
+  clearTimeout(timeoutId);
+  activeUploads.delete(key);
+
+  if (res.ok) {
+    broadcastProgress(tabId, {
+      type: "progress",
+      sessionId,
+      fileIndex,
+      percent: 100,
+      bytesRead: totalBytes,
+      totalBytes,
+    });
+    const key2 = extractKeyFromUrl(uploadUrl);
+    const publicUrl = extractPublicUrl(uploadUrl);
+    return { publicUrl, key: key2 };
+  }
+
+  const hint = await res.text().catch(() => "");
+  throw new Error(
+    `Upload failed: ${res.status}${hint ? ` ${hint.slice(0, 200)}` : ""}`
+  );
 }
 
 function extractKeyFromUrl(url) {

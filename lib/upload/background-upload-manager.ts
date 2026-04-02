@@ -15,8 +15,11 @@ import {
 
 const SW_FILENAME = "/sw-upload.js";
 const CHANNEL_NAME = "bg-upload-channel";
+/** Base concurrency cap — raised per-file up to MAX_CONCURRENT_UPLOADS when files are few. */
 const MAX_CONCURRENT_UPLOADS = 5;
 const MAX_RETRIES = 3;
+/** How many files each batch-presign call requests at once. */
+const PRESIGN_BATCH_SIZE = 10;
 
 type UploadStatusCallback = (
   sessionId: string,
@@ -255,6 +258,9 @@ class BackgroundUploadManager {
     const session = await getUploadSession(sessionId);
     if (!session) return;
 
+    // Guard: if session is paused, stop scheduling new uploads
+    if (session.status === "paused") return;
+
     session.status = "uploading";
     session.lastHeartbeat = Date.now();
     await saveUploadSession(session);
@@ -264,12 +270,21 @@ class BackgroundUploadManager {
       (f) => f.stage === "queued" || f.stage === "failed"
     );
 
+    // Dynamic concurrency: raise cap when few files remain so they finish sooner
+    const effectiveCap = Math.min(
+      MAX_CONCURRENT_UPLOADS,
+      Math.max(2, pendingFiles.length)
+    );
     const batches: typeof pendingFiles[] = [];
-    for (let i = 0; i < pendingFiles.length; i += MAX_CONCURRENT_UPLOADS) {
-      batches.push(pendingFiles.slice(i, i + MAX_CONCURRENT_UPLOADS));
+    for (let i = 0; i < pendingFiles.length; i += effectiveCap) {
+      batches.push(pendingFiles.slice(i, i + effectiveCap));
     }
 
     for (const batch of batches) {
+      // Guard: re-check pause flag before each batch
+      const recheck = await getUploadSession(sessionId);
+      if (!recheck || recheck.status === "paused") return;
+
       // Heartbeat refresh during a long upload run
       await touchSessionHeartbeat(sessionId, this.tabId);
       await Promise.all(
@@ -294,39 +309,66 @@ class BackgroundUploadManager {
   }
 
   private async uploadFile(sessionId: string, fileInfo: UploadSession["files"][number]) {
+    // Guard: skip if session was paused by the time we reach this file
+    const session = await getUploadSession(sessionId);
+    if (!session || session.status === "paused") return;
+
     this.statusCallback?.(sessionId, fileInfo.index, "presign", 0);
 
+    // Build the file list for batch presign: current file + up to PRESIGN_BATCH_SIZE-1 queued peers
+    const queuedFiles = session.files
+      .filter((f) => f.stage === "queued" || f.stage === "failed")
+      .sort((a, b) => a.index - b.index);
+
+    // Take enough to cover this file; cap at batch size so we don't over-fetch presigned URLs
+    const batchSize = Math.min(queuedFiles.length, PRESIGN_BATCH_SIZE);
+    const peerFiles = queuedFiles.slice(0, batchSize);
+    const peerMap = new Map(peerFiles.map((f) => [f.index, f]));
+
     try {
-      const presignRes = await fetch("/admin/api/upload/video/presign", {
+      const presignRes = await fetch("/admin/api/upload/video/presign-batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fileName: fileInfo.fileName,
-          contentType: fileInfo.fileType,
+          files: peerFiles.map((f) => ({
+            fileName: f.fileName,
+            contentType: f.fileType || "video/mp4",
+          })),
         }),
       });
 
       if (!presignRes.ok) {
-        throw new Error("Presign failed");
+        throw new Error("Presign batch failed");
       }
 
       const presignJson = (await presignRes.json()) as {
         ok?: boolean;
-        uploadUrl?: string;
-        key?: string;
-        publicUrl?: string;
+        items?: Array<{ key: string; uploadUrl: string; publicUrl?: string }>;
       };
-      if (!presignJson.ok || !presignJson.uploadUrl) {
-        throw new Error("Invalid presign response");
+
+      if (!presignJson.ok || !Array.isArray(presignJson.items) || presignJson.items.length === 0) {
+        throw new Error("Invalid presign batch response");
       }
 
-      fileInfo.uploadUrl = presignJson.uploadUrl;
-      fileInfo.key = presignJson.key;
-      if (presignJson.publicUrl) {
-        fileInfo.publicUrl = presignJson.publicUrl;
+      // Map results back — match by fileName so re-ordered peers still resolve correctly
+      for (const item of presignJson.items) {
+        const match = peerFiles.find((f) => f.fileName === item.fileName);
+        if (match) {
+          match.uploadUrl = item.uploadUrl;
+          match.publicUrl = item.publicUrl;
+          match.key = item.key;
+        }
       }
+
+      // Inject the already-resolved presigned URL for the file we were called with
+      if (peerMap.has(fileInfo.index)) {
+        const resolved = peerMap.get(fileInfo.index)!;
+        fileInfo.uploadUrl = resolved.uploadUrl;
+        fileInfo.key = resolved.key;
+        fileInfo.publicUrl = resolved.publicUrl;
+      }
+
       await this.updateFileProgress(sessionId, fileInfo);
-
       this.statusCallback?.(sessionId, fileInfo.index, "uploading", 1);
 
       await this.sendToServiceWorker(sessionId, fileInfo);
@@ -334,18 +376,23 @@ class BackgroundUploadManager {
     } catch (err) {
       fileInfo.retryCount += 1;
       if (fileInfo.retryCount < MAX_RETRIES) {
-        fileInfo.stage = "queued";
         await this.updateFileProgress(sessionId, fileInfo);
-        setTimeout(() => this.uploadFile(sessionId, fileInfo), 1000 * fileInfo.retryCount);
+        const s2 = await getUploadSession(sessionId);
+        const fresh = s2?.files.find((f) => f.index === fileInfo.index);
+        if (!fresh || s2?.status === "paused") return;
+        fresh.stage = "queued";
+        await this.updateFileProgress(sessionId, fresh);
+        setTimeout(() => this.uploadFile(sessionId, fresh), 1000 * fileInfo.retryCount);
       } else {
         fileInfo.stage = "failed";
+        fileInfo.error = err instanceof Error ? err.message : "Upload failed";
         await this.updateFileProgress(sessionId, fileInfo);
         this.statusCallback?.(
           sessionId,
           fileInfo.index,
           "failed",
           undefined,
-          err instanceof Error ? err.message : "Upload failed"
+          fileInfo.error
         );
       }
     }
@@ -535,6 +582,7 @@ class BackgroundUploadManager {
 
     const idx = session.files.findIndex((f) => f.index === fileInfo.index);
     if (idx >= 0) {
+      // Shallow merge so we never accidentally lose fields not present in fileInfo
       session.files[idx] = { ...session.files[idx], ...fileInfo };
       await saveUploadSession(session);
     }

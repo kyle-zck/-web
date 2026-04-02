@@ -53,7 +53,7 @@ export async function POST(req: Request) {
         CacheControl: "public, max-age=31536000, immutable"
       });
       const uploadUrl = await getSignedUrl(client, command, { expiresIn: 60 * 15 });
-      return { key, uploadUrl, publicUrl: buildPublicUrl(key) };
+      return { fileName, key, uploadUrl, publicUrl: buildPublicUrl(key) };
     })
   );
 

@@ -121,14 +121,10 @@ export async function getFileData(sessionId: string, fileIndex: number): Promise
   return new Promise((resolve, reject) => {
     const tx = db.transaction(FILE_DATA_STORE, "readonly");
     const store = tx.objectStore(FILE_DATA_STORE);
-    const req = store.getAll();
+    // Use compound key directly — O(1) instead of O(n) getAll+filter
+    const req = store.get([sessionId, fileIndex]);
     req.onerror = () => reject(req.error);
-    req.onsuccess = () => {
-      const result = req.result.find(
-        (item: UploadFileData) => item.sessionId === sessionId && item.fileIndex === fileIndex
-      );
-      resolve(result);
-    };
+    req.onsuccess = () => resolve(req.result);
   });
 }
 
@@ -229,8 +225,7 @@ export async function isBackgroundUploadSupported(): Promise<boolean> {
   return (
     typeof window !== "undefined" &&
     "serviceWorker" in window.navigator &&
-    "indexedDB" in window &&
-    "PushManager" in window
+    "indexedDB" in window
   );
 }
 
