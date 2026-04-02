@@ -4,6 +4,10 @@ import { getS3Client, buildPublicUrl } from "@/lib/admin/s3";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import fs from "fs";
 import path from "path";
+import sharp from "sharp";
+
+const MAX_WIDTH = 1200;
+const WEBP_QUALITY = 75;
 
 function sanitizeFilename(name: string) {
   return name
@@ -11,6 +15,19 @@ function sanitizeFilename(name: string) {
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/-+/g, "-")
     .slice(0, 120);
+}
+
+/**
+ * 用 sharp 把图片压成 WebP，质量 75，最宽 MAX_WIDTH px。
+ * 返回 Buffer（不改动原始文件），抛出 Error 时返回 null。
+ */
+async function compressToWebP(body: Buffer): Promise<Buffer> {
+  let pipeline = sharp(body);
+  const meta = await pipeline.metadata();
+  if ((meta.width ?? 0) > MAX_WIDTH) {
+    pipeline = pipeline.resize(MAX_WIDTH, undefined, { withoutEnlargement: true });
+  }
+  return pipeline.webp({ quality: WEBP_QUALITY }).toBuffer();
 }
 
 export async function POST(req: Request) {
@@ -40,6 +57,14 @@ export async function POST(req: Request) {
   const body = Buffer.from(arrayBuffer);
 
   // Dev fallback：未配置 S3 时，写入 public 目录返回本地 URL
+  // 本地开发也走压缩，统一上传体验
+  let webpBody: Buffer;
+  try {
+    webpBody = await compressToWebP(body);
+  } catch {
+    return NextResponse.json({ ok: false, error: "Failed to process image" }, { status: 422 });
+  }
+
   if (!bucket || !accessKeyId || !secretAccessKey) {
     // 生产环境必须使用对象存储，否则 URL 在无状态实例中会 404。
     if (process.env.VERCEL || process.env.NODE_ENV === "production") {
@@ -54,21 +79,21 @@ export async function POST(req: Request) {
     }
     const uploadsDir = path.resolve(process.cwd(), "public", "uploads", "covers");
     if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-    const filename = `${Date.now()}-${sanitizeFilename(file.name || "cover.jpg")}`;
+    const filename = `${Date.now()}-${sanitizeFilename(file.name || "cover")}.webp`;
     const filePath = path.join(uploadsDir, filename);
-    fs.writeFileSync(filePath, body);
+    fs.writeFileSync(filePath, webpBody);
     return NextResponse.json({ ok: true, coverUrl: `/uploads/covers/${filename}` });
   }
 
   const client = getS3Client();
-  const key = `covers/${Date.now()}-${sanitizeFilename(file.name || "cover.jpg")}`;
+  const key = `covers/${Date.now()}-${sanitizeFilename(file.name || "cover")}.webp`;
 
   await client.send(
     new PutObjectCommand({
       Bucket: bucket,
       Key: key,
-      Body: body,
-      ContentType: file.type,
+      Body: webpBody,
+      ContentType: "image/webp",
       CacheControl: "public, max-age=31536000, immutable"
     })
   );

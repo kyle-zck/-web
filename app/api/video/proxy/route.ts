@@ -53,6 +53,11 @@ export async function GET(req: Request) {
 
     const headers = new Headers();
     headers.set("Accept-Ranges", "bytes");
+
+    // 告知中间缓存（Vercel/CDN）Range 请求不可复用普通缓存，避免串台
+    if (range) {
+      headers.set("Cache-Control", "no-store");
+    }
     const ct = object.ContentType ?? "";
     const isImage = ct.startsWith("image/");
     const isVideo = ct.startsWith("video/");
@@ -76,7 +81,12 @@ export async function GET(req: Request) {
     if (object.LastModified) headers.set("Last-Modified", object.LastModified.toUTCString());
     if (object.ContentRange) headers.set("Content-Range", object.ContentRange);
 
-    return new Response(object.Body as BodyInit, {
+    // Stream directly without buffering the full body in memory.
+    // In Node.js, object.Body is a Readable stream — Response accepts it as-is.
+    // AWS SDK typings are wider than BodyInit; cast to satisfy TS.
+    const body = object.Body as BodyInit | undefined;
+
+    return new Response(body, {
       status: range && object.ContentRange ? 206 : 200,
       headers
     });

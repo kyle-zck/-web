@@ -17,6 +17,7 @@ import { Modal } from "@/components/ui/modal";
 import { formatEngagementCount } from "@/lib/format-count";
 import { getOrCreateDeviceClientId } from "@/lib/client/device-client-id";
 import { prefetchAppConfig } from "@/lib/client/app-config-cache";
+import { loadHls } from "@/lib/video/hls-loader";
 import type { EngagementCounts } from "@/lib/user-repo";
 
 const EPISODES_PER_TAB = 50;

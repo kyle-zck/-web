@@ -70,3 +70,36 @@ export function getEpisodePlaybackUrl(episode: Episode): string {
   const list = buildEpisodePlaybackCandidates(episode);
   return list[0] ?? "";
 }
+
+/**
+ * 在浏览器中预连接媒体域名（仅跨域），降低首包 DNS/TLS 延迟。
+ * 同一 origin 只注入一次。
+ */
+export function preconnectPlaybackOrigins(...rawUrls: string[]): void {
+  if (typeof document === "undefined") return;
+  for (const raw of rawUrls) {
+    const u = raw?.trim();
+    if (!u) continue;
+    try {
+      const url = new URL(u, window.location.origin);
+      if (url.origin === window.location.origin) continue;
+      const origin = url.origin;
+      const safeId = origin.replace(/[^a-zA-Z0-9]+/g, "-").slice(0, 120);
+      const preId = `preconnect-playback-${safeId}`;
+      if (document.getElementById(preId)) continue;
+      const dns = document.createElement("link");
+      dns.id = `${preId}-dns`;
+      dns.rel = "dns-prefetch";
+      dns.href = origin;
+      document.head.appendChild(dns);
+      const link = document.createElement("link");
+      link.id = preId;
+      link.rel = "preconnect";
+      link.href = origin;
+      link.crossOrigin = "";
+      document.head.appendChild(link);
+    } catch {
+      // ignore invalid URLs
+    }
+  }
+}

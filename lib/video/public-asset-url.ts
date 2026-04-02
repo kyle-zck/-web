@@ -4,26 +4,84 @@ function baseUrl(): string {
   return (process.env.S3_PUBLIC_BASE_URL ?? "").trim().replace(/\/+$/, "");
 }
 
+/** 与 app/api/video/proxy 一致：仅允许 R2 公网域或 S3_PUBLIC_BASE_URL 对应主机 */
+function isProxyableStorageHost(src: string): boolean {
+  try {
+    const parsed = new URL(src);
+    const host = parsed.hostname.toLowerCase();
+    if (host.endsWith(".r2.dev")) return true;
+    const base = baseUrl();
+    if (base) {
+      const configuredHost = new URL(base).hostname.toLowerCase();
+      if (host === configuredHost) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/** 视频/HLS 走代理时用（封面仍直连，避免 next/image 与代理双重路径） */
+function isVideoLikePathForProxy(src: string): boolean {
+  return /\.(mp4|m3u8|ts|webm)(\?.*)?$/i.test(src);
+}
+
+function shouldForceMediaProxy(src: string): boolean {
+  return (
+    process.env.NEXT_PUBLIC_MEDIA_PROXY_FORCE === "1" &&
+    isProxyableStorageHost(src) &&
+    isVideoLikePathForProxy(src)
+  );
+}
+
 /**
- * 代理策略（server-side）：
- * - 已有直接可访问的公开 CDN URL → 直接返回，跳过服务端代理（极快）
- * - 仅对 .r2.dev 且不含 public token 的 URL 走服务端代理
- * - 绝对 URL 直接返回（走直连 CDN 或原始直链）
+ * pub-*.r2.dev 在部分网络下浏览器直连会 net::ERR_CONNECTION_CLOSED；
+ * 默认让 MP4/HLS 等走同源 /api/video/proxy（服务端用凭证读 R2）。
+ * 直连无问题的环境可设 NEXT_PUBLIC_MEDIA_DIRECT_R2=1 省 Vercel 出站流量。
+ */
+function shouldProxyR2DevVideoDefault(src: string): boolean {
+  if (process.env.NEXT_PUBLIC_MEDIA_DIRECT_R2 === "1") return false;
+  try {
+    const parsed = new URL(src.trim());
+    if (!parsed.hostname.toLowerCase().endsWith(".r2.dev")) return false;
+    return isVideoLikePathForProxy(src);
+  } catch {
+    return false;
+  }
+}
+
+function toProxyUrl(src: string): string {
+  return `/api/video/proxy?src=${encodeURIComponent(src)}`;
+}
+
+/**
+ * 代理策略：
+ * - 自定义 CDN（S3_PUBLIC_BASE_URL 非 r2.dev）：视频默认仍直连，省边缘一跳
+ * - pub-*.r2.dev 上的视频：默认走 /api/video/proxy（避免客户端直连断连）
+ * - NEXT_PUBLIC_MEDIA_PROXY_FORCE=1：在可代理主机上强制视频走代理（含自定义 CDN 主机）
+ * - NEXT_PUBLIC_MEDIA_DIRECT_R2=1：关闭上述 r2.dev 视频默认代理
  */
 export function proxifyR2DevMediaUrl(raw: string): string {
   const src = raw.trim();
   if (!src) return src;
 
-  // 已有 S3_PUBLIC_BASE_URL：直接可访问，不走代理
   const base = baseUrl();
-  if (base) return src;
+  if (base) {
+    if (shouldForceMediaProxy(src)) {
+      return toProxyUrl(src);
+    }
+    if (shouldProxyR2DevVideoDefault(src)) {
+      return toProxyUrl(src);
+    }
+    return src;
+  }
 
-  // 检测是否为公开的 Cloudflare R2 URL（不含 ?signature= 或 &token= 等鉴权参数）
-  // 这类 URL 已经可公开访问，无需服务端代理，可直连 CDN 加速
   if (/^https?:\/\/[^/]+\.r2\.dev\//i.test(src)) {
-    // 含鉴权参数的 R2 URL 仍走代理；其余公开 URL 直连
     if (/[?&](?:signature|token|X-Amz-)=/i.test(src)) {
-      return `/api/video/proxy?src=${encodeURIComponent(src)}`;
+      return toProxyUrl(src);
+    }
+    if (shouldProxyR2DevVideoDefault(src)) {
+      return toProxyUrl(src);
     }
     return src;
   }
@@ -64,12 +122,16 @@ export function resolvePublicImageUrl(raw: string): string {
 }
 
 export function normalizeSeriesPublicUrls(series: Series): Series {
-  const episodes: Episode[] = (series.episodes ?? []).map((ep) => ({
-    ...ep,
-    videoUrl: normalizeAssetUrl(ep.videoUrl) ?? ep.videoUrl,
-    videoPlaybackUrl: normalizeAssetUrl(ep.videoPlaybackUrl),
-    thumbnail: normalizeImageField(ep.thumbnail)
-  }));
+  const episodes: Episode[] = (series.episodes ?? []).map((ep) => {
+    const vu = normalizeAssetUrl(ep.videoUrl) ?? ep.videoUrl;
+    const vpu = normalizeAssetUrl(ep.videoPlaybackUrl);
+    return {
+      ...ep,
+      videoUrl: vu ? proxifyR2DevMediaUrl(vu) : vu,
+      videoPlaybackUrl: vpu ? proxifyR2DevMediaUrl(vpu) : ep.videoPlaybackUrl,
+      thumbnail: normalizeImageField(ep.thumbnail)
+    };
+  });
   return {
     ...series,
     cover: normalizeImageField(series.cover),

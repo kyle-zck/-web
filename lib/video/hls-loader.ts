@@ -8,6 +8,8 @@ type HlsConstructor = {
   new (config?: {
     enableWorker?: boolean;
     lowLatencyMode?: boolean;
+    /** 解析 manifest 后尽早拉首片，缩短首帧时间 */
+    startFragPrefetch?: boolean;
   }): HlsInstance;
 };
 

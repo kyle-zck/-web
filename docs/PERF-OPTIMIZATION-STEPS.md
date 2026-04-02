@@ -172,7 +172,78 @@ PUBLIC_APP_CONFIG_REVALIDATE=180
 
 ---
 
-## 五、常见问题
+## 五、视频播放慢？—— 配置 Cloudflare 对 MP4/HLS 边缘缓存
+
+**问题根因**：R2 公开 URL（`pub-xxxxx.r2.dev/...mp4`）默认 **不缓存**，每个播放器请求都直打 R2 首字节，TTFB 高。
+
+### 步骤 1：确认当前状态（可选）
+
+1. 打开浏览器 DevTools → **Network**。
+2. 播放一部剧集，在过滤框输入 **`r2.dev`** 或你的 CDN 域名。
+3. 点开任意 `.mp4` 请求，看 **Response Headers**，若无 **`cf-cache-status`** → 说明本次请求 **未命中 Cloudflare 缓存**。
+
+### 步骤 2：在 Cloudflare Dashboard 创建缓存规则
+
+> **前提**：你的 R2 桶已开启 **Public access**（R2 → Settings → Public access → ON），
+> 且你的 R2 公网域名（`pub-xxx.r2.dev`）或绑定到 Cloudflare 的自定义 CDN 域名
+> **托管在同一个 Cloudflare 账号** 下。
+
+1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com) → 选你的 **域名**（或 `*.r2.dev` 的挂载域名）。
+2. 左侧菜单 → **Rules** → **Cache Rules** → **Create rule**。
+3. 按下表填写（与当前控制台文案一致；**没有「matches pattern」时用 `wildcard` 即可**）。
+
+#### 匹配条件（Custom filter expression）
+
+| 行 | Field | Operator | Value（怎么填） |
+|----|--------|----------|----------------|
+| 1 | **Hostname** | **wildcard** 或 **equals** | **只填主机名，不要带 `https://`**。例如：`pub-a21a37e927a648a38b92bf2bcd784815.r2.dev`。若用 wildcard，可写 `pub-*.r2.dev`（以控制台是否接受为准；不接受就改用 **equals** + 完整主机名）。 |
+| 2 | **URI**（或 **URI Path**，若有） | **wildcard** | 填在 **第二行 Value** 里。示例：`*.mp4`、`*.m3u8`、`*.ts`。要一条规则覆盖多种扩展名时，可写 `*.*` 太宽不推荐；更稳妥是 **建两条规则**（一条只匹配 `*.mp4`，一条匹配 `*.m3u8` 与 `*.ts`），或看下面「用扩展名字段」的写法。 |
+
+**若界面里有「File extension」或「URI Path」+「ends with」**：优先用扩展名 / 后缀判断，比整段 URI 更不易写错。
+
+**`*.mp4` 填在哪**：就在 **第二行**（与 Hostname 用 **And** 连接）里，**Field 选 URI 或 URI Path**，**Operator 选 wildcard**，**Value 填 `*.mp4`**（先只测 mp4，保存后再加规则测 m3u8/ts）。
+
+> **注意**：R2 的公开地址是「固定子域 + 路径」，路径里常见 `/videos/xxx.mp4`。wildcard 的 `*` 在 Cloudflare 里通常表示一段通配；若 `*.mp4` 匹配不到，可改为 `**/*.mp4`（多段路径）或 `*/videos/*.mp4`，以你实际 URL 为准在 Network 里复制一条路径对照。
+
+#### 缓存行为（你截图里的几块）
+
+| 控制台里的名字 | 建议选法 |
+|----------------|----------|
+| **Cache eligibility** | 选 **Eligible for cache**（即可缓存；没有单独的「Cache status」字样是正常的）。 |
+| **Edge TTL** | 选 **Ignore cache-control header and use this TTL**（即文档里说的「强制边缘缓存」），时间填 **1 month** 或 **30 days** 均可。 |
+| **Browser TTL** | **Respect origin TTL**：不填时间——表示「回给浏览器的 `Cache-Control` 尽量跟源站」；R2 往往几乎不带缓存头，浏览器侧可能仍较短，**不影响 Cloudflare 边缘是否缓存**。若你希望浏览器也明确缓存多天，可改选 **Override origin and use this TTL**，再填 **7 days**（只有这种「覆盖源站」才出现可填时间）。 |
+| **Status code TTL** | 点 **+ Add status code setting** 可为 404 等单独设 TTL；**没有「Origin error TTL」这一项时不必强求**，留空即可。 |
+
+4. **Save and deploy**。
+
+> **HLS**：`m3u8` 与 `ts` 建议单独一条规则（或与 mp4 分两条），URI Path wildcard 分别填 `*.m3u8`、`*.ts`，避免规则过宽把动态接口也缓存进去。
+
+### 步骤 3（可选）：自定义 CDN 域名（效果更好）
+
+若你用 R2 自定义域名（如 `cdn.yourdomain.com`）：
+
+1. **R2 Dashboard** → 你的桶 → **Settings** → **Custom Domains** → **Add custom domain**。
+2. 填 `cdn.yourdomain.com` → Cloudflare 自动配好 SSL + CNAME。
+3. 在 **Cloudflare Dashboard** → `cdn.yourdomain.com` → **SSL/TLS** → 选 **Full**。
+4. 同样创建上述 Cache Rule，把 `Hostname` 改为 `cdn.yourdomain.com`。
+5. 将 `S3_PUBLIC_BASE_URL` 更新为 `https://cdn.yourdomain.com` 并重新部署。
+
+### 步骤 4：验证缓存生效
+
+1. **第一次播放**（冷缓存）：播放器请求到达 R2，Cloudflare 未命中，记录 `cf-cache-status: MISS`。
+2. **第二次播放同一集**（热缓存）：`cf-cache-status: HIT`，TTFB 显著降低（通常 < 30ms）。
+3. 若仍为 `MISS`：检查规则是否正确匹配，或 Cloudflare 是否将同一域名用于其他非缓存目的。
+
+### 预期改善
+
+| 指标 | 冷缓存（R2 直打） | 热缓存（Cloudflare 边缘） |
+|------|-----------------|--------------------------|
+| TTFB | 100–500 ms+ | **< 30 ms** |
+| 视频起播等待 | 明显 | **几乎无感知** |
+
+---
+
+## 六、常见问题
 
 | 现象 | 可排查 |
 |------|--------|
@@ -180,15 +251,18 @@ PUBLIC_APP_CONFIG_REVALIDATE=180
 | Vercel 改了变量仍慢 | 必须 **Redeploy**；并确认变量加在 **Production**（或你当前访问的环境）。 |
 | 始终没有 Cache-Control | 看请求是否打到 **本地 dev**（部分行为与生产不完全一致）；以 **线上** 为准。 |
 | 列表还是慢 | 先查 **封面是否仍是 Base64**；再查 **数据库区域** 与 **R2 域名** 是否 HTTPS 可直连。 |
+| 视频仍然每次 MISS | Cloudflare Cache Rules 未创建或条件不匹配；确认 `Hostname` 与实际 R2 URL 域名一致。 |
+| `.mp4` 报 `net::ERR_CONNECTION_CLOSED`，Response headers 为 0 | 直连 `pub-*.r2.dev` 在部分网络会断连，或公网返回 403。在 **R2** 检查桶 **Public access** 与对象权限；或设 **`NEXT_PUBLIC_MEDIA_PROXY_FORCE=1`**（见 `.env.example`），让视频经本站 `/api/video/proxy` 用服务端凭证读取（流量走 Vercel，需 **Redeploy**）。 |
 
 ---
 
-## 六、检查清单（打印用）
+## 七、检查清单（打印用）
 
 - [ ] 数据库/接口里剧目 `cover`/`poster` **不是** `data:image/...`
 - [ ] `S3_PUBLIC_BASE_URL` 在浏览器能 **直接打开** 一张测试图
 - [ ] `.env.local` 或 Vercel 已设置 **`PUBLIC_*_REVALIDATE`**（按需）
 - [ ] Network 中 **`/api/series?lite=1`**、**`/api/app-config`** 有 **`Cache-Control`**
 - [ ] 第二次访问出现 **304** 或 **disk cache**（在关闭 Disable cache 时）
+- [ ] Cloudflare Cache Rules 已创建，视频文件 `cf-cache-status` 显示 **HIT**（二次播放时）
 
 完成以上步骤后，再观察首屏与列表是否明显改善。

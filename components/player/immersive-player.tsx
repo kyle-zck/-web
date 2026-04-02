@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Episode, Series } from "@/constants/mock-data";
 import { isEpisodeLocked, usePlayerStore } from "@/lib/store/player";
 import { LockedOverlay } from "@/components/player/locked-overlay";
@@ -12,6 +12,7 @@ import {
   buildMp4FirstCandidates,
   getEpisodePlaybackUrl,
   playbackUrlIndicatesHls,
+  preconnectPlaybackOrigins,
   resolveNormalizedPlayableUrl
 } from "@/lib/video/playback";
 import { resolvePublicImageUrl } from "@/lib/video/public-asset-url";
@@ -171,11 +172,13 @@ export function ImmersivePlayer({
     let cancelled = false;
     let tries = 0;
     const maxTries = 40;
-    const timer = window.setInterval(async () => {
+    let timer: number | undefined;
+
+    const pollOnce = async () => {
       if (cancelled) return;
       tries += 1;
       if (tries > maxTries) {
-        window.clearInterval(timer);
+        if (timer !== undefined) window.clearInterval(timer);
         return;
       }
       try {
@@ -201,16 +204,21 @@ export function ImmersivePlayer({
         }
         if (json.videoStatus) setRuntimeVideoStatus(json.videoStatus);
         if (json.videoStatus === "ready" || json.videoStatus === "failed") {
-          window.clearInterval(timer);
+          if (timer !== undefined) window.clearInterval(timer);
         }
       } catch {
         // ignore transient poll errors
       }
+    };
+
+    void pollOnce();
+    timer = window.setInterval(() => {
+      void pollOnce();
     }, 4000);
 
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      if (timer !== undefined) window.clearInterval(timer);
     };
   }, [episode.id, episode.videoStreamId, runtimeVideoStatus, series.id, unlocked]);
 
@@ -261,26 +269,18 @@ export function ImmersivePlayer({
     };
   }, [hls, playbackUrl, unlocked, episode.id]);
 
-  // 预连接媒体域名，减少首次 DNS/TLS 建连耗时（仅跨域 URL 生效）
-  useEffect(() => {
+  // 在 paint 前预连接媒体域，并预连下一集首候选，减少切集时的 DNS/TLS 延迟
+  useLayoutEffect(() => {
     if (!unlocked) return;
-    const u = playbackUrl.trim();
-    if (!u) return;
-    try {
-      const url = new URL(u, window.location.origin);
-      if (url.origin === window.location.origin) return;
-      const id = `preconnect-${url.origin}`;
-      if (document.getElementById(id)) return;
-      const link = document.createElement("link");
-      link.id = id;
-      link.rel = "preconnect";
-      link.href = url.origin;
-      link.crossOrigin = "";
-      document.head.appendChild(link);
-    } catch {
-      // ignore invalid/relative urls
+    const urls: string[] = [];
+    if (playbackUrl.trim()) urls.push(playbackUrl);
+    const next = series.episodes.find((e) => e.index === episode.index + 1);
+    if (next && (isSubscribed || !isEpisodeLocked(series, next))) {
+      const nextFirst = buildMp4FirstCandidates(next)[0];
+      if (nextFirst) urls.push(nextFirst);
     }
-  }, [playbackUrl, unlocked]);
+    preconnectPlaybackOrigins(...urls);
+  }, [unlocked, playbackUrl, episode.index, series.id, series.episodes, isSubscribed]);
 
   useEffect(() => {
     const video = videoRef.current;
