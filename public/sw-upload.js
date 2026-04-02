@@ -1,41 +1,13 @@
 const UPLOAD_TASK_CHANNEL = "bg-upload-channel";
 const HEARTBEAT_INTERVAL = 30000;
 
-interface UploadTaskMessage {
-  type: "start" | "pause" | "resume" | "cancel" | "get-progress" | "upload-file";
-  sessionId?: string;
-  fileIndex?: number;
-  fileData?: {
-    name: string;
-    type: string;
-    size: number;
-    data: ArrayBuffer;
-  };
-  presignedUrl?: string;
-  publicUrl?: string;
-  key?: string;
-}
+// Key: `${sessionId}-${fileIndex}`
+// Value: { controller, xhr, fileData, fileName }
+const activeUploads = new Map();
 
-interface ProgressMessage {
-  type: "progress" | "complete" | "error" | "heartbeat";
-  sessionId: string;
-  fileIndex?: number;
-  percent?: number;
-  error?: string;
-  publicUrl?: string;
-  key?: string;
-}
+let heartbeatTimer = null;
 
-const activeUploads = new Map<string, {
-  controller: AbortController;
-  xhr: XMLHttpRequest;
-  fileData: ArrayBuffer;
-  fileName: string;
-}>();
-
-let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-
-function broadcastProgress(message: ProgressMessage) {
+function broadcastProgress(message) {
   const clients = self.clients.matchAll({ type: "window" });
   clients.then((windowClients) => {
     windowClients.forEach((client) => {
@@ -47,14 +19,7 @@ function broadcastProgress(message: ProgressMessage) {
   channel.postMessage(message);
 }
 
-async function uploadFile(
-  sessionId: string,
-  fileIndex: number,
-  uploadUrl: string,
-  fileData: ArrayBuffer,
-  fileName: string,
-  fileType: string
-): Promise<{ publicUrl: string; key: string }> {
+async function uploadFile(sessionId, fileIndex, uploadUrl, fileData, fileName, fileType) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const controller = new AbortController();
@@ -112,7 +77,7 @@ async function uploadFile(
   });
 }
 
-function extractKeyFromUrl(url: string): string {
+function extractKeyFromUrl(url) {
   try {
     const urlObj = new URL(url);
     const pathParts = urlObj.pathname.split("/").filter(Boolean);
@@ -126,11 +91,13 @@ function extractKeyFromUrl(url: string): string {
   }
 }
 
-function extractPublicUrl(url: string): string {
+function extractPublicUrl(url) {
   try {
     const urlObj = new URL(url);
-    if (urlObj.hostname.includes("cloudflarestorage.com") ||
-        urlObj.hostname.endsWith(".r2.cloudflarestorage.com")) {
+    if (
+      urlObj.hostname.includes("cloudflarestorage.com") ||
+      urlObj.hostname.endsWith(".r2.cloudflarestorage.com")
+    ) {
       return `https://${urlObj.hostname}/${urlObj.pathname.slice(1)}`;
     }
     return url.split("?")[0];
@@ -162,14 +129,19 @@ function stopHeartbeat() {
   }
 }
 
-self.addEventListener("message", async (event: ExtendableMessageEvent) => {
-  const data = event.data as UploadTaskMessage;
+self.addEventListener("message", async (event) => {
+  const data = event.data;
 
   switch (data.type) {
     case "start":
     case "resume":
       startHeartbeat();
-      if (data.sessionId && data.fileIndex !== undefined && data.presignedUrl && data.fileData) {
+      if (
+        data.sessionId &&
+        data.fileIndex !== undefined &&
+        data.presignedUrl &&
+        data.fileData
+      ) {
         try {
           const result = await uploadFile(
             data.sessionId,
