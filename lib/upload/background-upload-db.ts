@@ -64,6 +64,7 @@ export interface UploadSession {
     publicUrl?: string;
     key?: string;
     retryCount: number;
+    error?: string;
   }>;
   status: "pending" | "uploading" | "paused" | "completed" | "failed";
   currentIndex: number;

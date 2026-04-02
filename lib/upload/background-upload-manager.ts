@@ -28,6 +28,12 @@ type UploadStatusCallback = (
 
 type SessionStatusCallback = (session: UploadSession) => void;
 
+type SwUploadWaiter = {
+  resolve: (v: { publicUrl: string; key: string }) => void;
+  reject: (e: Error) => void;
+  timeout: ReturnType<typeof setTimeout>;
+};
+
 class BackgroundUploadManager {
   private swRegistration: ServiceWorkerRegistration | null = null;
   private broadcastChannel: BroadcastChannel | null = null;
@@ -35,9 +41,15 @@ class BackgroundUploadManager {
   private sessionCallback: SessionStatusCallback | null = null;
   private activeSessionId: string | null = null;
   private pendingFiles: Map<string, { file: File; index: number }[]> = new Map();
+  /** Resolves when Service Worker finishes PUT for a given file (see `sendToServiceWorker`). */
+  private swUploadWaiters = new Map<string, SwUploadWaiter>();
   /** Unique ID for this browser tab — used to isolate multi-tab uploads. */
   private tabId: string = "";
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+
+  private static swWaitKey(sessionId: string, fileIndex: number): string {
+    return `${sessionId}:${fileIndex}`;
+  }
 
   async initialize(): Promise<boolean> {
     if (typeof window === "undefined") return false;
@@ -87,11 +99,77 @@ class BackgroundUploadManager {
     if (data.type === "progress" && data.sessionId && data.fileIndex !== undefined) {
       this.statusCallback?.(data.sessionId, data.fileIndex, "uploading", data.percent);
     } else if (data.type === "complete" && data.sessionId && data.fileIndex !== undefined) {
-      this.statusCallback?.(data.sessionId, data.fileIndex, "done", 100);
+      void this.onSwUploadComplete(
+        data.sessionId,
+        data.fileIndex,
+        data.publicUrl as string | undefined,
+        data.key as string | undefined
+      );
     } else if (data.type === "error" && data.sessionId && data.fileIndex !== undefined) {
-      this.statusCallback?.(data.sessionId, data.fileIndex, "failed", undefined, data.error);
+      void this.onSwUploadError(data.sessionId, data.fileIndex, data.error as string | undefined);
     } else if (data.type === "heartbeat") {
       this.checkPendingSessions();
+    }
+  }
+
+  private async onSwUploadComplete(
+    sessionId: string,
+    fileIndex: number,
+    publicUrl: string | undefined,
+    key: string | undefined
+  ) {
+    const session = await getUploadSession(sessionId);
+    if (!session) return;
+    const idx = session.files.findIndex((f) => f.index === fileIndex);
+    if (idx < 0) return;
+
+    const prev = session.files[idx];
+    session.files[idx] = {
+      ...prev,
+      stage: "done",
+      percent: 100,
+      publicUrl: publicUrl ?? prev.publicUrl,
+      key: key ?? prev.key,
+    };
+    await saveUploadSession(session);
+
+    this.statusCallback?.(sessionId, fileIndex, "done", 100);
+    this.sessionCallback?.(session);
+
+    const wk = BackgroundUploadManager.swWaitKey(sessionId, fileIndex);
+    const waiter = this.swUploadWaiters.get(wk);
+    if (waiter) {
+      clearTimeout(waiter.timeout);
+      this.swUploadWaiters.delete(wk);
+      waiter.resolve({
+        publicUrl: session.files[idx].publicUrl ?? "",
+        key: session.files[idx].key ?? "",
+      });
+    }
+  }
+
+  private async onSwUploadError(sessionId: string, fileIndex: number, error?: string) {
+    const session = await getUploadSession(sessionId);
+    if (!session) return;
+    const idx = session.files.findIndex((f) => f.index === fileIndex);
+    if (idx < 0) return;
+    session.files[idx] = {
+      ...session.files[idx],
+      stage: "failed",
+      percent: 0,
+      error: error,
+    };
+    await saveUploadSession(session);
+
+    this.statusCallback?.(sessionId, fileIndex, "failed", undefined, error);
+    this.sessionCallback?.(session);
+
+    const wk = BackgroundUploadManager.swWaitKey(sessionId, fileIndex);
+    const waiter = this.swUploadWaiters.get(wk);
+    if (waiter) {
+      clearTimeout(waiter.timeout);
+      this.swUploadWaiters.delete(wk);
+      waiter.reject(new Error(error || "Upload failed"));
     }
   }
 
@@ -232,13 +310,21 @@ class BackgroundUploadManager {
         throw new Error("Presign failed");
       }
 
-      const presignJson = await presignRes.json();
+      const presignJson = (await presignRes.json()) as {
+        ok?: boolean;
+        uploadUrl?: string;
+        key?: string;
+        publicUrl?: string;
+      };
       if (!presignJson.ok || !presignJson.uploadUrl) {
         throw new Error("Invalid presign response");
       }
 
       fileInfo.uploadUrl = presignJson.uploadUrl;
       fileInfo.key = presignJson.key;
+      if (presignJson.publicUrl) {
+        fileInfo.publicUrl = presignJson.publicUrl;
+      }
       await this.updateFileProgress(sessionId, fileInfo);
 
       this.statusCallback?.(sessionId, fileInfo.index, "uploading", 1);
@@ -252,6 +338,8 @@ class BackgroundUploadManager {
         await this.updateFileProgress(sessionId, fileInfo);
         setTimeout(() => this.uploadFile(sessionId, fileInfo), 1000 * fileInfo.retryCount);
       } else {
+        fileInfo.stage = "failed";
+        await this.updateFileProgress(sessionId, fileInfo);
         this.statusCallback?.(
           sessionId,
           fileInfo.index,
@@ -291,14 +379,25 @@ class BackgroundUploadManager {
     }
 
     if (!fileData) {
+      fileInfo.stage = "failed";
+      await this.updateFileProgress(sessionId, fileInfo);
       this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, "File data not found");
-      return;
+      throw new Error("File data not found");
     }
 
     try {
       const arrayBuffer = await fileData.arrayBuffer();
 
       if (this.swRegistration?.active) {
+        const wk = BackgroundUploadManager.swWaitKey(sessionId, fileInfo.index);
+        const waitPromise = new Promise<{ publicUrl: string; key: string }>((resolve, reject) => {
+          const timeout = globalThis.setTimeout(() => {
+            this.swUploadWaiters.delete(wk);
+            reject(new Error("Upload timeout"));
+          }, 600_000);
+          this.swUploadWaiters.set(wk, { resolve, reject, timeout });
+        });
+
         this.swRegistration.active.postMessage({
           type: "start",
           sessionId,
@@ -312,10 +411,51 @@ class BackgroundUploadManager {
           },
           presignedUrl: fileInfo.uploadUrl,
         });
+
+        const result = await waitPromise;
+        fileInfo.publicUrl = result.publicUrl || fileInfo.publicUrl;
+        fileInfo.key = result.key || fileInfo.key;
+        fileInfo.stage = "done";
+        fileInfo.percent = 100;
+        // IndexedDB already updated in onSwUploadComplete
       } else {
         await this.uploadDirect(sessionId, fileInfo, arrayBuffer, fileType);
       }
     } catch (err) {
+      const wk = BackgroundUploadManager.swWaitKey(sessionId, fileInfo.index);
+      if (this.swUploadWaiters.has(wk)) {
+        clearTimeout(this.swUploadWaiters.get(wk)!.timeout);
+        this.swUploadWaiters.delete(wk);
+        fileInfo.stage = "failed";
+        await this.updateFileProgress(sessionId, fileInfo);
+        this.statusCallback?.(
+          sessionId,
+          fileInfo.index,
+          "failed",
+          undefined,
+          err instanceof Error ? err.message : "Upload failed"
+        );
+        return;
+      }
+      if (this.swRegistration?.active) {
+        const latest = await getUploadSession(sessionId);
+        const f = latest?.files.find((x) => x.index === fileInfo.index);
+        if (f?.stage === "failed" || f?.stage === "done") {
+          return;
+        }
+        fileInfo.stage = "failed";
+        await this.updateFileProgress(sessionId, fileInfo);
+        this.statusCallback?.(
+          sessionId,
+          fileInfo.index,
+          "failed",
+          undefined,
+          err instanceof Error ? err.message : "Upload failed"
+        );
+        return;
+      }
+      fileInfo.stage = "failed";
+      await this.updateFileProgress(sessionId, fileInfo);
       this.statusCallback?.(
         sessionId,
         fileInfo.index,
@@ -347,23 +487,38 @@ class BackgroundUploadManager {
       };
 
       xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          this.statusCallback?.(sessionId, fileInfo.index, "done", 100);
-          resolve();
-        } else {
-          this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, `HTTP ${xhr.status}`);
-          reject(new Error(`Upload failed: ${xhr.status}`));
-        }
+        void (async () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            this.statusCallback?.(sessionId, fileInfo.index, "done", 100);
+            fileInfo.stage = "done";
+            fileInfo.percent = 100;
+            await this.updateFileProgress(sessionId, fileInfo);
+            resolve();
+          } else {
+            this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, `HTTP ${xhr.status}`);
+            fileInfo.stage = "failed";
+            await this.updateFileProgress(sessionId, fileInfo);
+            reject(new Error(`Upload failed: ${xhr.status}`));
+          }
+        })();
       };
 
       xhr.onerror = () => {
-        this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, "Network error");
-        reject(new Error("Network error"));
+        void (async () => {
+          this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, "Network error");
+          fileInfo.stage = "failed";
+          await this.updateFileProgress(sessionId, fileInfo);
+          reject(new Error("Network error"));
+        })();
       };
 
       xhr.ontimeout = () => {
-        this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, "Timeout");
-        reject(new Error("Timeout"));
+        void (async () => {
+          this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, "Timeout");
+          fileInfo.stage = "failed";
+          await this.updateFileProgress(sessionId, fileInfo);
+          reject(new Error("Timeout"));
+        })();
       };
 
       const blob = new Blob([data], { type: fileType });
@@ -501,6 +656,10 @@ class BackgroundUploadManager {
 
   destroy() {
     this.stopHeartbeat();
+    for (const w of this.swUploadWaiters.values()) {
+      clearTimeout(w.timeout);
+    }
+    this.swUploadWaiters.clear();
     this.broadcastChannel?.close();
     this.swRegistration = null;
     this.broadcastChannel = null;

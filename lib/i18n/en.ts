@@ -767,6 +767,7 @@ export const en = {
       failedShort: "failed",
       hide: "Hide",
       show: "Show",
+      remove: "Remove",
       moreFiles: "more files",
       storagePathDrawerTitle: "Storage paths",
       storagePathHint:

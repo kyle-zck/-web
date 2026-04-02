@@ -23,6 +23,8 @@ type UploadFileProgress = {
   fileName: string;
   stage: UploadStage;
   percent: number;
+  /** Human-readable failure reason, shown when stage is "failed". */
+  error?: string;
 };
 
 /** Parent path of a file under the chosen folder (`webkitRelativePath`). */
@@ -137,7 +139,7 @@ export default function AdminDramaUploadPage() {
       if (!mounted) return;
 
       if (initialized) {
-        backgroundUploadManager.onStatusChange((sessionId, fileIndex, stage, percent) => {
+        backgroundUploadManager.onStatusChange((sessionId, fileIndex, stage, percent, error) => {
           setUploadFilesProgress((prev) => {
             if (activeBgUploadSessionRef.current !== sessionId) return prev;
             const i = prev.findIndex((p) => p.episodeIndex === fileIndex);
@@ -148,6 +150,7 @@ export default function AdminDramaUploadPage() {
                     ...p,
                     stage,
                     percent: percent ?? p.percent,
+                    error: stage === "failed" ? (error ?? p.error) : undefined,
                   }
                 : p
             );
@@ -486,7 +489,7 @@ export default function AdminDramaUploadPage() {
 
       const updateUploadFileProgress = (
         key: string,
-        patch: Partial<Pick<UploadFileProgress, "stage" | "percent">>
+        patch: Partial<Pick<UploadFileProgress, "stage" | "percent" | "error">>
       ) => {
         setUploadFilesProgress((prev) =>
           prev.map((it) => (it.key === key ? { ...it, ...patch } : it))
@@ -612,9 +615,9 @@ export default function AdminDramaUploadPage() {
                   };
                   doneCount += 1;
                   break;
-                } catch {
+                } catch (err) {
                   if (attempt > maxRetries) {
-                    updateUploadFileProgress(progressKey, { stage: "failed" });
+                    updateUploadFileProgress(progressKey, { stage: "failed", error: err instanceof Error ? err.message : "Upload failed" });
                     doneCount += 1;
                   } else {
                     await new Promise((r) => globalThis.setTimeout(r, 800 * attempt));
@@ -684,7 +687,7 @@ export default function AdminDramaUploadPage() {
             setUploadProgress({ current: Math.min(doneCount + 1, total), total, fileName: v.file.name });
             const presigned = presignedMap.get(progressKey);
             if (!presigned) {
-              updateUploadFileProgress(progressKey, { stage: "failed" });
+              updateUploadFileProgress(progressKey, { stage: "failed", error: "Presign failed" });
               doneCount += 1;
               continue;
             }
@@ -698,8 +701,8 @@ export default function AdminDramaUploadPage() {
               updateUploadFileProgress(progressKey, { stage: "completing", percent: 100 });
               byOrder[current] = { key: presigned.key, publicUrl: presigned.publicUrl };
               doneCount += 1;
-            } catch {
-              updateUploadFileProgress(progressKey, { stage: "failed" });
+            } catch (err) {
+              updateUploadFileProgress(progressKey, { stage: "failed", error: err instanceof Error ? err.message : "Upload failed" });
               doneCount += 1;
             }
           }
@@ -1148,10 +1151,13 @@ export default function AdminDramaUploadPage() {
               <div key={it.key} className="space-y-1">
                 <div className="flex items-center justify-between gap-3 text-xs">
                   <span className="max-w-[70%] truncate text-zinc-300">{it.fileName}</span>
-                  <span className="text-zinc-400">
+                  <span className={`${it.stage === "failed" ? "text-red-400" : "text-zinc-400"}`}>
                     {t(`common.admin.uploadStage_${it.stage}`)} {it.stage === "uploading" ? `${it.percent}%` : ""}
                   </span>
                 </div>
+                {it.stage === "failed" && it.error && (
+                  <p className="text-[10px] text-red-400/70">{it.error}</p>
+                )}
                 <div className="h-1.5 overflow-hidden rounded bg-zinc-800">
                   <div
                     className={`h-full transition-all ${
@@ -1251,20 +1257,25 @@ export default function AdminDramaUploadPage() {
 
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                       {session.files.slice(0, 4).map((file) => (
-                        <div key={file.index} className="flex items-center gap-2 text-xs">
-                          <span className={`h-2 w-2 rounded-full ${
-                            file.stage === "done"
-                              ? "bg-emerald-500"
-                              : file.stage === "failed"
-                              ? "bg-red-500"
-                              : file.stage === "uploading"
-                              ? "bg-blue-500 animate-pulse"
-                              : "bg-zinc-600"
-                          }`} />
-                          <span className="truncate text-zinc-400">
-                            {t(`common.admin.uploadStage_${file.stage}`)}
-                            {file.stage === "uploading" ? ` ${file.percent}%` : ""}
-                          </span>
+                        <div key={file.index} className="flex flex-col gap-0.5 text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className={`h-2 w-2 shrink-0 rounded-full ${
+                              file.stage === "done"
+                                ? "bg-emerald-500"
+                                : file.stage === "failed"
+                                ? "bg-red-500"
+                                : file.stage === "uploading"
+                                ? "bg-blue-500 animate-pulse"
+                                : "bg-zinc-600"
+                            }`} />
+                            <span className={`truncate ${file.stage === "failed" ? "text-red-400" : "text-zinc-400"}`}>
+                              {t(`common.admin.uploadStage_${file.stage}`)}
+                              {file.stage === "uploading" ? ` ${file.percent}%` : ""}
+                            </span>
+                          </div>
+                          {file.stage === "failed" && file.error && (
+                            <span className="ml-4 truncate text-[10px] text-red-400/60">{file.error}</span>
+                          )}
                         </div>
                       ))}
                       {session.files.length > 4 && (
