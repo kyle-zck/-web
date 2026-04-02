@@ -78,7 +78,6 @@ function getPool(): Pool {
         ? undefined
         : { rejectUnauthorized: false },
     max: 10,
-    idleTimeoutMillis: 15_000,
   });
   return pool;
 }
