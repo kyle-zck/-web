@@ -21,31 +21,22 @@ function isProxyableStorageHost(src: string): boolean {
   }
 }
 
-/** 视频/HLS 走代理时用 */
+/** 视频/HLS 走代理时用（封面仍直连，避免 next/image 与代理双重路径） */
 function isVideoLikePathForProxy(src: string): boolean {
   return /\.(mp4|m3u8|ts|webm)(\?.*)?$/i.test(src);
-}
-
-/** 封面/海报等静态图：与视频一样，pub-*.r2.dev 直连在部分网络会 ERR_CONNECTION_CLOSED，走同源代理 */
-function isImageLikePathForProxy(src: string): boolean {
-  return /\.(webp|jpe?g|png|gif|avif|svg|bmp|ico)(\?.*)?$/i.test(src);
-}
-
-function isR2DefaultProxyPath(src: string): boolean {
-  return isVideoLikePathForProxy(src) || isImageLikePathForProxy(src);
 }
 
 function shouldForceMediaProxy(src: string): boolean {
   return (
     process.env.NEXT_PUBLIC_MEDIA_PROXY_FORCE === "1" &&
     isProxyableStorageHost(src) &&
-    isR2DefaultProxyPath(src)
+    isVideoLikePathForProxy(src)
   );
 }
 
 /**
  * pub-*.r2.dev 在部分网络下浏览器直连会 net::ERR_CONNECTION_CLOSED；
- * 默认让 MP4/HLS 与封面/海报图走同源 /api/video/proxy（服务端用凭证读 R2）。
+ * 默认让 MP4/HLS 等走同源 /api/video/proxy（服务端用凭证读 R2）。
  * 直连无问题的环境可设 NEXT_PUBLIC_MEDIA_DIRECT_R2=1 省 Vercel 出站流量。
  */
 function shouldProxyR2DevVideoDefault(src: string): boolean {
@@ -53,7 +44,7 @@ function shouldProxyR2DevVideoDefault(src: string): boolean {
   try {
     const parsed = new URL(src.trim());
     if (!parsed.hostname.toLowerCase().endsWith(".r2.dev")) return false;
-    return isR2DefaultProxyPath(src);
+    return isVideoLikePathForProxy(src);
   } catch {
     return false;
   }
@@ -65,10 +56,10 @@ function toProxyUrl(src: string): string {
 
 /**
  * 代理策略：
- * - 自定义 CDN（S3_PUBLIC_BASE_URL 非 r2.dev）：视频/图默认仍直连，省边缘一跳
- * - pub-*.r2.dev 上的视频与常见图片：默认走 /api/video/proxy（避免客户端直连断连）
- * - NEXT_PUBLIC_MEDIA_PROXY_FORCE=1：在可代理主机上强制视频与图片走代理（含自定义 CDN 主机）
- * - NEXT_PUBLIC_MEDIA_DIRECT_R2=1：关闭上述 r2.dev 默认代理
+ * - 自定义 CDN（S3_PUBLIC_BASE_URL 非 r2.dev）：视频默认仍直连，省边缘一跳
+ * - pub-*.r2.dev 上的视频：默认走 /api/video/proxy（避免客户端直连断连）
+ * - NEXT_PUBLIC_MEDIA_PROXY_FORCE=1：在可代理主机上强制视频走代理（含自定义 CDN 主机）
+ * - NEXT_PUBLIC_MEDIA_DIRECT_R2=1：关闭上述 r2.dev 视频默认代理
  */
 export function proxifyR2DevMediaUrl(raw: string): string {
   const src = raw.trim();
