@@ -1,35 +1,30 @@
 const UPLOAD_TASK_CHANNEL = "bg-upload-channel";
 const HEARTBEAT_INTERVAL = 30000;
 
-// Key: `${sessionId}-${fileIndex}`
-// Value: { controller, xhr, fileData, fileName }
+// Key: `${tabId}-${sessionId}-${fileIndex}` — isolated per tab so pause/cancel only affect the right tab
 const activeUploads = new Map();
 
 let heartbeatTimer = null;
 
-function broadcastProgress(message) {
+function broadcastProgress(tabId, message) {
   const clients = self.clients.matchAll({ type: "window" });
   clients.then((windowClients) => {
     windowClients.forEach((client) => {
-      client.postMessage(message);
+      client.postMessage({ ...message, tabId });
     });
   });
 
   const channel = new BroadcastChannel(UPLOAD_TASK_CHANNEL);
-  channel.postMessage(message);
+  channel.postMessage({ ...message, tabId });
 }
 
-async function uploadFile(sessionId, fileIndex, uploadUrl, fileData, fileName, fileType) {
+async function uploadFile(tabId, sessionId, fileIndex, uploadUrl, fileData, fileName, fileType) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const controller = new AbortController();
 
-    activeUploads.set(`${sessionId}-${fileIndex}`, {
-      controller,
-      xhr,
-      fileData,
-      fileName,
-    });
+    const key = `${tabId}-${sessionId}-${fileIndex}`;
+    activeUploads.set(key, { controller, xhr, fileData, fileName });
 
     xhr.open("PUT", uploadUrl, true);
     xhr.setRequestHeader("Content-Type", fileType || "video/mp4");
@@ -38,7 +33,7 @@ async function uploadFile(sessionId, fileIndex, uploadUrl, fileData, fileName, f
     xhr.upload.onprogress = (evt) => {
       if (!evt.lengthComputable) return;
       const percent = Math.max(0, Math.min(100, Math.round((evt.loaded / evt.total) * 100)));
-      broadcastProgress({
+      broadcastProgress(tabId, {
         type: "progress",
         sessionId,
         fileIndex,
@@ -47,29 +42,29 @@ async function uploadFile(sessionId, fileIndex, uploadUrl, fileData, fileName, f
     };
 
     xhr.onload = () => {
-      activeUploads.delete(`${sessionId}-${fileIndex}`);
+      activeUploads.delete(key);
       if (xhr.status >= 200 && xhr.status < 300) {
-        const key = extractKeyFromUrl(uploadUrl);
+        const key2 = extractKeyFromUrl(uploadUrl);
         const publicUrl = extractPublicUrl(uploadUrl);
-        resolve({ publicUrl, key });
+        resolve({ publicUrl, key: key2 });
       } else {
         reject(new Error(`Upload failed: ${xhr.status}`));
       }
     };
 
     xhr.onerror = () => {
-      activeUploads.delete(`${sessionId}-${fileIndex}`);
+      activeUploads.delete(key);
       reject(new Error("Network error"));
     };
 
     xhr.ontimeout = () => {
-      activeUploads.delete(`${sessionId}-${fileIndex}`);
+      activeUploads.delete(key);
       reject(new Error("Upload timeout"));
     };
 
     controller.signal.addEventListener("abort", () => {
       xhr.abort();
-      activeUploads.delete(`${sessionId}-${fileIndex}`);
+      activeUploads.delete(key);
     });
 
     const blob = new Blob([fileData], { type: fileType });
@@ -116,6 +111,7 @@ function startHeartbeat() {
         client.postMessage({
           type: "heartbeat",
           sessionId: "system",
+          tabId: "sw", // identifies the source as service worker
         });
       });
     });
@@ -137,6 +133,7 @@ self.addEventListener("message", async (event) => {
     case "resume":
       startHeartbeat();
       if (
+        data.tabId &&
         data.sessionId &&
         data.fileIndex !== undefined &&
         data.presignedUrl &&
@@ -144,6 +141,7 @@ self.addEventListener("message", async (event) => {
       ) {
         try {
           const result = await uploadFile(
+            data.tabId,
             data.sessionId,
             data.fileIndex,
             data.presignedUrl,
@@ -151,7 +149,7 @@ self.addEventListener("message", async (event) => {
             data.fileData.name,
             data.fileData.type
           );
-          broadcastProgress({
+          broadcastProgress(data.tabId, {
             type: "complete",
             sessionId: data.sessionId,
             fileIndex: data.fileIndex,
@@ -159,7 +157,7 @@ self.addEventListener("message", async (event) => {
             key: result.key,
           });
         } catch (err) {
-          broadcastProgress({
+          broadcastProgress(data.tabId, {
             type: "error",
             sessionId: data.sessionId,
             fileIndex: data.fileIndex,
@@ -170,27 +168,35 @@ self.addEventListener("message", async (event) => {
       break;
 
     case "pause":
-      if (data.sessionId && data.fileIndex !== undefined) {
-        const key = `${data.sessionId}-${data.fileIndex}`;
-        const upload = activeUploads.get(key);
-        if (upload) {
-          upload.controller.abort();
-        }
+      if (data.tabId && data.sessionId) {
+        activeUploads.forEach((upload, key) => {
+          if (key.startsWith(`${data.tabId}-${data.sessionId}-`)) {
+            upload.controller.abort();
+          }
+        });
       }
       break;
 
     case "cancel":
-      activeUploads.forEach((upload, key) => {
-        if (key.startsWith(data.sessionId || "")) {
-          upload.controller.abort();
-        }
-      });
-      activeUploads.clear();
+      if (data.tabId && data.sessionId) {
+        activeUploads.forEach((upload, key) => {
+          if (key.startsWith(`${data.tabId}-${data.sessionId}-`)) {
+            upload.controller.abort();
+          }
+        });
+      } else if (data.tabId) {
+        // Cancel all uploads for this tab
+        activeUploads.forEach((upload, key) => {
+          if (key.startsWith(`${data.tabId}-`)) {
+            upload.controller.abort();
+          }
+        });
+      }
       stopHeartbeat();
       break;
 
     case "get-progress":
-      broadcastProgress({
+      broadcastProgress(data.tabId || null, {
         type: "heartbeat",
         sessionId: data.sessionId || "unknown",
       });

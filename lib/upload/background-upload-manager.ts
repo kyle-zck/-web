@@ -7,6 +7,9 @@ import {
   getFileData,
   deleteFileData,
   generateSessionId,
+  claimSession,
+  touchSessionHeartbeat,
+  TAB_HEARTBEAT_INTERVAL_MS,
   type UploadSession,
 } from "./background-upload-db";
 
@@ -32,6 +35,9 @@ class BackgroundUploadManager {
   private sessionCallback: SessionStatusCallback | null = null;
   private activeSessionId: string | null = null;
   private pendingFiles: Map<string, { file: File; index: number }[]> = new Map();
+  /** Unique ID for this browser tab — used to isolate multi-tab uploads. */
+  private tabId: string = "";
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
   async initialize(): Promise<boolean> {
     if (typeof window === "undefined") return false;
@@ -40,6 +46,8 @@ class BackgroundUploadManager {
       console.warn("Service Worker not supported");
       return false;
     }
+
+    this.tabId = `tab-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
     try {
       this.swRegistration = await navigator.serviceWorker.register(SW_FILENAME, {
@@ -53,6 +61,7 @@ class BackgroundUploadManager {
         navigator.serviceWorker.controller.postMessage({ type: "get-progress" });
       }
 
+      this.startHeartbeat();
       await this.resumePendingUploads();
 
       return true;
@@ -72,6 +81,8 @@ class BackgroundUploadManager {
 
   private handleServiceWorkerMessage(event: MessageEvent) {
     const data = event.data;
+
+    if (data.tabId && data.tabId !== this.tabId) return;
 
     if (data.type === "progress" && data.sessionId && data.fileIndex !== undefined) {
       this.statusCallback?.(data.sessionId, data.fileIndex, "uploading", data.percent);
@@ -93,6 +104,23 @@ class BackgroundUploadManager {
       });
   }
 
+  /** Periodically refresh the heartbeat for any session this tab is actively processing. */
+  private startHeartbeat() {
+    if (this.heartbeatInterval) return;
+    this.heartbeatInterval = setInterval(async () => {
+      if (this.activeSessionId) {
+        await touchSessionHeartbeat(this.activeSessionId, this.tabId);
+      }
+    }, TAB_HEARTBEAT_INTERVAL_MS);
+  }
+
+  private stopHeartbeat() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+  }
+
   async startUpload(
     formData: UploadSession["formData"],
     files: { file: File; index: number }[]
@@ -101,6 +129,8 @@ class BackgroundUploadManager {
 
     const session: UploadSession = {
       id: sessionId,
+      ownerTabId: this.tabId,
+      lastHeartbeat: Date.now(),
       formData,
       files: files.map((f) => ({
         fileName: f.file.name,
@@ -138,11 +168,16 @@ class BackgroundUploadManager {
   }
 
   private async processQueue(sessionId: string) {
+    const claimed = await claimSession(sessionId, this.tabId);
+    if (!claimed) return;
+
     const session = await getUploadSession(sessionId);
     if (!session) return;
 
     session.status = "uploading";
+    session.lastHeartbeat = Date.now();
     await saveUploadSession(session);
+    this.activeSessionId = sessionId;
 
     const pendingFiles = session.files.filter(
       (f) => f.stage === "queued" || f.stage === "failed"
@@ -154,6 +189,8 @@ class BackgroundUploadManager {
     }
 
     for (const batch of batches) {
+      // Heartbeat refresh during a long upload run
+      await touchSessionHeartbeat(sessionId, this.tabId);
       await Promise.all(
         batch.map((fileInfo) => this.uploadFile(sessionId, fileInfo))
       );
@@ -263,6 +300,7 @@ class BackgroundUploadManager {
           type: "start",
           sessionId,
           fileIndex: fileInfo.index,
+          tabId: this.tabId,
           fileData: {
             name: fileName,
             type: fileType,
@@ -345,6 +383,8 @@ class BackgroundUploadManager {
   }
 
   private async createSeries(sessionId: string, session: UploadSession) {
+    if (session.serverSeriesId) return;
+
     const completedFiles = session.files
       .filter((f) => f.stage === "done")
       .sort((a, b) => a.index - b.index);
@@ -400,13 +440,14 @@ class BackgroundUploadManager {
       (s) => s.status === "pending" || s.status === "uploading"
     );
 
-    await Promise.all(
-      pendingSessions.map(async (session) => {
-        this.sessionCallback?.(session);
-        this.activeSessionId = session.id;
-        await this.processQueue(session.id);
-      })
-    );
+    for (const session of pendingSessions) {
+      const claimed = await claimSession(session.id, this.tabId);
+      if (!claimed) continue;
+
+      this.sessionCallback?.(session);
+      this.activeSessionId = session.id;
+      await this.processQueue(session.id);
+    }
   }
 
   async pauseUpload(sessionId: string) {
@@ -420,6 +461,7 @@ class BackgroundUploadManager {
       this.swRegistration.active.postMessage({
         type: "pause",
         sessionId,
+        tabId: this.tabId,
       });
     }
   }
@@ -429,6 +471,7 @@ class BackgroundUploadManager {
       this.swRegistration.active.postMessage({
         type: "cancel",
         sessionId,
+        tabId: this.tabId,
       });
     }
 
@@ -450,6 +493,7 @@ class BackgroundUploadManager {
   }
 
   destroy() {
+    this.stopHeartbeat();
     this.broadcastChannel?.close();
     this.swRegistration = null;
     this.broadcastChannel = null;

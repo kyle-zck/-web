@@ -37,6 +37,10 @@ async function openDB(): Promise<IDBDatabase> {
 
 export interface UploadSession {
   id: string;
+  /** Tab that currently owns/processes this session. null = unclaimed. */
+  ownerTabId: string | null;
+  /** Unix ms of the last heartbeat from the owner tab. */
+  lastHeartbeat: number;
   formData: {
     title: string;
     originalName: string;
@@ -65,6 +69,7 @@ export interface UploadSession {
   currentIndex: number;
   createdAt: number;
   updatedAt: number;
+  /** Set when createSeries succeeds — prevents duplicate calls. */
   serverSeriesId?: string;
 }
 
@@ -226,6 +231,71 @@ export async function isBackgroundUploadSupported(): Promise<boolean> {
     "indexedDB" in window &&
     "PushManager" in window
   );
+}
+
+/** Heartbeat interval used by manager + threshold for stale detection. */
+export const TAB_HEARTBEAT_INTERVAL_MS = 10_000; // 10 s
+export const TAB_STALE_THRESHOLD_MS = 35_000;     // 35 s — if no heartbeat in 35 s, session is stale
+
+/**
+ * Atomically claims a session for a tab.
+ * Returns true if claimed successfully (session was unowned or stale),
+ * false if another tab already owns it.
+ */
+export async function claimSession(
+  sessionId: string,
+  tabId: string
+): Promise<boolean> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    const store = tx.objectStore(STORE_NAME);
+    const getReq = store.get(sessionId);
+
+    getReq.onerror = () => reject(getReq.error);
+    getReq.onsuccess = () => {
+      const session = getReq.result;
+      if (!session) {
+        resolve(false);
+        return;
+      }
+
+      const isStale =
+        session.ownerTabId === null ||
+        Date.now() - (session.lastHeartbeat || 0) > TAB_STALE_THRESHOLD_MS;
+
+      if (!isStale && session.ownerTabId !== tabId) {
+        resolve(false);
+        return;
+      }
+
+      session.ownerTabId = tabId;
+      session.lastHeartbeat = Date.now();
+      const putReq = store.put(session);
+      putReq.onerror = () => reject(putReq.error);
+      putReq.onsuccess = () => resolve(true);
+    };
+  });
+}
+
+/** Refreshes the heartbeat timestamp for a session the current tab owns. */
+export async function touchSessionHeartbeat(sessionId: string, tabId: string): Promise<void> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    const store = tx.objectStore(STORE_NAME);
+    const getReq = store.get(sessionId);
+
+    getReq.onerror = () => reject(getReq.error);
+    getReq.onsuccess = () => {
+      const session = getReq.result;
+      if (session && session.ownerTabId === tabId) {
+        session.lastHeartbeat = Date.now();
+        store.put(session);
+      }
+      resolve();
+    };
+  });
 }
 
 export function generateSessionId(): string {
