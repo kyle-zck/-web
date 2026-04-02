@@ -343,7 +343,7 @@ class BackgroundUploadManager {
 
       const presignJson = (await presignRes.json()) as {
         ok?: boolean;
-        items?: Array<{ key: string; uploadUrl: string; publicUrl?: string }>;
+        items?: Array<{ fileName: string; key: string; uploadUrl: string; publicUrl?: string }>;
       };
 
       if (!presignJson.ok || !Array.isArray(presignJson.items) || presignJson.items.length === 0) {

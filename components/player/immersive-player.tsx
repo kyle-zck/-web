@@ -280,7 +280,7 @@ export function ImmersivePlayer({
       if (nextFirst) urls.push(nextFirst);
     }
     preconnectPlaybackOrigins(...urls);
-  }, [unlocked, playbackUrl, episode.index, series.id, series.episodes, isSubscribed]);
+  }, [unlocked, playbackUrl, episode.index, series.id, series.episodes, isSubscribed, series]);
 
   useEffect(() => {
     const video = videoRef.current;
