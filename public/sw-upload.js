@@ -1,53 +1,11 @@
 const UPLOAD_TASK_CHANNEL = "bg-upload-channel";
 const HEARTBEAT_INTERVAL = 30000;
-// How often (in bytes) to emit a progress update — balances smoothness vs message overhead
-const PROGRESS_CHUNK_BYTES = 256 * 1024; // 256 KB
-// Minimum ms between progress updates to avoid flooding the main thread
-const PROGRESS_THROTTLE_MS = 150;
 // Max retries for transient network errors (not CORS)
 const MAX_RETRIES = 3;
 // Initial retry delay (exponential backoff)
 const RETRY_DELAY_BASE_MS = 1000;
 // Timeout for each upload attempt
 const UPLOAD_TIMEOUT_MS = 300_000;
-
-/**
- * Wraps a Blob as a ReadableStream that reports upload progress.
- * Each chunk flows through immediately; progress broadcasts are throttled.
- * The upstream AbortController aborts the entire stream (including the in-flight fetch body).
- */
-function createProgressStream(blob, { onProgress, totalBytes, throttleMs = PROGRESS_THROTTLE_MS }) {
-  let bytesRead = 0;
-  let lastBroadcastAt = 0;
-  const blobReader = blob.stream().getReader();
-
-  const transport = new ReadableStream({
-    async pull(controller) {
-      const { done, value } = await blobReader.read();
-      if (done) {
-        controller.close();
-        return;
-      }
-
-      bytesRead += value.byteLength;
-      const now = Date.now();
-      const isLast = bytesRead >= totalBytes;
-      if (isLast || now - lastBroadcastAt >= throttleMs) {
-        const percent = Math.min(100, Math.round((bytesRead / totalBytes) * 100));
-        onProgress(bytesRead, totalBytes, percent);
-        lastBroadcastAt = now;
-      }
-
-      controller.enqueue(value);
-    },
-
-    cancel() {
-      blobReader.cancel();
-    },
-  });
-
-  return transport;
-}
 
 /**
  * Classifies an error to determine the appropriate handling strategy.
@@ -63,36 +21,39 @@ function classifyError(err) {
 
   const msg = err instanceof Error ? err.message : String(err);
 
-  // CORS / preflight failures — the fetch was blocked before reaching the server
-  // Common patterns: "Failed to fetch", "NetworkError", "CORS policy",
-  // "Access to fetch has been blocked by CORS policy", "net::ERR_FAILED"
+  // CORS / preflight failures — the browser was blocked by CORS policy
+  // More specific than "Failed to fetch" — only match actual CORS-related messages
   const corsPatterns = [
-    "Failed to fetch",
-    "NetworkError",
-    "CORS",
-    "cors",
-    "Access to",
-    "net::ERR_FAILED",
-    "net::ERR_CONNECTION_REFUSED",
-    "net::ERR_NAME_NOT_RESOLVED",
-    "net::ERR_INTERNET_DISCONNECTED",
-    "net::ERR_NETWORK_CHANGED",
+    "has been blocked by CORS policy",
+    "CORS request blocked",
+    "origin is not allowed by",
+    "Not allowed by Access-Control-Allow",
   ];
   if (corsPatterns.some((p) => msg.includes(p))) {
-    // Distinguish "no network" from "CORS blocked by server"
-    // If it looks like a real network failure, mark as network (retriable)
+    return "cors";
+  }
+
+  // Broad "Failed to fetch" catches many things: ALPN, network, CORS, mixed-content, etc.
+  // We only treat it as CORS when it comes with CORS-specific context;
+  // otherwise classify it as network (retriable) or defer to other patterns below.
+  if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
+    // Distinguish "no network" from other fetch failures
     const networkPatterns = [
       "net::ERR_CONNECTION_REFUSED",
       "net::ERR_NAME_NOT_RESOLVED",
       "net::ERR_INTERNET_DISCONNECTED",
       "net::ERR_NETWORK_CHANGED",
+      "net::ERR_ALPN_NEGOTIATION_FAILED",
+      "net::ERR_SSL_PROTOCOL_ERROR",
+      "net::ERR_TLS_VERSION_INCOMPATIBLE",
       "InternetDisconnected",
       "Network changed",
     ];
     if (networkPatterns.some((p) => msg.includes(p))) {
       return "network";
     }
-    return "cors";
+    // Without a clear network pattern, treat as retriable network error
+    return "network";
   }
 
   // Timeout
@@ -118,37 +79,54 @@ function broadcastProgress(tabId, message) {
 }
 
 /**
- * Attempts a single PUT upload to the presigned URL.
+ * Uploads a Blob via XMLHttpRequest to the presigned URL.
+ * XHR uses HTTP/1.1 unconditionally — avoids ALPN negotiation failures that
+ * fetch-based streaming PUTs encounter with R2's CDN.
+ * Reports progress via onProgress callback; aborts via AbortController.
  * Returns the response on success, throws on failure.
  */
-async function attemptUpload(controller, bodyStream, uploadUrl, fileType, timeoutMs) {
-  const headers = {};
-  if (fileType) {
-    headers["Content-Type"] = fileType;
-  }
-  // NOTE: We intentionally omit "Content-Length" — the browser handles it automatically
-  // for streaming bodies, and explicitly setting it can cause issues.
+function xhrUpload(blob, uploadUrl, fileType, timeoutMs, controller, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const timeoutId = setTimeout(() => {
+      xhr.abort();
+      controller.abort();
+    }, timeoutMs);
 
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    // Force HTTP/1.1 to avoid ALPN negotiation failures with R2.
-    // HTTP/2 streaming bodies require extended CONNECT which R2's CDN doesn't support,
-    // causing net::ERR_ALPN_NEGOTIATION_FAILED on some browsers/paths.
-    // duplex: "half" in Chromium forces HTTP/1.1 for the streaming body.
-    const res = await fetch(uploadUrl, {
-      method: "PUT",
-      body: bodyStream,
-      // Chromium (incl. SW): streaming body requires duplex: "half"
-      duplex: "half",
-      headers,
-      signal: controller.signal,
+    xhr.open("PUT", uploadUrl, true);
+    xhr.setRequestHeader("Content-Type", fileType || "video/mp4");
+
+    xhr.upload.onprogress = (evt) => {
+      if (evt.lengthComputable) {
+        onProgress(evt.loaded, evt.total, Math.round((evt.loaded / evt.total) * 100));
+      }
+    };
+
+    xhr.onload = () => {
+      clearTimeout(timeoutId);
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(xhr);
+      } else {
+        reject(new Error(`HTTP ${xhr.status}`));
+      }
+    };
+
+    xhr.onerror = () => {
+      clearTimeout(timeoutId);
+      reject(new Error("Network error during upload"));
+    };
+
+    xhr.ontimeout = () => {
+      clearTimeout(timeoutId);
+      reject(new Error("Upload timed out"));
+    };
+
+    controller.signal.addEventListener("abort", () => {
+      xhr.abort();
     });
-    clearTimeout(timeoutId);
-    return res;
-  } catch (err) {
-    clearTimeout(timeoutId);
-    throw err;
-  }
+
+    xhr.send(blob);
+  });
 }
 
 async function uploadFile(tabId, sessionId, fileIndex, uploadUrl, fileData, fileName, fileType) {
@@ -167,10 +145,8 @@ async function uploadFile(tabId, sessionId, fileIndex, uploadUrl, fileData, file
       await new Promise((r) => setTimeout(r, delay));
     }
 
-    // Re-create the stream for each attempt (blob stream can only be read once)
-    const bodyStream = createProgressStream(blob, {
-      totalBytes,
-      onProgress: (bytesRead, _total, percent) => {
+    try {
+      await xhrUpload(blob, uploadUrl, fileType || "video/mp4", UPLOAD_TIMEOUT_MS, controller, (bytesRead, _total, percent) => {
         broadcastProgress(tabId, {
           type: "progress",
           sessionId,
@@ -179,15 +155,8 @@ async function uploadFile(tabId, sessionId, fileIndex, uploadUrl, fileData, file
           bytesRead,
           totalBytes,
         });
-      },
-    });
-
-    let res;
-    try {
-      res = await attemptUpload(controller, bodyStream, uploadUrl, fileType || "video/mp4", UPLOAD_TIMEOUT_MS);
+      });
     } catch (err) {
-      activeUploads.delete(key);
-
       const category = classifyError(err);
 
       if (category === "abort") {
@@ -223,36 +192,19 @@ async function uploadFile(tabId, sessionId, fileIndex, uploadUrl, fileData, file
       );
     }
 
-    clearTimeout; // no-op reference to satisfy linter
-
-    if (res.ok) {
-      broadcastProgress(tabId, {
-        type: "progress",
-        sessionId,
-        fileIndex,
-        percent: 100,
-        bytesRead: totalBytes,
-        totalBytes,
-      });
-      const extractedKey = extractKeyFromUrl(uploadUrl);
-      const publicUrl = extractPublicUrl(uploadUrl);
-      activeUploads.delete(key);
-      return { publicUrl, key: extractedKey };
-    }
-
-    // Non-OK response (4xx/5xx)
-    const hint = await res.text().catch(() => "");
-
-    // Retry only on 5xx server errors
-    if (res.status >= 500 && attempt < MAX_RETRIES) {
-      activeUploads.delete(key);
-      continue;
-    }
-
+    // xhrUpload resolved — upload succeeded
+    broadcastProgress(tabId, {
+      type: "progress",
+      sessionId,
+      fileIndex,
+      percent: 100,
+      bytesRead: totalBytes,
+      totalBytes,
+    });
+    const extractedKey = extractKeyFromUrl(uploadUrl);
+    const publicUrl = extractPublicUrl(uploadUrl);
     activeUploads.delete(key);
-    throw new Error(
-      `Upload rejected by server (HTTP ${res.status})${hint ? ": " + hint.slice(0, 200) : ""}`
-    );
+    return { publicUrl, key: extractedKey };
   }
 
   // Safety fallback — should never reach here
