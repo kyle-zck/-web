@@ -506,7 +506,7 @@ export default function AdminDramaUploadPage() {
         }))
       );
 
-      const putByXhr = (
+      const       putByXhr = (
         url: string,
         file: File,
         onProgress?: (percent: number) => void,
@@ -526,7 +526,7 @@ export default function AdminDramaUploadPage() {
             if (xhr.status >= 200 && xhr.status < 300) resolve();
             else reject(new Error(`put failed: ${xhr.status}`));
           };
-          xhr.onerror = () => reject(new Error("put network error"));
+          xhr.onerror = () => reject(new Error("put network error - check R2 CORS configuration"));
           xhr.ontimeout = () => reject(new Error("put timeout"));
           xhr.send(file);
         });

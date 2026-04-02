@@ -555,14 +555,15 @@ class BackgroundUploadManager {
         })();
       };
 
-      xhr.onerror = () => {
-        void (async () => {
-          this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, "Network error");
-          fileInfo.stage = "failed";
-          await this.updateFileProgress(sessionId, fileInfo);
-          reject(new Error("Network error"));
-        })();
-      };
+    xhr.onerror = () => {
+      void (async () => {
+        const errorMsg = "Network error during upload. Check CORS configuration.";
+        this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, errorMsg);
+        fileInfo.stage = "failed";
+        await this.updateFileProgress(sessionId, fileInfo);
+        reject(new Error(errorMsg));
+      })();
+    };
 
       xhr.ontimeout = () => {
         void (async () => {

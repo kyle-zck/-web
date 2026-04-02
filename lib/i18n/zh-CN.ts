@@ -446,6 +446,7 @@ export const zhCN = {
       savingShort: "保存中...",
       tableLoading: "加载中…",
       networkErrorShort: "网络错误",
+      r2CorsError: "上传失败：R2 CORS 配置错误。请检查 Cloudflare R2 桶的 CORS 策略，或改用 HTTPS 直链导入视频。",
       sessionExpired: "登录已过期，请重新登录。",
       yes: "是",
       no: "否",

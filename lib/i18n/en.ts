@@ -492,6 +492,7 @@ export const en = {
       savingShort: "Saving...",
       tableLoading: "Loading…",
       networkErrorShort: "Network error",
+      r2CorsError: "Upload failed: R2 CORS configuration error. Please check Cloudflare R2 bucket CORS policy, or use HTTPS URL import for videos.",
       sessionExpired: "Session expired. Please sign in again.",
       yes: "Yes",
       no: "No",

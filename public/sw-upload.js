@@ -122,7 +122,15 @@ async function uploadFile(tabId, sessionId, fileIndex, uploadUrl, fileData, file
       // Network error — retry if attempts remain
       if (attempt < MAX_RETRIES) continue;
       activeUploads.delete(key);
-      throw err instanceof Error ? err : new Error(String(err));
+      // Provide a helpful error message for CORS issues
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const isCorsError = errMsg.includes("Failed to fetch") || 
+                          errMsg.includes("NetworkError") || 
+                          errMsg.includes("TypeError");
+      if (isCorsError) {
+        throw new Error("Upload failed: CORS error - check R2 bucket CORS configuration");
+      }
+      throw err instanceof Error ? err : new Error(errMsg);
     }
 
     clearTimeout(timeoutId);
