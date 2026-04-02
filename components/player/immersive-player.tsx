@@ -140,7 +140,7 @@ export function ImmersivePlayer({
   >(episode.videoStatus ?? "ready");
   const playbackCandidates = useMemo(
     () => buildMp4FirstCandidates(episode),
-    [episode]
+    [episode.id, episode.videoUrl, episode.videoPlaybackUrl, episode.videoStatus]
   );
   const playbackUrl = runtimePlaybackUrl;
   const hls = playbackUrlIndicatesHls(playbackUrl);

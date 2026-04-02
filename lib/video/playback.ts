@@ -9,6 +9,24 @@ function toPlayableUrl(raw: string): string {
   return proxifyR2DevMediaUrl(raw);
 }
 
+/** 判断 URL 是否需要追加代理兜底：直连 CDN/R2 且非代理 URL */
+function needsProxyFallback(raw: string): boolean {
+  if (typeof window === "undefined") return false;
+  const src = raw.trim();
+  if (!src) return false;
+  if (/^\/api\/video\/proxy\?/i.test(src)) return false;
+  // 相对路径不追加代理（直连 /videos/xxx.mp4 无跨域问题）
+  if (!/^https?:\/\//i.test(src)) return false;
+  // 同源 URL 不追加代理
+  try {
+    const u = new URL(src);
+    if (u.origin === window.location.origin) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** 归一化（S3 前缀等）后再套 R2 代理，与播放器候选列表一致 */
 export function resolveNormalizedPlayableUrl(raw: string): string {
   const n = normalizeAssetUrl(raw.trim()) ?? raw.trim();
@@ -16,7 +34,12 @@ export function resolveNormalizedPlayableUrl(raw: string): string {
 }
 
 /**
- * 播放器回退顺序：转码地址 → 原始地址；去重保留顺序。
+ * 播放器回退顺序：
+ *  1. videoPlaybackUrl（手动转码）→ 直连
+ *  2. videoUrl（原始 MP4）→ 直连
+ *  3. 直连全部失败兜底：/api/video/proxy?src=<主URL>
+ *
+ * 优先直连（低延迟），所有直连均失败后走服务端代理（可靠性兜底）。
  */
 export function buildEpisodePlaybackCandidates(episode: Episode): string[] {
   const parts: string[] = [];
@@ -27,7 +50,18 @@ export function buildEpisodePlaybackCandidates(episode: Episode): string[] {
     .map((item) => toPlayableUrl(item))
     .map((item) => item.trim())
     .filter(Boolean);
-  return Array.from(new Set(urls));
+
+  const unique = Array.from(new Set(urls));
+
+  // 追加代理兜底（仅追加一次，不重复）
+  const proxyCandidate = `/api/video/proxy?src=${encodeURIComponent(unique[0] ?? "")}`;
+    if (unique[0] && !unique.includes(proxyCandidate) && typeof self !== "undefined") {
+    if (needsProxyFallback(unique[0])) {
+      unique.push(proxyCandidate);
+    }
+  }
+
+  return unique;
 }
 
 /**

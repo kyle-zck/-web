@@ -252,7 +252,7 @@ PUBLIC_APP_CONFIG_REVALIDATE=180
 | 始终没有 Cache-Control | 看请求是否打到 **本地 dev**（部分行为与生产不完全一致）；以 **线上** 为准。 |
 | 列表还是慢 | 先查 **封面是否仍是 Base64**；再查 **数据库区域** 与 **R2 域名** 是否 HTTPS 可直连。 |
 | 视频仍然每次 MISS | Cloudflare Cache Rules 未创建或条件不匹配；确认 `Hostname` 与实际 R2 URL 域名一致。 |
-| `.mp4` 报 `net::ERR_CONNECTION_CLOSED`，Response headers 为 0 | 直连 `pub-*.r2.dev` 在部分网络会断连，或公网返回 403。在 **R2** 检查桶 **Public access** 与对象权限；或设 **`NEXT_PUBLIC_MEDIA_PROXY_FORCE=1`**（见 `.env.example`），让视频经本站 `/api/video/proxy` 用服务端凭证读取（流量走 Vercel，需 **Redeploy**）。 |
+| `.mp4` 报 `net::ERR_CONNECTION_CLOSED`，Response headers 为 0 | 默认策略已自动追加代理兜底，播放器会在直连失败后切换到 `/api/video/proxy`。如仍频繁出现建议绑定 **自定义域名** 到 R2 替代 `pub-*.r2.dev`；或临时设 **`NEXT_PUBLIC_MEDIA_PROXY_FORCE=1`** 强制全部走代理。 |
 
 ---
 

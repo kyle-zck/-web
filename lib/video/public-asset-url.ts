@@ -4,7 +4,7 @@ function baseUrl(): string {
   return (process.env.S3_PUBLIC_BASE_URL ?? "").trim().replace(/\/+$/, "");
 }
 
-/** 与 app/api/video/proxy 一致：仅允许 R2 公网域或 S3_PUBLIC_BASE_URL 对应主机 */
+/** 仅允许 R2 公网域或 S3_PUBLIC_BASE_URL 对应主机 */
 function isProxyableStorageHost(src: string): boolean {
   try {
     const parsed = new URL(src);
@@ -21,33 +21,11 @@ function isProxyableStorageHost(src: string): boolean {
   }
 }
 
-/** 视频/HLS 走代理时用（封面仍直连，避免 next/image 与代理双重路径） */
-function isVideoLikePathForProxy(src: string): boolean {
-  return /\.(mp4|m3u8|ts|webm)(\?.*)?$/i.test(src);
-}
-
 function shouldForceMediaProxy(src: string): boolean {
   return (
     process.env.NEXT_PUBLIC_MEDIA_PROXY_FORCE === "1" &&
-    isProxyableStorageHost(src) &&
-    isVideoLikePathForProxy(src)
+    isProxyableStorageHost(src)
   );
-}
-
-/**
- * pub-*.r2.dev 在部分网络下浏览器直连会 net::ERR_CONNECTION_CLOSED；
- * 默认让 MP4/HLS 等走同源 /api/video/proxy（服务端用凭证读 R2）。
- * 直连无问题的环境可设 NEXT_PUBLIC_MEDIA_DIRECT_R2=1 省 Vercel 出站流量。
- */
-function shouldProxyR2DevVideoDefault(src: string): boolean {
-  if (process.env.NEXT_PUBLIC_MEDIA_DIRECT_R2 === "1") return false;
-  try {
-    const parsed = new URL(src.trim());
-    if (!parsed.hostname.toLowerCase().endsWith(".r2.dev")) return false;
-    return isVideoLikePathForProxy(src);
-  } catch {
-    return false;
-  }
 }
 
 function toProxyUrl(src: string): string {
@@ -55,11 +33,19 @@ function toProxyUrl(src: string): string {
 }
 
 /**
- * 代理策略：
- * - 自定义 CDN（S3_PUBLIC_BASE_URL 非 r2.dev）：视频默认仍直连，省边缘一跳
- * - pub-*.r2.dev 上的视频：默认走 /api/video/proxy（避免客户端直连断连）
- * - NEXT_PUBLIC_MEDIA_PROXY_FORCE=1：在可代理主机上强制视频走代理（含自定义 CDN 主机）
- * - NEXT_PUBLIC_MEDIA_DIRECT_R2=1：关闭上述 r2.dev 视频默认代理
+ * 直连策略（默认）：
+ * - 图片（webp/jpg/png/gif/avif）：始终直连，不走代理
+ * - 视频（mp4/m3u8/ts/webm）：始终直连，不走代理
+ *
+ * 代理仅在以下情况使用：
+ * - 1. 预签名 URL（含有 signature/token/X-Amz- 参数）必须走代理
+ * - 2. NEXT_PUBLIC_MEDIA_PROXY_FORCE=1：强制所有媒体走代理（含自定义 CDN）
+ * - 3. 组件层面兜底：直连加载失败时自动切换到 /api/video/proxy
+ *
+ * 为什么不默认走代理：
+ * - 代理多一跳 Vercel，增加延迟和资源占用
+ * - 直连走 Cloudflare 边缘网络，延迟更低
+ * - 图片走 next/image 直连可吃到内置优化（webp/avif 转换、缓存）
  */
 export function proxifyR2DevMediaUrl(raw: string): string {
   const src = raw.trim();
@@ -67,20 +53,21 @@ export function proxifyR2DevMediaUrl(raw: string): string {
 
   const base = baseUrl();
   if (base) {
-    if (shouldForceMediaProxy(src)) {
-      return toProxyUrl(src);
-    }
-    if (shouldProxyR2DevVideoDefault(src)) {
-      return toProxyUrl(src);
-    }
-    return src;
-  }
-
-  if (/^https?:\/\/[^/]+\.r2\.dev\//i.test(src)) {
+    // 预签名 URL 必须走代理
     if (/[?&](?:signature|token|X-Amz-)=/i.test(src)) {
       return toProxyUrl(src);
     }
-    if (shouldProxyR2DevVideoDefault(src)) {
+    // 强制代理开关
+    if (shouldForceMediaProxy(src)) {
+      return toProxyUrl(src);
+    }
+    // 其余全部直连
+    return src;
+  }
+
+  // 无 base 配置时，仅预签名 URL 走代理
+  if (/^https?:\/\/[^/]+\.r2\.dev\//i.test(src)) {
+    if (/[?&](?:signature|token|X-Amz-)=/i.test(src)) {
       return toProxyUrl(src);
     }
     return src;
@@ -90,9 +77,9 @@ export function proxifyR2DevMediaUrl(raw: string): string {
 }
 
 export function normalizeAssetUrl(url?: string): string | undefined {
-  if (!url) return url;
+  if (!url) return undefined;
   const raw = url.trim();
-  if (!raw) return raw;
+  if (!raw) return undefined;
   if (/^(https?:)?\/\//i.test(raw)) return raw;
   if (/^(data:|blob:|file:)/i.test(raw)) return raw;
 
@@ -108,7 +95,7 @@ export function normalizeAssetUrl(url?: string): string | undefined {
   return raw;
 }
 
-/** 封面/缩略图等与视频一致：相对路径补全后再走 R2 代理，避免直链在客户端加载失败 */
+/** 封面/缩略图等：相对路径补全后直连，组件层做兜底 */
 function normalizeImageField(url?: string): string {
   const raw = (url ?? "").trim();
   if (!raw) return "";
@@ -123,12 +110,12 @@ export function resolvePublicImageUrl(raw: string): string {
 
 export function normalizeSeriesPublicUrls(series: Series): Series {
   const episodes: Episode[] = (series.episodes ?? []).map((ep) => {
-    const vu = normalizeAssetUrl(ep.videoUrl) ?? ep.videoUrl;
+    const vu = normalizeAssetUrl(ep.videoUrl);
     const vpu = normalizeAssetUrl(ep.videoPlaybackUrl);
     return {
       ...ep,
-      videoUrl: vu ? proxifyR2DevMediaUrl(vu) : vu,
-      videoPlaybackUrl: vpu ? proxifyR2DevMediaUrl(vpu) : ep.videoPlaybackUrl,
+      videoUrl: vu ? proxifyR2DevMediaUrl(vu) : (vu ?? ep.videoUrl ?? ""),
+      videoPlaybackUrl: vpu ? proxifyR2DevMediaUrl(vpu) : (vpu ?? ep.videoPlaybackUrl ?? ""),
       thumbnail: normalizeImageField(ep.thumbnail)
     };
   });
@@ -139,4 +126,3 @@ export function normalizeSeriesPublicUrls(series: Series): Series {
     episodes
   };
 }
-

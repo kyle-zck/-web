@@ -1,6 +1,9 @@
-# 生产环境：封面用 HTTPS（S3/R2）+ 前台 API 与静态资源缓存
+# 生产环境：封面用 HTTPS（S3/R2）+ 前台 API 与静态资源缓存 + 媒体直连策略
 
-本文说明：**如何把封面/海报从超大 Base64 改为对象存储 URL**，以及 **如何加大 `/api/series` 等缓存**（配合 CDN / Vercel Edge）。
+本文说明：
+1. **如何把封面/海报从超大 Base64 改为对象存储 URL**
+2. **如何加大 `/api/series` 等缓存**（配合 CDN / Vercel Edge）
+3. **视频/图片加载策略**：默认直连、代理做兜底
 
 **→ 想按「一步步点击操作」来做**：请看 **[《加载慢 — 一步步优化操作指南》](./PERF-OPTIMIZATION-STEPS.md)**（含 Network 自检、环境变量、R2 配置顺序）。
 
@@ -101,7 +104,45 @@ S3_PUBLIC_BASE_URL=https://cdn.yourdomain.com
 
 ---
 
-## 五、检查清单（上线前）
+## 五、视频/图片加载策略：优先直连，代理兜底
+
+### 策略说明
+
+代码按以下优先级加载视频和图片：
+
+**视频（mp4 / m3u8 / ts）：**
+1. 首选：直连 CDN/R2 URL（最低延迟）
+2. 兜底：自动切换到 `/api/video/proxy?src=…`（服务端凭证读取，可靠性优先）
+
+**图片（webp / jpg / png）：**
+1. 首选：直连 CDN/R2 URL（走 `next/image` 优化：WebP/Avif 转换 + 响应式 srcset）
+2. 兜底：直连失败时自动切换到 `/api/video/proxy?src=…`
+
+### 为什么默认直连？
+
+- 直连走 **Cloudflare 边缘网络**，比经过 Vercel 服务端代理延迟更低
+- 图片直连可被 `next/image` 吃到内置 WebP/Avif 转换和 CDN 缓存优化
+- 视频直连带宽不走 Vercel serverless，减少 Vercel 出站费用
+
+### 何时会走代理？
+
+| 场景 | 是否走代理 | 原因 |
+|------|-----------|------|
+| 预签名 URL（含 `signature`/`token`/`X-Amz-` 参数） | ✅ 是 | 凭证不能暴露到客户端 |
+| `NEXT_PUBLIC_MEDIA_PROXY_FORCE=1` | ✅ 是 | 强制所有媒体走代理 |
+| 直连加载失败（网络断连、403 等） | ✅ 是（自动切换） | 组件层 fallback |
+
+### 常见问题
+
+| 问题 | 解决方式 |
+|------|----------|
+| `net::ERR_CONNECTION_CLOSED` | 视频会自动切换到代理兜底；如频繁出现建议绑定自定义域名到 R2 |
+| 图片加载失败 | `next/image` 的 `onError` 会自动切换 chain 下一项（最终到 `/api/video/proxy`） |
+| 预签名 URL 被缓存 | 预签名 URL 有时效，建议上传时直接用无凭证的公开 URL |
+
+---
+
+## 六、检查清单（上线前）
 
 - [ ] `S3_*` 已配齐，`S3_PUBLIC_BASE_URL` 为 **HTTPS** 且浏览器可直接打开一张测试图 URL。
 - [ ] 新上传封面的剧目，`cover`/`poster` **不是** `data:image/...`。
