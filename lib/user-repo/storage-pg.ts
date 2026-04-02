@@ -214,17 +214,21 @@ async function initIfNeeded() {
     CREATE INDEX IF NOT EXISTS idx_payment_events_uid ON payment_events(uid);
 
     -- RLS: idempotent (safe to re-run on each cold start)
+    -- FORCE ROW LEVEL SECURITY so even table owner obeys RLS (critical for webhook/service-role path)
     ALTER TABLE payment_events ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE payment_events FORCE ROW LEVEL SECURITY;
+    -- INSERT: auth.uid must match the uid column (prevents inserting arbitrary events via API)
     DROP POLICY IF EXISTS payment_events_insert_authenticated ON payment_events;
     CREATE POLICY payment_events_insert_authenticated
       ON payment_events FOR INSERT
       TO authenticated
-      WITH CHECK (true);
+      WITH CHECK (auth.uid()::text = uid);
+    -- SELECT: auth.uid must match the uid column (users only see their own payment events)
     DROP POLICY IF EXISTS payment_events_select_authenticated ON payment_events;
     CREATE POLICY payment_events_select_authenticated
       ON payment_events FOR SELECT
       TO authenticated
-      USING (true);
+      USING (auth.uid()::text = uid);
   `);
   initialized = true;
 }
