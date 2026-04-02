@@ -87,7 +87,9 @@ export default function ProfilePage() {
   }, []);
 
   useEffect(() => {
-    fetchUid().then(() => {});
+    fetchUid().catch((err) => {
+      console.warn("[profile] fetchUid failed:", err);
+    });
   }, [isLoggedIn, userId, fetchUid]);
 
   // 会员状态以服务端为准：避免“后台已删除会员，但前端仍显示 Active（persist 缓存）”
@@ -218,6 +220,20 @@ export default function ProfilePage() {
     () => new Map(seriesList.map((s) => [s.id, s] as const)),
     [seriesList]
   );
+
+  const watchedHistoryWithArtwork = useMemo(() => {
+    return watchedHistory.map((row) => ({
+      ...row,
+      artworkChain: getSeriesArtworkChain(row.series)
+    }));
+  }, [watchedHistory]);
+
+  const favoriteSeriesWithArtwork = useMemo(() => {
+    return favoriteSeries.map((s) => ({
+      ...s,
+      artworkChain: getSeriesArtworkChain(s)
+    }));
+  }, [favoriteSeries]);
 
   const watchedHistory = useMemo(() => {
     // History 同步后优先展示服务端口径；无服务端数据时回落到本地 progressSeconds。
@@ -351,11 +367,8 @@ export default function ProfilePage() {
               {t("common.profile.watchedHistory")}
             </p>
             <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {watchedHistory.length ? (
-                watchedHistory.map((row) => (
-                  (() => {
-                    const artworkChain = getSeriesArtworkChain(row.series);
-                    return (
+              {watchedHistoryWithArtwork.length ? (
+                watchedHistoryWithArtwork.map((row) => (
                   <button
                     key={`${row.series.id}-${row.episode.id}`}
                     type="button"
@@ -368,7 +381,7 @@ export default function ProfilePage() {
                   >
                     <div className="relative poster-aspect overflow-hidden rounded-xl bg-zinc-900 transition-transform duration-200 group-hover:scale-[1.02] group-hover:shadow-[0_0_24px_rgba(229,9,20,0.25)]">
                       <PosterImage
-                        chain={artworkChain}
+                        chain={row.artworkChain}
                         alt={getSeriesI18nText(row.series, lang).title}
                         sizes="(max-width:640px) min(46vw, 200px), (max-width:1024px) min(28vw, 180px), 200px"
                         className="h-full w-full object-cover object-[center_22%]"
@@ -387,8 +400,6 @@ export default function ProfilePage() {
                       </div>
                     </div>
                   </button>
-                    );
-                  })()
                 ))
               ) : (
                 <div className="col-span-full flex flex-col items-center justify-center rounded-xl border border-zinc-700/80 bg-zinc-900/30 py-16">
@@ -411,11 +422,8 @@ export default function ProfilePage() {
               {t("common.profile.likedShows")}
             </p>
             <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {favoriteSeries.length ? (
-                favoriteSeries.map((series) => (
-                  (() => {
-                    const artworkChain = getSeriesArtworkChain(series);
-                    return (
+              {favoriteSeriesWithArtwork.length ? (
+                favoriteSeriesWithArtwork.map((series) => (
                   <button
                     key={series.id}
                     type="button"
@@ -424,7 +432,7 @@ export default function ProfilePage() {
                   >
                     <div className="relative poster-aspect overflow-hidden rounded-xl bg-zinc-900 transition-transform duration-200 group-hover:scale-[1.02] group-hover:shadow-[0_0_24px_rgba(229,9,20,0.25)]">
                       <PosterImage
-                        chain={artworkChain}
+                        chain={series.artworkChain}
                         alt={getSeriesI18nText(series, lang).title}
                         sizes="(max-width:640px) min(46vw, 200px), (max-width:1024px) min(28vw, 180px), 200px"
                         className="h-full w-full object-cover object-[center_22%]"
@@ -440,8 +448,6 @@ export default function ProfilePage() {
                       </div>
                     </div>
                   </button>
-                    );
-                  })()
                 ))
               ) : (
                 <div className="col-span-full flex flex-col items-center justify-center rounded-xl border border-zinc-700/80 bg-zinc-900/30 py-16">

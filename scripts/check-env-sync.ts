@@ -79,7 +79,7 @@ async function fetchPgSeriesCount(): Promise<number> {
   });
 
   try {
-    const { rows } = await pool.query(`SELECT COUNT(*) as count FROM drama_series`);
+    const { rows } = await pool.query(`SELECT COUNT(*) as count FROM series`);
     return parseInt(rows[0].count as string, 10);
   } catch {
     return 0;

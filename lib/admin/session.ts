@@ -9,6 +9,17 @@ export const SESSION_TTL_MS = 10 * 60 * 1000;
 function jwtSecretKey(): Uint8Array {
   const raw =
     process.env.ADMIN_SESSION_SECRET ?? process.env.ADMIN_KEY ?? "development-only";
+  // In production (Vercel), a missing secret is a deployment error — fail loudly instead of
+  // falling back to a predictable value that allows anyone to forge admin tokens.
+  if (
+    (process.env.NODE_ENV === "production" || process.env.VERCEL === "1") &&
+    raw === "development-only"
+  ) {
+    throw new Error(
+      "[admin-session] ADMIN_SESSION_SECRET or ADMIN_KEY must be set in production. " +
+        "Refusing to use a default secret to prevent token forgery."
+    );
+  }
   const enc = new TextEncoder().encode(raw);
   const out = new Uint8Array(32);
   if (enc.length >= 32) {

@@ -28,7 +28,7 @@ function createProgressStream(blob, { onProgress, totalBytes, throttleMs = PROGR
       const now = Date.now();
       const isLast = bytesRead >= totalBytes;
       if (isLast || now - lastBroadcastAt >= throttleMs) {
-        const percent = Math.min(99, Math.round((bytesRead / totalBytes) * 100));
+        const percent = Math.min(100, Math.round((bytesRead / totalBytes) * 100));
         onProgress(bytesRead, totalBytes, percent);
         lastBroadcastAt = now;
       }
@@ -62,6 +62,9 @@ function broadcastProgress(tabId, message) {
 }
 
 async function uploadFile(tabId, sessionId, fileIndex, uploadUrl, fileData, fileName, fileType) {
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY_BASE_MS = 1000;
+
   const controller = new AbortController();
   const key = `${tabId}-${sessionId}-${fileIndex}`;
   activeUploads.set(key, { controller, fileData, fileName });
@@ -69,69 +72,91 @@ async function uploadFile(tabId, sessionId, fileIndex, uploadUrl, fileData, file
   const blob = new Blob([fileData], { type: fileType || "video/mp4" });
   const totalBytes = blob.size;
 
-  // AbortController drives timeout — clears itself on success/error/abort
-  const timeoutMs = 300_000;
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-  }, timeoutMs);
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      // Exponential backoff before retrying
+      const delay = RETRY_DELAY_BASE_MS * Math.pow(2, attempt - 1);
+      await new Promise((r) => setTimeout(r, delay));
+    }
 
-  // Create the progress-aware stream; abort signal stops the fetch body mid-flight
-  const bodyStream = createProgressStream(blob, {
-    totalBytes,
-    onProgress: (bytesRead, _total, percent) => {
+    // AbortController drives timeout — clears itself on success/error/abort
+    const timeoutMs = 300_000;
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, timeoutMs);
+
+    // Create the progress-aware stream; abort signal stops the fetch body mid-flight
+    const bodyStream = createProgressStream(blob, {
+      totalBytes,
+      onProgress: (bytesRead, _total, percent) => {
+        broadcastProgress(tabId, {
+          type: "progress",
+          sessionId,
+          fileIndex,
+          percent,
+          bytesRead,
+          totalBytes,
+        });
+      },
+    });
+
+    let res;
+    try {
+      res = await fetch(uploadUrl, {
+        method: "PUT",
+        body: bodyStream,
+        // Chromium (incl. SW): ReadableStream body requires duplex — otherwise throws
+        // "The `duplex` member must be specified for a request with a streaming body"
+        duplex: "half",
+        headers: {
+          "Content-Type": fileType || "video/mp4",
+          "Content-Length": String(totalBytes),
+        },
+        signal: controller.signal,
+      });
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err && err.name === "AbortError") {
+        throw new Error("Upload aborted or timed out");
+      }
+      // Network error — retry if attempts remain
+      if (attempt < MAX_RETRIES) continue;
+      activeUploads.delete(key);
+      throw err instanceof Error ? err : new Error(String(err));
+    }
+
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
       broadcastProgress(tabId, {
         type: "progress",
         sessionId,
         fileIndex,
-        percent,
-        bytesRead,
+        percent: 100,
+        bytesRead: totalBytes,
         totalBytes,
       });
-    },
-  });
-
-  let res;
-  try {
-    res = await fetch(uploadUrl, {
-      method: "PUT",
-      body: bodyStream,
-      headers: {
-        "Content-Type": fileType || "video/mp4",
-        // Required by R2 CORS when body is a stream (avoids preflight)
-        "Content-Length": String(totalBytes),
-      },
-      signal: controller.signal,
-    });
-  } catch (err) {
-    clearTimeout(timeoutId);
-    activeUploads.delete(key);
-    if (err && err.name === "AbortError") {
-      throw new Error("Upload aborted or timed out");
+      const key2 = extractKeyFromUrl(uploadUrl);
+      const publicUrl = extractPublicUrl(uploadUrl);
+      activeUploads.delete(key);
+      return { publicUrl, key: key2 };
     }
-    throw err instanceof Error ? err : new Error(String(err));
+
+    const hint = await res.text().catch(() => "");
+    // Non-OK response (4xx/5xx) — retry on 5xx server errors only
+    if (res.status >= 500 && attempt < MAX_RETRIES) {
+      activeUploads.delete(key);
+      continue;
+    }
+    activeUploads.delete(key);
+    throw new Error(
+      `Upload failed: ${res.status}${hint ? ` ${hint.slice(0, 200)}` : ""}`
+    );
   }
 
-  clearTimeout(timeoutId);
+  // Should never reach here, but safety fallback
   activeUploads.delete(key);
-
-  if (res.ok) {
-    broadcastProgress(tabId, {
-      type: "progress",
-      sessionId,
-      fileIndex,
-      percent: 100,
-      bytesRead: totalBytes,
-      totalBytes,
-    });
-    const key2 = extractKeyFromUrl(uploadUrl);
-    const publicUrl = extractPublicUrl(uploadUrl);
-    return { publicUrl, key: key2 };
-  }
-
-  const hint = await res.text().catch(() => "");
-  throw new Error(
-    `Upload failed: ${res.status}${hint ? ` ${hint.slice(0, 200)}` : ""}`
-  );
+  throw new Error("Upload failed after max retries");
 }
 
 function extractKeyFromUrl(url) {

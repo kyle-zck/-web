@@ -23,7 +23,13 @@ export function StoragePathDrawer({ open, onClose }: StoragePathDrawerProps) {
 
   const load = async () => {
     try {
-      const res = await fetch("/admin/api/storage-paths");
+      const ctrl = new AbortController();
+      const tid = window.setTimeout(() => ctrl.abort(), 8000);
+      const res = await fetch("/admin/api/storage-paths", {
+        signal: ctrl.signal,
+        credentials: "include"
+      });
+      window.clearTimeout(tid);
       const json = await res.json();
       if (json?.ok && Array.isArray(json.paths)) {
         setPaths(json.paths);
@@ -71,7 +77,12 @@ export function StoragePathDrawer({ open, onClose }: StoragePathDrawerProps) {
   const addPath = () => {
     setPaths([
       ...paths,
-      { id: `p${Date.now()}`, name: t("common.admin.newPathDefault"), baseUrl: "", enabled: true }
+      {
+        id: `p${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        name: t("common.admin.newPathDefault"),
+        baseUrl: "",
+        enabled: true
+      }
     ]);
   };
 

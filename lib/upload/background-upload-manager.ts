@@ -519,7 +519,12 @@ class BackgroundUploadManager {
     data: ArrayBuffer,
     fileType: string
   ): Promise<void> {
-    if (!fileInfo.uploadUrl) return;
+    if (!fileInfo.uploadUrl) {
+      fileInfo.stage = "failed";
+      await this.updateFileProgress(sessionId, fileInfo);
+      this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, "Missing upload URL");
+      return;
+    }
 
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();

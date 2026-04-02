@@ -57,6 +57,13 @@ export function ContinueWatching() {
     return rows.slice(0, 6);
   }, [progressSeconds, seriesById]);
 
+  const watchedWithArtwork = useMemo(() => {
+    return watched.map((row) => ({
+      ...row,
+      artworkChain: getSeriesArtworkChain(row.series)
+    }));
+  }, [watched]);
+
   if (!watched.length) return null;
 
   return (
@@ -82,10 +89,7 @@ export function ContinueWatching() {
               : undefined
           }
         >
-        {watched.map((row) => (
-          (() => {
-            const artworkChain = getSeriesArtworkChain(row.series);
-            return (
+        {watchedWithArtwork.map((row) => (
           <div
             key={`${row.series.id}-${row.episode.id}`}
             className="home-poster-cell min-w-0"
@@ -95,7 +99,6 @@ export function ContinueWatching() {
               prefetch={false}
               onMouseEnter={() => router.prefetch(`/series/${row.series.id}`)}
               onClick={() => {
-                // Keep client state in sync for the player component
                 setSeries(row.series.id);
                 setEpisodeIndex(row.episode.index);
               }}
@@ -103,7 +106,7 @@ export function ContinueWatching() {
             >
               <div className="poster-card-drama relative poster-aspect transition-transform duration-200 group-hover:scale-[1.02] group-hover:shadow-[0_0_36px_rgba(229,9,20,0.2)]">
                 <PosterImage
-                  chain={artworkChain}
+                  chain={row.artworkChain}
                   alt={getSeriesI18nText(row.series, lang).title}
                   sizes="(max-width:1023px) 120px, min(18vw, 200px)"
                   className="poster-card-drama__img"
@@ -133,8 +136,6 @@ export function ContinueWatching() {
               {getSeriesI18nText(row.series, lang).title}
             </p>
           </div>
-            );
-          })()
         ))}
         </div>
       </div>

@@ -14,7 +14,7 @@ export default function AdminFavoritesPage() {
     setLoadError(null);
     const ctrl = new AbortController();
     const timer = window.setTimeout(() => ctrl.abort(), 10000);
-    fetch("/admin/api/favorites", { signal: ctrl.signal, cache: "no-store" })
+    fetch("/admin/api/favorites", { signal: ctrl.signal, cache: "no-store", credentials: "include" })
       .then((r) => r.json())
       .then((json) => {
         if (json?.ok && json.byClient) {

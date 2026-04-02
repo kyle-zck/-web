@@ -72,7 +72,7 @@ export default function AdminUsersPage() {
     setLoadError(null);
     const ctrl = new AbortController();
     const timer = window.setTimeout(() => ctrl.abort(), 10000);
-    fetch(`/admin/api/users${qs}`, { signal: ctrl.signal, cache: "no-store" })
+    fetch(`/admin/api/users${qs}`, { signal: ctrl.signal, cache: "no-store", credentials: "include" })
       .then((r) => r.json())
       .then((json) => {
         if (json?.ok && Array.isArray(json.users)) {

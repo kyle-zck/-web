@@ -21,7 +21,7 @@ export default function AdminHistoryPage() {
     setLoadError(null);
     const ctrl = new AbortController();
     const timer = window.setTimeout(() => ctrl.abort(), 10000);
-    fetch("/admin/api/history", { signal: ctrl.signal, cache: "no-store" })
+    fetch("/admin/api/history", { signal: ctrl.signal, cache: "no-store", credentials: "include" })
       .then((r) => r.json())
       .then((json) => {
         if (json?.ok && json.byClient) {

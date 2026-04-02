@@ -29,9 +29,9 @@ export default function AdminViewsPage() {
     setLoading(true);
     setLoadError(null);
     const safeJson = (url: string) =>
-      fetch(url, { signal: ctrl.signal, cache: "no-store" })
-        .then((r) => r.json())
-        .catch(() => ({}));
+    fetch(url, { signal: ctrl.signal, cache: "no-store", credentials: "include" })
+      .then((r) => r.json())
+      .catch(() => ({}));
     Promise.all([
       safeJson("/admin/api/history"),
       safeJson("/admin/api/favorites"),
