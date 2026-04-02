@@ -76,7 +76,9 @@ function getPool(): Pool {
     ssl:
       url.includes("localhost") || url.includes("127.0.0.1")
         ? undefined
-        : { rejectUnauthorized: false }
+        : { rejectUnauthorized: false },
+    max: 10,
+    idleTimeoutMillis: 15_000,
   });
   return pool;
 }
@@ -299,8 +301,6 @@ export async function touchGuestLogin(params: {
 }): Promise<void> {
   await initIfNeeded();
   const { clientId, ip, userAgent } = params;
-  const uid = await getUidByClientId(clientId);
-  if (!uid) return;
   const deviceType = detectDeviceType(userAgent);
   await getPool().query(
     `
@@ -309,9 +309,9 @@ export async function touchGuestLogin(params: {
       last_login_ip = $2,
       device_type = $3,
       updated_at = NOW()
-    WHERE uid = $1
+    WHERE uid = (SELECT uid FROM app_user_profiles WHERE client_id = $1)
     `,
-    [uid, emptyStr(ip), deviceType]
+    [clientId, emptyStr(ip), deviceType]
   );
 }
 
@@ -642,29 +642,28 @@ export async function syncWatchHistory(
   await initIfNeeded();
   const db = getPool();
   await db.query(`DELETE FROM watch_history_entries WHERE client_id = $1`, [clientId]);
-  // 去重并兜底并发重复写：同一 (series, episode) 只保留最后时间，避免主键冲突
   const dedup = new Map<string, WatchHistoryEntry>();
   for (const e of entries) {
     const key = `${e.seriesId}::${e.episodeIndex}`;
     dedup.set(key, e);
   }
+  if (dedup.size === 0) return;
+  const vals = [...dedup.values()]
+    .map((e, i) => `($1, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4}, $${i * 4 + 5})`)
+    .join(", ");
+  const flat = [clientId];
   for (const e of dedup.values()) {
-    await db.query(
-      `INSERT INTO watch_history_entries
-        (client_id, series_id, episode_index, seconds, last_watched_at)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (client_id, series_id, episode_index) DO UPDATE SET
-         seconds = EXCLUDED.seconds,
-         last_watched_at = EXCLUDED.last_watched_at`,
-      [
-        clientId,
-        e.seriesId,
-        e.episodeIndex,
-        e.seconds,
-        new Date(e.lastWatchedAt)
-      ]
-    );
+    flat.push(e.seriesId, String(e.episodeIndex), String(e.seconds), new Date(e.lastWatchedAt).toISOString());
   }
+  await db.query(
+    `INSERT INTO watch_history_entries
+       (client_id, series_id, episode_index, seconds, last_watched_at)
+     VALUES ${vals}
+     ON CONFLICT (client_id, series_id, episode_index) DO UPDATE SET
+       seconds = EXCLUDED.seconds,
+       last_watched_at = EXCLUDED.last_watched_at`,
+    flat
+  );
 }
 
 export async function getAllWatchHistory(): Promise<Record<string, WatchHistoryEntry[]>> {
@@ -700,12 +699,12 @@ export async function syncUserFavorites(clientId: string, seriesIds: string[]): 
   await initIfNeeded();
   const db = getPool();
   await db.query(`DELETE FROM user_favorites WHERE client_id = $1`, [clientId]);
-  for (const sid of seriesIds) {
-    await db.query(
-      `INSERT INTO user_favorites (client_id, series_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-      [clientId, sid]
-    );
-  }
+  if (seriesIds.length === 0) return;
+  const vals = seriesIds.map((_, i) => `($1, $${i + 2})`).join(", ");
+  await db.query(
+    `INSERT INTO user_favorites (client_id, series_id) VALUES ${vals} ON CONFLICT DO NOTHING`,
+    [clientId, ...seriesIds]
+  );
 }
 
 export async function getAllUserFavorites(): Promise<Record<string, string[]>> {
