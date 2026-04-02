@@ -296,6 +296,8 @@ export default function AdminDramaUploadPage() {
         ...prev.backgroundSessions,
         {
           id: sessionId,
+          ownerTabId: null,
+          lastHeartbeat: Date.now(),
           formData: {
             title: form.title.trim(),
             originalName: form.originalName.trim(),
@@ -308,7 +310,7 @@ export default function AdminDramaUploadPage() {
             uploadVideoMode: form.uploadVideoMode,
             listed: form.listed
           },
-          files: sortedVideos.map((v, idx) => ({
+          files: sortedVideos.map((v) => ({
             fileName: v.file.name,
             fileSize: v.file.size,
             fileType: v.file.type || "video/mp4",
@@ -328,7 +330,8 @@ export default function AdminDramaUploadPage() {
     setShowBgUploadsPanel(true);
     showToast(t("common.admin.bgUploadStarted"), "info");
     setSubmitting(false);
-  }, [form, tags, bgUpload.isEnabled, t]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, tags, bgUpload.isEnabled, t, validate, checkDuplicate]);
 
   const handleBgUploadRemove = useCallback(async (sessionId: string) => {
     await backgroundUploadManager.cancelUpload(sessionId);
