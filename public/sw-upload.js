@@ -79,54 +79,79 @@ function broadcastProgress(tabId, message) {
 }
 
 /**
- * Uploads a Blob via XMLHttpRequest to the presigned URL.
- * XHR uses HTTP/1.1 unconditionally — avoids ALPN negotiation failures that
- * fetch-based streaming PUTs encounter with R2's CDN.
+ * Uploads a Blob via fetch to the presigned URL.
+ * Uses a plain ArrayBuffer body (not a ReadableStream) to avoid HTTP/2 ALPN
+ * negotiation failures that streaming PUT bodies trigger with R2's CDN.
  * Reports progress via onProgress callback; aborts via AbortController.
  * Returns the response on success, throws on failure.
  */
-function xhrUpload(blob, uploadUrl, fileType, timeoutMs, controller, onProgress) {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    const timeoutId = setTimeout(() => {
-      xhr.abort();
-      controller.abort();
-    }, timeoutMs);
+async function fetchUpload(blob, uploadUrl, fileType, timeoutMs, controller, onProgress) {
+  const headers = { "Content-Type": fileType || "video/mp4" };
 
-    xhr.open("PUT", uploadUrl, true);
-    xhr.setRequestHeader("Content-Type", fileType || "video/mp4");
+  // Use XMLHttpRequest for progress reporting + HTTP/1.1 (available in main thread
+  // and dedicated workers — we fall back to fetch-only when XHR is unavailable).
+  if (typeof XMLHttpRequest !== "undefined") {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const timeoutId = setTimeout(() => {
+        xhr.abort();
+        controller.abort();
+      }, timeoutMs);
 
-    xhr.upload.onprogress = (evt) => {
-      if (evt.lengthComputable) {
-        onProgress(evt.loaded, evt.total, Math.round((evt.loaded / evt.total) * 100));
-      }
-    };
+      xhr.open("PUT", uploadUrl, true);
+      xhr.setRequestHeader("Content-Type", fileType || "video/mp4");
 
-    xhr.onload = () => {
-      clearTimeout(timeoutId);
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve(xhr);
-      } else {
-        reject(new Error(`HTTP ${xhr.status}`));
-      }
-    };
+      xhr.upload.onprogress = (evt) => {
+        if (evt.lengthComputable) {
+          onProgress(evt.loaded, evt.total, Math.round((evt.loaded / evt.total) * 100));
+        }
+      };
 
-    xhr.onerror = () => {
-      clearTimeout(timeoutId);
-      reject(new Error("Network error during upload"));
-    };
+      xhr.onload = () => {
+        clearTimeout(timeoutId);
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(xhr);
+        } else {
+          reject(new Error(`HTTP ${xhr.status}`));
+        }
+      };
 
-    xhr.ontimeout = () => {
-      clearTimeout(timeoutId);
-      reject(new Error("Upload timed out"));
-    };
+      xhr.onerror = () => {
+        clearTimeout(timeoutId);
+        reject(new Error("Network error during upload"));
+      };
 
-    controller.signal.addEventListener("abort", () => {
-      xhr.abort();
+      xhr.ontimeout = () => {
+        clearTimeout(timeoutId);
+        reject(new Error("Upload timed out"));
+      };
+
+      controller.signal.addEventListener("abort", () => xhr.abort(), { once: true });
+
+      xhr.send(blob);
     });
+  }
 
-    xhr.send(blob);
-  });
+  // Service Worker fallback: fetch with plain ArrayBuffer (no streaming, avoids ALPN).
+  // Progress is estimated since fetch doesn't expose upload progress.
+  const arrayBuffer = await blob.arrayBuffer();
+  onProgress(0, arrayBuffer.byteLength, 0);
+
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(uploadUrl, {
+      method: "PUT",
+      body: arrayBuffer,
+      headers,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    onProgress(arrayBuffer.byteLength, arrayBuffer.byteLength, 100);
+    return res;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
+  }
 }
 
 async function uploadFile(tabId, sessionId, fileIndex, uploadUrl, fileData, fileName, fileType) {
@@ -146,7 +171,7 @@ async function uploadFile(tabId, sessionId, fileIndex, uploadUrl, fileData, file
     }
 
     try {
-      await xhrUpload(blob, uploadUrl, fileType || "video/mp4", UPLOAD_TIMEOUT_MS, controller, (bytesRead, _total, percent) => {
+      await fetchUpload(blob, uploadUrl, fileType || "video/mp4", UPLOAD_TIMEOUT_MS, controller, (bytesRead, _total, percent) => {
         broadcastProgress(tabId, {
           type: "progress",
           sessionId,
