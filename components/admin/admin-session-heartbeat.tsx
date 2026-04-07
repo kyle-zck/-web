@@ -20,6 +20,8 @@ export function AdminSessionHeartbeat() {
   }, [ping]);
 
   useEffect(() => {
+    // Ping every 2 min when tab is active so the user stays logged in even if idle.
+    // JWT is 7 days; this is just for the server-side session bookkeeping.
     const id = setInterval(ping, 2 * 60 * 1000);
     window.addEventListener("click", onActivity);
     window.addEventListener("keydown", onActivity);

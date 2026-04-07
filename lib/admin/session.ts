@@ -3,8 +3,8 @@ import { SignJWT, jwtVerify } from "jose";
 /** 与 middleware / API 共用的 Cookie 名 */
 export const SESSION_COOKIE = "admin_session";
 
-/** 会话有效期：10 分钟（每次请求在 middleware 中滚动续期） */
-export const SESSION_TTL_MS = 10 * 60 * 1000;
+/** 会话有效期：7 天（每次请求在 middleware 中滚动续期） */
+export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 function jwtSecretKey(): Uint8Array {
   const raw =
@@ -50,12 +50,13 @@ export async function verifySessionToken(token: string): Promise<boolean> {
   }
 }
 
-/** 不设 maxAge = 浏览器会话 Cookie，关闭浏览器后清除（与 JWT 10 分钟内过期配合） */
+/** 7 天有效期，配合 SESSION_TTL_MS 滚动续期 */
 export function sessionCookieOptions(): {
   httpOnly: boolean;
   sameSite: "lax";
   path: string;
   secure: boolean;
+  maxAge: number;
 } {
   const secure =
     process.env.NODE_ENV === "production" || process.env.VERCEL === "1";
@@ -63,6 +64,7 @@ export function sessionCookieOptions(): {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
-    secure
+    secure,
+    maxAge: SESSION_TTL_MS / 1000
   };
 }

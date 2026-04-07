@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createSessionToken, SESSION_COOKIE, verifySessionToken } from "@/lib/admin/session";
+import { createSessionToken, SESSION_COOKIE, SESSION_TTL_MS, verifySessionToken } from "@/lib/admin/session";
 
 function cookieOpts() {
   const secure =
@@ -9,7 +9,8 @@ function cookieOpts() {
     httpOnly: true,
     sameSite: "lax" as const,
     path: "/",
-    secure
+    secure,
+    maxAge: SESSION_TTL_MS / 1000
   };
 }
 
