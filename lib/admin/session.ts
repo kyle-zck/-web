@@ -1,10 +1,15 @@
 import { SignJWT, jwtVerify } from "jose";
 
-/** 与 middleware / API 共用的 Cookie 名 */
+/**
+ * 与 middleware / API 共用的 Cookie 名
+ */
 export const SESSION_COOKIE = "admin_session";
 
-/** 会话有效期：7 天（每次请求在 middleware 中滚动续期） */
-export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/**
+ * 会话有效期：30 天（middleware 每次请求滚动续期。
+ * 用户无操作时最多 idle 30 天才需重新登录。）
+ */
+export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 function jwtSecretKey(): Uint8Array {
   const raw =
@@ -50,7 +55,7 @@ export async function verifySessionToken(token: string): Promise<boolean> {
   }
 }
 
-/** 7 天有效期，配合 SESSION_TTL_MS 滚动续期 */
+/** Cookie 有效期 30 天（与 JWT SESSION_TTL_MS 保持一致） */
 export function sessionCookieOptions(): {
   httpOnly: boolean;
   sameSite: "lax";
