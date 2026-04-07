@@ -13,6 +13,7 @@ const UPLOAD_TIMEOUT_MS = 300_000;
  * 'network' for transient network issues (retry allowed),
  * 'abort' for user-initiated cancellation (no retry, no error message),
  * 'timeout' for timeout (retry allowed),
+ * 'http' for HTTP 4xx/5xx responses (retry 5xx only),
  * 'other' for unknown errors (no retry).
  */
 function classifyError(err) {
@@ -21,43 +22,39 @@ function classifyError(err) {
 
   const msg = err instanceof Error ? err.message : String(err);
 
-  // CORS / preflight failures — the browser was blocked by CORS policy
-  // More specific than "Failed to fetch" — only match actual CORS-related messages
+  // CORS / preflight failures — the browser was blocked before reaching the server
   const corsPatterns = [
     "has been blocked by CORS policy",
     "CORS request blocked",
     "origin is not allowed by",
     "Not allowed by Access-Control-Allow",
+    "No 'Access-Control-Allow-Origin'",
+    "Response for preflight",
+    "has been blocked by",
   ];
   if (corsPatterns.some((p) => msg.includes(p))) {
     return "cors";
   }
 
-  // Broad "Failed to fetch" catches many things: ALPN, network, CORS, mixed-content, etc.
-  // We only treat it as CORS when it comes with CORS-specific context;
-  // otherwise classify it as network (retriable) or defer to other patterns below.
-  if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
-    // Distinguish "no network" from other fetch failures
-    const networkPatterns = [
-      "net::ERR_CONNECTION_REFUSED",
-      "net::ERR_NAME_NOT_RESOLVED",
-      "net::ERR_INTERNET_DISCONNECTED",
-      "net::ERR_NETWORK_CHANGED",
-      "net::ERR_ALPN_NEGOTIATION_FAILED",
-      "net::ERR_SSL_PROTOCOL_ERROR",
-      "net::ERR_TLS_VERSION_INCOMPATIBLE",
-      "InternetDisconnected",
-      "Network changed",
-    ];
-    if (networkPatterns.some((p) => msg.includes(p))) {
-      return "network";
-    }
-    // Without a clear network pattern, treat as retriable network error
-    return "network";
+  // HTTP error responses (e.g. "HTTP 403", "HTTP 500")
+  if (/^HTTP \d{3}/.test(msg)) {
+    const status = parseInt(msg.split(" ")[1], 10);
+    return status >= 500 ? "http" : "cors";
   }
 
-  // Timeout
-  if (msg.includes("timeout") || msg.includes("Timeout")) return "timeout";
+  // All other failures — treat as retriable network error.
+  // Covers: net::ERR_NETWORK_CHANGED, ERR_INTERNET_DISCONNECTED,
+  // ERR_ALPN_NEGOTIATION_FAILED, Failed to fetch, NetworkError,
+  // SSL_PROTOCOL_ERROR, TLS_VERSION_INCOMPATIBLE, etc.
+  if (
+    msg.includes("Failed to fetch") ||
+    msg.includes("NetworkError") ||
+    msg.includes("Network error") ||
+    msg.includes("timeout") ||
+    msg.includes("Timeout")
+  ) {
+    return "network";
+  }
 
   return "other";
 }
@@ -146,6 +143,9 @@ async function fetchUpload(blob, uploadUrl, fileType, timeoutMs, controller, onP
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
     onProgress(arrayBuffer.byteLength, arrayBuffer.byteLength, 100);
     return res;
   } catch (err) {
@@ -189,7 +189,6 @@ async function uploadFile(tabId, sessionId, fileIndex, uploadUrl, fileData, file
       }
 
       if (category === "cors") {
-        // CORS failures are NOT retriable — always fail immediately
         throw new Error(
           "Upload blocked by CORS policy. Please ensure the R2 bucket has CORS configured: " +
           "Cloudflare Dashboard → R2 → your bucket → Settings → CORS Policy → Add Rule " +
@@ -198,12 +197,12 @@ async function uploadFile(tabId, sessionId, fileIndex, uploadUrl, fileData, file
         );
       }
 
-      if (category === "timeout") {
+      if (category === "http") {
+        // 5xx — retry
         lastError = err;
         if (attempt < MAX_RETRIES) continue;
         throw new Error(
-          `Upload timed out after ${MAX_RETRIES + 1} attempts. ` +
-          "Check your network connection and try again."
+          `Upload failed after ${MAX_RETRIES + 1} attempts: ${err instanceof Error ? err.message : String(err)}`
         );
       }
 

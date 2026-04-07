@@ -506,36 +506,85 @@ export default function AdminDramaUploadPage() {
         }))
       );
 
-      const putByXhr = (
+      /**
+       * PUT upload via XHR with automatic retry on transient network errors.
+       * Retries on: network failure (onerror), 5xx server errors, timeouts.
+       * Does NOT retry on: HTTP 4xx (client error, likely CORS), non-retryable errors.
+       */
+      const putByXhr = async (
         url: string,
         file: File,
         onProgress?: (percent: number) => void,
         timeoutMs = 300_000
-      ) =>
-        new Promise<void>((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open("PUT", url, true);
-          xhr.timeout = timeoutMs;
-          xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
-          xhr.upload.onprogress = (evt) => {
-            if (!evt.lengthComputable) return;
-            const percent = Math.max(0, Math.min(100, Math.round((evt.loaded / evt.total) * 100)));
-            onProgress?.(percent);
-          };
-          xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) resolve();
-            else reject(new Error(`HTTP ${xhr.status}`));
-          };
-          xhr.onerror = () => reject(
-            new Error(
-              "Network error during upload. Check R2 CORS configuration: " +
-              "Cloudflare Dashboard → R2 → your bucket → Settings → CORS Policy → " +
-              "AllowedOrigin: *, AllowedMethods: PUT, AllowedHeaders: *."
-            )
-          );
-          xhr.ontimeout = () => reject(new Error("Upload timed out. Check your network connection."));
-          xhr.send(file);
-        });
+      ): Promise<void> => {
+        const MAX_RETRIES = 3;
+        let lastError: Error | null = null;
+
+        for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+          if (attempt > 1) {
+            const delay = 1000 * Math.pow(2, attempt - 2);
+            await new Promise((r) => globalThis.setTimeout(r, delay));
+          }
+
+          try {
+            await new Promise<void>((resolve, reject) => {
+              const xhr = new XMLHttpRequest();
+              xhr.open("PUT", url, true);
+              xhr.timeout = timeoutMs;
+              xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
+
+              xhr.upload.onprogress = (evt) => {
+                if (!evt.lengthComputable) return;
+                const percent = Math.max(0, Math.min(100, Math.round((evt.loaded / evt.total) * 100)));
+                onProgress?.(percent);
+              };
+
+              xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                  resolve();
+                } else if (xhr.status >= 400 && xhr.status < 500) {
+                  // 4xx: likely CORS misconfiguration — do not retry
+                  reject(new Error(`Upload rejected by server (HTTP ${xhr.status}). Check R2 CORS policy.`));
+                } else {
+                  // 5xx: server error — retry
+                  reject(new Error(`Server error (HTTP ${xhr.status}). Retrying...`));
+                }
+              };
+
+              xhr.onerror = () => {
+                // onerror fires on network-level failures (ERR_NETWORK_CHANGED,
+                // ERR_INTERNET_DISCONNECTED, SSL errors, etc.) — all retriable.
+                reject(new Error("Network error during upload. Retrying..."));
+              };
+
+              xhr.ontimeout = () => reject(new Error("Upload timed out. Retrying..."));
+
+              xhr.send(file);
+            });
+            return; // success
+          } catch (err) {
+            lastError = err instanceof Error ? err : new Error(String(err));
+            const msg = lastError.message;
+
+            // Non-retriable: CORS / 4xx / user cancelled
+            if (
+              msg.includes("CORS") ||
+              msg.includes("Check R2 CORS") ||
+              (msg.includes("HTTP 4") && !msg.includes("Retrying"))
+            ) {
+              throw lastError;
+            }
+
+            // Retryable: network error, 5xx, timeout — will retry in next loop iteration
+            if (attempt <= MAX_RETRIES) {
+              onProgress?.(0); // reset progress indicator for retry attempt
+            }
+          }
+        }
+
+        // All retries exhausted
+        throw lastError ?? new Error("Upload failed after max retries");
+      };
 
       // Phase 1: batch presign — single API round-trip for all files
       const { res: presignRes, json: presignJson } = await fetchAdminJson<{
@@ -602,6 +651,7 @@ export default function AdminDramaUploadPage() {
                   if (!pRes.ok || !pJson?.ok || !pJson.uploadUrl) throw new Error("presign unavailable");
 
                   updateUploadFileProgress(progressKey, { stage: "uploading", percent: 1 });
+                  // putByXhr has its own retry logic; throws only on exhausted retries or CORS errors
                   await putByXhr(pJson.uploadUrl, v.file,
                     (p) => updateUploadFileProgress(progressKey, { stage: "uploading", percent: p }), 300_000);
 
@@ -626,7 +676,7 @@ export default function AdminDramaUploadPage() {
                     updateUploadFileProgress(progressKey, { stage: "failed", error: err instanceof Error ? err.message : "Upload failed" });
                     doneCount += 1;
                   } else {
-                    await new Promise((r) => globalThis.setTimeout(r, 800 * attempt));
+                    await new Promise((r) => globalThis.setTimeout(r, 1000 * attempt));
                   }
                 }
               }
@@ -697,19 +747,30 @@ export default function AdminDramaUploadPage() {
               doneCount += 1;
               continue;
             }
-            try {
-              await putByXhr(
-                presigned.uploadUrl,
-                v.file,
-                (p) => updateUploadFileProgress(progressKey, { stage: "uploading", percent: p }),
-                300_000
-              );
-              updateUploadFileProgress(progressKey, { stage: "completing", percent: 100 });
-              byOrder[current] = { key: presigned.key, publicUrl: presigned.publicUrl };
-              doneCount += 1;
-            } catch (err) {
-              updateUploadFileProgress(progressKey, { stage: "failed", error: err instanceof Error ? err.message : "Upload failed" });
-              doneCount += 1;
+            const MAX_RETRIES = 2;
+            for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+              if (attempt > 1) {
+                await new Promise((r) => globalThis.setTimeout(r, 1000 * (attempt - 1)));
+              }
+              try {
+                await putByXhr(
+                  presigned.uploadUrl,
+                  v.file,
+                  (p) => updateUploadFileProgress(progressKey, { stage: "uploading", percent: p }),
+                  300_000
+                );
+                updateUploadFileProgress(progressKey, { stage: "completing", percent: 100 });
+                byOrder[current] = { key: presigned.key, publicUrl: presigned.publicUrl };
+                doneCount += 1;
+                break; // success — exit retry loop
+              } catch (err) {
+                if (attempt > MAX_RETRIES) {
+                  updateUploadFileProgress(progressKey, { stage: "failed", error: err instanceof Error ? err.message : "Upload failed" });
+                  doneCount += 1;
+                } else {
+                  updateUploadFileProgress(progressKey, { stage: "uploading", percent: 0 });
+                }
+              }
             }
           }
         })

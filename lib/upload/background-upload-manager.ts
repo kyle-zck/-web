@@ -540,66 +540,73 @@ class BackgroundUploadManager {
       return;
     }
 
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open("PUT", fileInfo.uploadUrl!, true);
-      xhr.setRequestHeader("Content-Type", fileType);
-      xhr.timeout = 300_000;
+    const MAX_RETRIES = 3;
+    let lastError: Error | null = null;
 
-      xhr.upload.onprogress = (evt) => {
-        if (!evt.lengthComputable) return;
-        const percent = Math.round((evt.loaded / evt.total) * 100);
-        this.statusCallback?.(sessionId, fileInfo.index, "uploading", percent);
-      };
+    for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+      if (attempt > 1) {
+        const delay = 1000 * Math.pow(2, attempt - 2);
+        await new Promise((r) => globalThis.setTimeout(r, delay));
+      }
 
-      xhr.onload = () => {
-        void (async () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            this.statusCallback?.(sessionId, fileInfo.index, "done", 100);
-            fileInfo.stage = "done";
-            fileInfo.percent = 100;
-            await this.updateFileProgress(sessionId, fileInfo);
-            resolve();
-          } else {
-            const hint = xhr.responseText?.slice(0, 200) ?? "";
-            const errorMsg = `HTTP ${xhr.status}${hint ? ` (${hint})` : ""}`;
-            this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, errorMsg);
-            fileInfo.stage = "failed";
-            fileInfo.error = errorMsg;
-            await this.updateFileProgress(sessionId, fileInfo);
-            reject(new Error(`Upload failed: ${errorMsg}`));
-          }
-        })();
-      };
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("PUT", fileInfo.uploadUrl!, true);
+          xhr.setRequestHeader("Content-Type", fileType);
+          xhr.timeout = 300_000;
 
-      xhr.onerror = () => {
-        void (async () => {
-          const errorMsg =
-            "Network error during upload. Check CORS configuration: " +
-            "Cloudflare Dashboard → R2 → your bucket → Settings → CORS Policy. " +
-            "AllowedOrigin: *, AllowedMethods: PUT, AllowedHeaders: *.";
-          this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, errorMsg);
+          xhr.upload.onprogress = (evt) => {
+            if (!evt.lengthComputable) return;
+            const percent = Math.round((evt.loaded / evt.total) * 100);
+            this.statusCallback?.(sessionId, fileInfo.index, "uploading", percent);
+          };
+
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve();
+            } else if (xhr.status >= 400 && xhr.status < 500) {
+              reject(new Error(`Upload rejected (HTTP ${xhr.status}). Check R2 CORS policy.`));
+            } else {
+              reject(new Error(`Server error (HTTP ${xhr.status}). Retrying...`));
+            }
+          };
+
+          xhr.onerror = () => reject(new Error("Network error during upload. Retrying..."));
+          xhr.ontimeout = () => reject(new Error("Upload timed out. Retrying..."));
+
+          const blob = new Blob([data], { type: fileType });
+          xhr.send(blob);
+        });
+
+        fileInfo.stage = "done";
+        fileInfo.percent = 100;
+        await this.updateFileProgress(sessionId, fileInfo);
+        this.statusCallback?.(sessionId, fileInfo.index, "done", 100);
+        return;
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        const msg = lastError.message;
+
+        if (msg.includes("CORS") || msg.includes("Check R2 CORS") || (msg.includes("HTTP 4") && !msg.includes("Retrying"))) {
           fileInfo.stage = "failed";
-          fileInfo.error = errorMsg;
+          fileInfo.error = msg;
           await this.updateFileProgress(sessionId, fileInfo);
-          reject(new Error(errorMsg));
-        })();
-      };
+          this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, msg);
+          throw lastError;
+        }
 
-      xhr.ontimeout = () => {
-        void (async () => {
-          const errorMsg = "Upload timed out. Check your network connection.";
-          this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, errorMsg);
-          fileInfo.stage = "failed";
-          fileInfo.error = errorMsg;
-          await this.updateFileProgress(sessionId, fileInfo);
-          reject(new Error(errorMsg));
-        })();
-      };
+        if (attempt <= MAX_RETRIES) {
+          this.statusCallback?.(sessionId, fileInfo.index, "uploading", 0);
+        }
+      }
+    }
 
-      const blob = new Blob([data], { type: fileType });
-      xhr.send(blob);
-    });
+    fileInfo.stage = "failed";
+    fileInfo.error = lastError?.message ?? "Upload failed after max retries";
+    await this.updateFileProgress(sessionId, fileInfo);
+    this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, fileInfo.error);
+    throw lastError ?? new Error("Upload failed");
   }
 
   private async updateFileProgress(
