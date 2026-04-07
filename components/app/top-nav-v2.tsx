@@ -154,13 +154,10 @@ export function TopNavV2() {
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVis);
 
-    const timer = window.setInterval(() => refresh("visible"), 60_000);
-
     return () => {
       disposed = true;
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVis);
-      window.clearInterval(timer);
     };
   }, [supabaseUserId, setSubscribed]);
 
