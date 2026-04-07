@@ -294,7 +294,7 @@ export const zhCN = {
       score: "评分",
       adminLogin: "管理后台登录",
       sessionChecking: "正在校验会话…",
-      loginHint: "密码在服务端校验；约 10 分钟无操作 JWT 过期。每个浏览器标签页需单独登录；关闭标签页或浏览器后须重新登录。",
+      loginHint: "密码在服务端校验。30 天无操作才会过期（每次请求自动续期）。关闭浏览器后最长 30 天内无需重新登录。",
       adminKey: "登录密码",
       enterKey: "输入密码",
       login: "登录",

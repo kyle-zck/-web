@@ -320,7 +320,7 @@ export const en = {
       adminLogin: "Admin Login",
       sessionChecking: "Verifying session…",
       loginHint:
-        "Password is checked on the server. ~10 min idle expires JWT. Each browser tab must log in separately; closing the tab or browser clears this tab's session.",
+        "Password is checked on the server. Session lasts 30 days of inactivity (auto-refreshed on every request). Closing the browser keeps you logged in for up to 30 days.",
       adminKey: "Password",
       enterKey: "Enter password",
       login: "Login",
