@@ -461,10 +461,11 @@ export default function AdminDramaUploadPage() {
         return;
       }
 
+      const uploadUrl: string = json.uploadUrl;
       // PUT WebP blob directly to R2 — bypasses Vercel entirely.
       const xhr = new XMLHttpRequest();
       const done = new Promise<void>((resolve, reject) => {
-        xhr.open("PUT", json.uploadUrl, true);
+        xhr.open("PUT", uploadUrl, true);
         xhr.setRequestHeader("Content-Type", "image/webp");
         xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`HTTP ${xhr.status}`)));
         xhr.onerror = () => reject(new Error("Network error"));
