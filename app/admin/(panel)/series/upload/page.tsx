@@ -97,8 +97,8 @@ export default function AdminDramaUploadPage() {
     const type = (conn.effectiveType ?? "").toLowerCase();
     if (type.includes("2g")) return 1;
     if (type.includes("3g")) return Math.min(2, total);
-    if (type.includes("4g")) return Math.min(3, total);
-    return Math.min(2, total);
+    if (type.includes("4g")) return Math.min(4, total);
+    return Math.min(3, total);
   };
 
   const loadTags = async () => {
@@ -704,7 +704,7 @@ export default function AdminDramaUploadPage() {
                     "/admin/api/upload/video/presign",
                     { method: "POST", headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ fileName: v.file.name, contentType: v.file.type || "video/mp4" }) },
-                    10000
+                    30000
                   );
                   if (!pRes.ok || !pJson?.ok || !pJson.uploadUrl) throw new Error("presign unavailable");
 
