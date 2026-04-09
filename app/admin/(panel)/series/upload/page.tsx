@@ -359,7 +359,7 @@ export default function AdminDramaUploadPage() {
       },
       sortedVideos,
       (id) => {
-        activeBgUploadSessionRef.current = id;
+        activeBgUploadSessionRef.current = new Set([...activeBgUploadSessionRef.current, id]);
       }
     );
 
