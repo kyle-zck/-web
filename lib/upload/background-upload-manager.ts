@@ -575,9 +575,23 @@ class BackgroundUploadManager {
       .filter((f) => f.stage === "done")
       .sort((a, b) => a.index - b.index);
 
-    if (completedFiles.length === 0) {
+    const failedFiles = session.files.filter((f) => f.stage === "failed");
+
+    if (failedFiles.length > 0) {
+      const names = failedFiles.map((f) => f.fileName).join(", ");
+      const msg = `以下文件上传失败，无法创建剧目：${names}`;
       session.status = "failed";
       await saveUploadSession(session);
+      this.broadcastChannel?.postMessage({
+        type: "error",
+        sessionId,
+        fileIndex: -1,
+        error: msg,
+      });
+      return;
+    }
+
+    if (completedFiles.length < session.files.length) {
       return;
     }
 

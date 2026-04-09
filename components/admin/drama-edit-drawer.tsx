@@ -51,6 +51,7 @@ export function DramaEditDrawer({
   const [refreshingEpId, setRefreshingEpId] = useState<string | null>(null);
   const [seriesHlsRunning, setSeriesHlsRunning] = useState(false);
   const [seriesHlsFirstN, setSeriesHlsFirstN] = useState(0);
+  const [coverImgError, setCoverImgError] = useState(false);
 
   const statusLabel = (status?: Episode["videoStatus"]) => {
     if (status === "ready") return t("common.admin.videoStatusReady");
@@ -99,6 +100,7 @@ export function DramaEditDrawer({
         coverUrl: series.cover ?? "",
         listed: series.listed !== false
       });
+      setCoverImgError(false);
     }
   }, [series, tags]);
 
@@ -106,6 +108,7 @@ export function DramaEditDrawer({
     setNewVideoUrl("");
     setBulkVideoUrls("");
     setSeriesHlsFirstN(0);
+    setCoverImgError(false);
   }, [series?.id]);
 
   const sampleVideoUrl = () =>
@@ -355,6 +358,7 @@ export function DramaEditDrawer({
     const json = await res.json();
     if (json?.ok && json.coverUrl) {
       setForm((f) => ({ ...f, coverUrl: json.coverUrl }));
+      setCoverImgError(false);
     }
     e.target.value = "";
   };
@@ -666,12 +670,26 @@ export function DramaEditDrawer({
                 </label>
                 {form.coverUrl && (
                   <div className="mt-2">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={form.coverUrl}
-                      alt={t("common.admin.coverAlt")}
-                      className="aspect-[3/4] h-24 rounded-lg object-cover"
-                    />
+                    {coverImgError ? (
+                      <div className="flex flex-col items-center gap-2 rounded-lg border border-red-500/30 bg-red-950/20 p-4">
+                        <div className="text-xs text-red-400">{t("common.admin.coverLoadFailed")}</div>
+                        <button
+                          type="button"
+                          onClick={() => setCoverImgError(false)}
+                          className="rounded-md border border-red-500/40 px-3 py-1 text-xs text-red-300 hover:bg-red-500/15"
+                        >
+                          {t("common.admin.coverRetry")}
+                        </button>
+                      </div>
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={form.coverUrl}
+                        alt={t("common.admin.coverAlt")}
+                        className="aspect-[3/4] h-24 rounded-lg object-cover"
+                        onError={() => setCoverImgError(true)}
+                      />
+                    )}
                   </div>
                 )}
               </div>

@@ -7,6 +7,8 @@ import {
   deleteUploadSession
 } from "@/lib/upload/background-upload-db";
 
+const BG_UPLOAD_CHANNEL = "bg-upload-channel";
+
 interface UploadFileRecord {
   fileName: string;
   fileSize: number;
@@ -212,6 +214,13 @@ export default function AdminUploadRecordsPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Subscribe to upload events so the page auto-refreshes when sessions change.
+  useEffect(() => {
+    const ch = new BroadcastChannel(BG_UPLOAD_CHANNEL);
+    ch.onmessage = () => { load(); };
+    return () => { ch.close(); };
+  }, [load]);
 
   const handleDelete = async (id: string) => {
     if (!window.confirm(t("common.admin.confirmDeleteUploadRecord") ?? "Delete this record?")) return;

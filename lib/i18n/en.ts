@@ -632,6 +632,8 @@ export const en = {
       clickUpload: "Upload",
       uploaded: "Uploaded",
       coverAlt: "Cover",
+      coverLoadFailed: "Failed to load cover image",
+      coverRetry: "Retry",
       videoBatchHint:
         "Pick multiple files or a folder; filenames must include an episode number (e.g. ep1.mp4). If you choose a parent folder with several subfolders, only videos in the same folder as the first file (by path) are imported.",
       videoUploadSelectFiles: "Select video files",

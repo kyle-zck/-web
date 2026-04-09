@@ -575,6 +575,8 @@ export const zhCN = {
       clickUpload: "点我上传",
       uploaded: "已上传",
       coverAlt: "封面",
+      coverLoadFailed: "封面图片加载失败",
+      coverRetry: "重试",
       videoBatchHint:
         "任选「选择视频文件」多选或「选择文件夹」导入；文件名需含集数（如 ep1.mp4）。若选的是包含多个子文件夹的上级目录，只会导入按路径排序后首个文件所在文件夹内的视频。",
       videoUploadSelectFiles: "选择视频文件",
