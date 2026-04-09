@@ -16,11 +16,11 @@ import {
 
 const SW_FILENAME = "/sw-upload.js";
 const CHANNEL_NAME = "bg-upload-channel";
-/** Base concurrency cap — raised per-file up to MAX_CONCURRENT_UPLOADS when files are few. */
-const MAX_CONCURRENT_UPLOADS = 5;
+/** How many files can upload simultaneously — higher = faster for large batches. */
+const MAX_CONCURRENT_UPLOADS = 10;
 const MAX_RETRIES = 3;
 /** How many files each batch-presign call requests at once. */
-const PRESIGN_BATCH_SIZE = 10;
+const PRESIGN_BATCH_SIZE = 20;
 
 type UploadStatusCallback = (
   sessionId: string,
@@ -281,7 +281,6 @@ class BackgroundUploadManager {
 
     // Register this session so heartbeat keeps it alive while concurrent sessions run
     this.addActiveSession(sessionId);
-    console.log(`[startUpload] about to call processQueue for ${sessionId}`);
 
     this.processQueue(sessionId);
 
@@ -289,17 +288,13 @@ class BackgroundUploadManager {
   }
 
   private async processQueue(sessionId: string) {
-    console.log(`[processQueue] START sessionId=${sessionId}, tabId=${this.tabId}`);
     const claimed = await claimSession(sessionId, this.tabId);
-    console.log(`[processQueue] claimSession=${claimed} for sessionId=${sessionId}`);
     if (!claimed) {
       this.removeActiveSession(sessionId);
-      console.log(`[processQueue] NOT CLAIMED — removing ${sessionId} from active set`);
       return;
     }
 
     const session = await getUploadSession(sessionId);
-    console.log(`[processQueue] session=${session ? "found" : "NOT FOUND"} for ${sessionId}`);
     if (!session) {
       this.removeActiveSession(sessionId);
       return;
@@ -313,34 +308,99 @@ class BackgroundUploadManager {
     session.lastHeartbeat = Date.now();
     await saveUploadSession(session);
     this.addActiveSession(sessionId);
-    console.log(`[processQueue] set status=uploading, activeSessionIds=${[...this.activeSessionIds]}`);
 
     const pendingFiles = session.files.filter(
       (f) => f.stage === "queued" || f.stage === "failed"
     );
-    console.log(`[processQueue] pendingFiles count=${pendingFiles.length}, ids=${pendingFiles.map(f => f.index)}`);
 
-    // Dynamic concurrency: raise cap when few files remain so they finish sooner
-    const effectiveCap = Math.min(
-      MAX_CONCURRENT_UPLOADS,
-      Math.max(2, pendingFiles.length)
+    // ── Stage 1: presign all pending files upfront ──────────────────────────
+    const sorted = [...pendingFiles].sort((a, b) => a.index - b.index);
+    for (let i = 0; i < sorted.length; i += PRESIGN_BATCH_SIZE) {
+      const batch = sorted.slice(i, i + PRESIGN_BATCH_SIZE);
+      try {
+        const presignRes = await fetch("/admin/api/upload/video/presign-batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            files: batch.map((f) => ({
+              fileName: f.fileName,
+              contentType: f.fileType || "video/mp4",
+            })),
+          }),
+        });
+
+        if (!presignRes.ok) throw new Error(`Presign failed (HTTP ${presignRes.status})`);
+
+        const presignJson = (await presignRes.json()) as {
+          ok?: boolean;
+          items?: Array<{ fileName: string; key: string; uploadUrl: string; publicUrl?: string }>;
+        };
+
+        if (!presignJson.ok || !Array.isArray(presignJson.items)) {
+          throw new Error("Invalid presign batch response");
+        }
+
+        for (const item of presignJson.items) {
+          const fi = session.files.findIndex(
+            (f) => f.index === batch.find((p) => p.fileName === item.fileName)?.index
+          );
+          if (fi >= 0) {
+            session.files[fi] = {
+              ...session.files[fi],
+              uploadUrl: item.uploadUrl,
+              publicUrl: item.publicUrl,
+              key: item.key,
+            };
+          }
+        }
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : "Presign failed";
+        for (const f of batch) {
+          session.files[f.index] = {
+            ...session.files[f.index],
+            stage: "failed",
+            error: errorMsg,
+          };
+        }
+        await saveUploadSession(session);
+        this.broadcastChannel?.postMessage({
+          type: "error",
+          sessionId,
+          fileIndex: -1,
+          error: errorMsg,
+        });
+        this.removeActiveSession(sessionId);
+        return;
+      }
+    }
+
+    await saveUploadSession(session);
+
+    // ── Stage 2: upload all presigned files in parallel with semaphore ───────
+    const semaphore = { count: MAX_CONCURRENT_UPLOADS };
+    const enqueue = async (task: () => Promise<void>) => {
+      while (semaphore.count <= 0) {
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      semaphore.count -= 1;
+      try {
+        await task();
+      } finally {
+        semaphore.count += 1;
+      }
+    };
+
+    const uploadPromises = sorted.map(
+      (f) =>
+        new Promise<void>((resolve) => {
+          void enqueue(async () => {
+            await this.uploadFile(sessionId, f.index);
+            resolve();
+          });
+        })
     );
-    const batches: typeof pendingFiles[] = [];
-    for (let i = 0; i < pendingFiles.length; i += effectiveCap) {
-      batches.push(pendingFiles.slice(i, i + effectiveCap));
-    }
 
-    for (const batch of batches) {
-      // Guard: re-check pause flag before each batch
-      const recheck = await getUploadSession(sessionId);
-      if (!recheck || recheck.status === "paused") return;
-
-      // Heartbeat refresh during a long upload run
-      await touchSessionHeartbeat(sessionId, this.tabId);
-      await Promise.all(
-        batch.map((fileInfo) => this.uploadFile(sessionId, fileInfo.index))
-      );
-    }
+    await Promise.all(uploadPromises);
 
     const updatedSession = await getUploadSession(sessionId);
     if (updatedSession) {
@@ -353,40 +413,43 @@ class BackgroundUploadManager {
         await saveUploadSession(updatedSession);
         await this.createSeries(sessionId, updatedSession);
       } else if (anyDone) {
-        // Partial success: create series with what we have, broadcast error for missing ones.
         updatedSession.status = "failed";
         await saveUploadSession(updatedSession);
         await this.createSeries(sessionId, updatedSession);
       } else if (anyFailed) {
-        // All failed — mark failed without creating series.
         updatedSession.status = "failed";
         await saveUploadSession(updatedSession);
       }
     }
 
-    // Unregister this session so heartbeat stops sending it once it reaches a terminal state.
     this.removeActiveSession(sessionId);
   }
 
   private async uploadFile(sessionId: string, fileIndex: number) {
-    console.log(`[uploadFile] START sessionId=${sessionId} fileIndex=${fileIndex}`);
     const session = await getUploadSession(sessionId);
-    console.log(`[uploadFile] session=${session ? "found" : "NOT FOUND"}, status=${session?.status}`);
-    if (!session || session.status === "paused") {
-      console.log(`[uploadFile] EARLY RETURN — !session=${!session}, paused=${session?.status === "paused"}`);
-      return;
-    }
+    if (!session || session.status === "paused") return;
 
     const fileIdx = session.files.findIndex((f) => f.index === fileIndex);
-    console.log(`[uploadFile] fileIdx=${fileIdx}`);
     if (fileIdx < 0) return;
 
     const fileInfo = session.files[fileIdx];
-    // Always re-read from IndexedDB at the start of each attempt so we never work with stale data.
+
+    // If URL is already pre-signed (Stage 1 completed), skip presign and upload directly.
+    if (fileInfo.uploadUrl) {
+      this.statusCallback?.(sessionId, fileIndex, "uploading", 1);
+      await updateSessionFileProgress(sessionId, fileIndex, { stage: "uploading", percent: 1 });
+      if (this.swRegistration?.active) {
+        await this.sendToServiceWorker(sessionId, fileIndex);
+      } else {
+        await this.uploadDirect(sessionId, fileIndex);
+      }
+      return;
+    }
+
+    // Fallback: batch presign (for retry after upload failure, etc.)
     await updateSessionFileProgress(sessionId, fileIndex, { stage: "presign", percent: 0 });
     this.statusCallback?.(sessionId, fileIndex, "presign", 0);
 
-    // Batch presign: prefetch presigned URLs for this file + its peers to save round-trips.
     const queuedFiles = session.files
       .filter((f) => f.stage === "queued" || f.stage === "failed")
       .sort((a, b) => a.index - b.index);
@@ -417,7 +480,6 @@ class BackgroundUploadManager {
         throw new Error("Invalid presign batch response");
       }
 
-      // Resolve presigned URLs in IndexedDB for every peer so they don't re-fetch on retry.
       for (const item of presignJson.items) {
         const peerIdx = session.files.findIndex((f) => f.index === peerFiles.find((p) => p.fileName === item.fileName)?.index);
         if (peerIdx >= 0) {
@@ -431,7 +493,6 @@ class BackgroundUploadManager {
       }
       await saveUploadSession(session);
 
-      // Re-fetch the specific file's record so it has uploadUrl/key/publicUrl.
       const updatedSession = await getUploadSession(sessionId);
       const targetFileIdx = updatedSession?.files.findIndex((f) => f.index === fileIndex) ?? -1;
       if (targetFileIdx < 0) return;
@@ -443,15 +504,11 @@ class BackgroundUploadManager {
 
       this.statusCallback?.(sessionId, fileIndex, "uploading", 1);
       await updateSessionFileProgress(sessionId, fileIndex, { stage: "uploading", percent: 1 });
-
-      // Route: Service Worker (background tab) vs. direct upload (main thread fallback).
-      console.log(`[uploadFile] routing to SW (sw=${!!this.swRegistration?.active})`);
       if (this.swRegistration?.active) {
         await this.sendToServiceWorker(sessionId, fileIndex);
       } else {
         await this.uploadDirect(sessionId, fileIndex);
       }
-      console.log(`[uploadFile] DONE sessionId=${sessionId} fileIndex=${fileIndex}`);
 
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Upload failed";
@@ -514,7 +571,6 @@ class BackgroundUploadManager {
       this.swUploadWaiters.set(wk, { resolve, reject, timeout });
     });
 
-    console.log(`[sendToServiceWorker] posting to SW sessionId=${sessionId} fileIndex=${fileIndex} url=${fileInfo.uploadUrl?.slice(0, 80)}`);
     this.swRegistration!.active!.postMessage({
       type: "start",
       sessionId,
@@ -528,7 +584,6 @@ class BackgroundUploadManager {
       },
       presignedUrl: fileInfo.uploadUrl,
     });
-    console.log(`[sendToServiceWorker] message sent, waiting for completion...`);
 
     // SwUploadComplete will resolve the promise and update IndexedDB.
     // On timeout/reject the outer catch in uploadFile handles retry/failure.

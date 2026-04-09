@@ -106,20 +106,13 @@ export async function saveUploadSession(session: UploadSession): Promise<void> {
 }
 
 export async function saveFileData(fileData: UploadFileData): Promise<void> {
-  console.log(`[saveFileData] sessionId=${fileData.sessionId} fileIndex=${fileData.fileIndex} size=${fileData.fileSize}`);
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(FILE_DATA_STORE, "readwrite");
     const store = tx.objectStore(FILE_DATA_STORE);
     const req = store.put(fileData);
-    req.onerror = () => {
-      console.error(`[saveFileData] ERROR sessionId=${fileData.sessionId} fileIndex=${fileData.fileIndex}`, req.error);
-      reject(req.error);
-    };
-    req.onsuccess = () => {
-      console.log(`[saveFileData] OK sessionId=${fileData.sessionId} fileIndex=${fileData.fileIndex}`);
-      resolve();
-    };
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => resolve();
   });
 }
 
@@ -128,17 +121,9 @@ export async function getFileData(sessionId: string, fileIndex: number): Promise
   return new Promise((resolve, reject) => {
     const tx = db.transaction(FILE_DATA_STORE, "readonly");
     const store = tx.objectStore(FILE_DATA_STORE);
-    // Use compound key directly — O(1) instead of O(n) getAll+filter
     const req = store.get([sessionId, fileIndex]);
     req.onerror = () => reject(req.error);
-    req.onsuccess = () => {
-      if (req.result) {
-        console.log(`[getFileData] OK sessionId=${sessionId} fileIndex=${fileIndex} size=${req.result.fileSize}`);
-      } else {
-        console.log(`[getFileData] NOT FOUND sessionId=${sessionId} fileIndex=${fileIndex}`);
-      }
-      resolve(req.result);
-    };
+    req.onsuccess = () => resolve(req.result);
   });
 }
 
@@ -257,7 +242,6 @@ export async function claimSession(
   tabId: string
 ): Promise<boolean> {
   const db = await openDB();
-  console.log(`[claimSession] START sessionId=${sessionId}, tabId=${tabId}`);
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, "readwrite");
     const store = tx.objectStore(STORE_NAME);
@@ -267,7 +251,6 @@ export async function claimSession(
     getReq.onsuccess = () => {
       const session = getReq.result;
       if (!session) {
-        console.log(`[claimSession] session NOT FOUND in DB`);
         resolve(false);
         return;
       }
@@ -276,10 +259,7 @@ export async function claimSession(
         session.ownerTabId === null ||
         Date.now() - (session.lastHeartbeat || 0) > TAB_STALE_THRESHOLD_MS;
 
-      console.log(`[claimSession] ownerTabId=${session.ownerTabId}, isStale=${isStale}, threshold=${TAB_STALE_THRESHOLD_MS}`);
-
       if (!isStale && session.ownerTabId !== tabId) {
-        console.log(`[claimSession] REJECTED — other tab owns it`);
         resolve(false);
         return;
       }
@@ -288,10 +268,7 @@ export async function claimSession(
       session.lastHeartbeat = Date.now();
       const putReq = store.put(session);
       putReq.onerror = () => reject(putReq.error);
-      putReq.onsuccess = () => {
-        console.log(`[claimSession] CLAIMED ${sessionId}`);
-        resolve(true);
-      };
+      putReq.onsuccess = () => resolve(true);
     };
   });
 }
