@@ -52,21 +52,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Upload videos" }, { status: 400 });
     }
 
-    const existing = await getAllSeries();
-    const duplicate = existing.some(
-      (s) => s.title.trim().toLowerCase() === title.trim().toLowerCase()
-    );
-    if (duplicate) {
-      return NextResponse.json(
-        {
-          ok: false,
-          errorKey: "apiErrDuplicateDramaTitle",
-          error: "A drama with this title already exists"
-        },
-        { status: 400 }
-      );
-    }
-
     const tagCheck = await validateTagsAgainstCatalog(tags);
     if (!tagCheck.ok) {
       return NextResponse.json(
@@ -98,6 +83,15 @@ export async function POST(req: Request) {
     const message =
       err instanceof Error ? err.message.slice(0, 240) : "Unknown server error";
     console.error(`[admin/api/series] create series failed [${traceId}]:`, err);
+
+    // DUPLICATE_TITLE is thrown by storage-pg as a lightweight duplicate check
+    if (err instanceof Error && err.message === "DUPLICATE_TITLE") {
+      return NextResponse.json(
+        { ok: false, errorKey: "apiErrDuplicateDramaTitle", error: "A drama with this title already exists" },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       {
         ok: false,

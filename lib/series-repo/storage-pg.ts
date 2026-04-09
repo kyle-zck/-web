@@ -328,6 +328,16 @@ export async function createSeries(data: {
   const conn = getPool();
 
   const cleanTitle = data.title.trim();
+
+  // Lightweight duplicate check: only title, no full scan
+  const dup = await conn.query(
+    "SELECT 1 FROM series WHERE LOWER(title) = LOWER($1) LIMIT 1",
+    [cleanTitle]
+  );
+  if ((dup.rows ?? []).length > 0) {
+    throw Object.assign(new Error("DUPLICATE_TITLE"), { code: "23505" });
+  }
+
   const category = data.tags[0] ?? "Romance";
 
   const baseId = slugify(cleanTitle) || `series-${Date.now()}`;
@@ -406,28 +416,39 @@ export async function createSeries(data: {
       ]
     );
 
-    for (const e of episodes) {
+    // Batch insert all episodes in a single query using unnest — O(1) round-trips instead of O(n)
+    if (episodes.length > 0) {
+      const ids = episodes.map((e) => e.id);
+      const seriesIds = episodes.map(() => seriesId);
+      const indices = episodes.map((e) => e.index);
+      const titles = episodes.map((e) => e.title);
+      const durations = episodes.map((e) => e.duration);
+      const thumbnails = episodes.map((e) => e.thumbnail);
+      const videoUrls = episodes.map((e) => e.videoUrl);
+      const isFreeFlags = episodes.map((e) => (e.isFree ? 1 : 0));
+      const sourceFnames = episodes.map((e) => e.sourceFileName ?? null);
+      const localVurls = episodes.map((e) => e.localVideoUrl ?? null);
+      const streamIds = episodes.map((e) => e.videoStreamId ?? null);
+      const playbackUrls = episodes.map((e) => e.videoPlaybackUrl ?? e.videoUrl);
+      const videoStatuses = episodes.map((e) => e.videoStatus ?? "ready");
+
       await conn.query(
         `
-          INSERT INTO episodes (
-            id, series_id, ep_index, title, duration, thumbnail, video_url, is_free, source_file_name, local_video_url,
-            video_stream_id, video_playback_url, video_status
-          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-        `,
+        INSERT INTO episodes (
+          id, series_id, ep_index, title, duration, thumbnail, video_url, is_free,
+          source_file_name, local_video_url, video_stream_id, video_playback_url, video_status
+        )
+        SELECT * FROM UNNEST(
+          $1::text[], $2::text[], $3::int[], $4::text[], $5::text[], $6::text[], $7::text[], $8::int[],
+          $9::text[], $10::text[], $11::text[], $12::text[], $13::text[]
+        ) AS t(
+          id, series_id, ep_index, title, duration, thumbnail, video_url, is_free,
+          source_file_name, local_video_url, video_stream_id, video_playback_url, video_status
+        )
+      `,
         [
-          e.id,
-          seriesId,
-          e.index,
-          e.title,
-          e.duration,
-          e.thumbnail,
-          e.videoUrl,
-          e.isFree ? 1 : 0,
-          e.sourceFileName ?? null,
-          e.localVideoUrl ?? null,
-          e.videoStreamId ?? null,
-          e.videoPlaybackUrl ?? e.videoUrl,
-          e.videoStatus ?? "ready"
+          ids, seriesIds, indices, titles, durations, thumbnails, videoUrls, isFreeFlags,
+          sourceFnames, localVurls, streamIds, playbackUrls, videoStatuses
         ]
       );
     }
