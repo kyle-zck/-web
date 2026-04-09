@@ -572,12 +572,19 @@ class BackgroundUploadManager {
     });
     const arrayBuffer = await fileData.arrayBuffer();
 
+    // Dynamically size the SW wait timeout based on file size.
+    // Estimate: 100 KB/s minimum expected speed (very conservative for background uploads).
+    // Add 50 % headroom for retries, network jitter, and SW queue delays.
+    const MIN_BANDWIDTH = 100 * 1024;
+    const rawSeconds = Math.ceil(fileData.size / MIN_BANDWIDTH);
+    const swTimeout = Math.max(600_000, rawSeconds * 1000 * 1.5);
+
     const wk = BackgroundUploadManager.swWaitKey(sessionId, fileIndex);
     const waitPromise = new Promise<{ publicUrl: string; key: string }>((resolve, reject) => {
       const timeout = globalThis.setTimeout(() => {
         this.swUploadWaiters.delete(wk);
-        reject(new Error("Service Worker upload timeout after 10 minutes"));
-      }, 600_000);
+        reject(new Error(`Service Worker upload timeout after ${Math.round(swTimeout / 60000)} minutes`));
+      }, swTimeout);
       this.swUploadWaiters.set(wk, { resolve, reject, timeout });
     });
 

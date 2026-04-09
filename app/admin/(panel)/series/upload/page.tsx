@@ -431,11 +431,11 @@ export default function AdminDramaUploadPage() {
     fd.append("file", file);
     try {
       const controller = new AbortController();
-      const timer = globalThis.setTimeout(() => controller.abort(), 30000);
+      const timer = globalThis.setTimeout(() => controller.abort(), 60000);
       const { res, json } = await fetchAdminJson<{ ok?: boolean; coverUrl?: string; errorKey?: string; error?: string }>(
         "/admin/api/upload/cover",
         { method: "POST", body: fd, signal: controller.signal },
-        30000
+        60000
       ).finally(() => globalThis.clearTimeout(timer));
       if (res.ok && json?.ok && json.coverUrl) {
         const nextCover = json.coverUrl as string;
