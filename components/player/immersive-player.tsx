@@ -140,6 +140,7 @@ export function ImmersivePlayer({
   >(episode.videoStatus ?? "ready");
   const playbackCandidates = useMemo(
     () => buildMp4FirstCandidates(episode),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [episode.id, episode.videoUrl, episode.videoPlaybackUrl, episode.videoStatus]
   );
   const playbackUrl = runtimePlaybackUrl;

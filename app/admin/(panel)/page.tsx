@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -220,7 +221,7 @@ export default function AdminDashboardPage() {
             >
               <div className="relative h-14 w-10 overflow-hidden rounded-xl border border-zinc-800/80">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={s.cover} alt={s.title} className="h-full w-full object-cover" />
+                <Image unoptimized src={s.cover} alt={s.title} fill className="object-cover" />
               </div>
               <div className="min-w-0">
                 <p className="line-clamp-1 text-xs font-semibold text-zinc-100">{s.title}</p>

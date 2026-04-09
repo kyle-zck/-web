@@ -455,7 +455,7 @@ export default function AdminDramaUploadPage() {
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").slice(0, 120);
 
     try {
-      const { json } = await fetchAdminJson<{ ok?: boolean; uploadUrl?: string; errorKey?: string; error?: string }>(
+      const { json } = await fetchAdminJson<{ ok?: boolean; key?: string; uploadUrl?: string; errorKey?: string; error?: string }>(
         "/admin/api/upload/cover/presign",
         { method: "POST", body: JSON.stringify({ fileName: safeName }), headers: { "Content-Type": "application/json" } },
         30000
