@@ -55,6 +55,21 @@ class BackgroundUploadManager {
     return `${sessionId}:${fileIndex}`;
   }
 
+  /** All session IDs this tab is currently actively uploading. */
+  private activeSessionIds = new Set<string>();
+
+  private addActiveSession(sessionId: string) {
+    this.activeSessionIds.add(sessionId);
+    this.activeSessionId = sessionId; // keep ref for backward compat
+  }
+
+  private removeActiveSession(sessionId: string) {
+    this.activeSessionIds.delete(sessionId);
+    // reassign ref to a remaining active session so heartbeat stays on something alive
+    const next = [...this.activeSessionIds][0] ?? null;
+    this.activeSessionId = next;
+  }
+
   async initialize(): Promise<boolean> {
     if (typeof window === "undefined") return false;
 
@@ -199,12 +214,13 @@ class BackgroundUploadManager {
       });
   }
 
-  /** Periodically refresh the heartbeat for any session this tab is actively processing. */
+  /** Periodically refresh the heartbeat for all sessions this tab is actively processing. */
   private startHeartbeat() {
     if (this.heartbeatInterval) return;
     this.heartbeatInterval = setInterval(async () => {
-      if (this.activeSessionId) {
-        await touchSessionHeartbeat(this.activeSessionId, this.tabId);
+      // Update heartbeat for every session this tab owns so none goes stale
+      for (const sessionId of this.activeSessionIds) {
+        await touchSessionHeartbeat(sessionId, this.tabId);
       }
     }, TAB_HEARTBEAT_INTERVAL_MS);
   }
@@ -216,6 +232,11 @@ class BackgroundUploadManager {
     }
   }
 
+  /**
+   * Creates a new upload session for the given files.  Multiple sessions can run
+   * concurrently — heartbeats are sent for all of them so no session goes stale
+   * when the user starts a second upload while the first is still running.
+   */
   async startUpload(
     formData: UploadSession["formData"],
     files: { file: File; index: number }[],
@@ -258,7 +279,8 @@ class BackgroundUploadManager {
       });
     }
 
-    this.activeSessionId = sessionId;
+    // Register this session so heartbeat keeps it alive while concurrent sessions run
+    this.addActiveSession(sessionId);
 
     this.processQueue(sessionId);
 
@@ -267,18 +289,26 @@ class BackgroundUploadManager {
 
   private async processQueue(sessionId: string) {
     const claimed = await claimSession(sessionId, this.tabId);
-    if (!claimed) return;
+    if (!claimed) {
+      // Someone else already owns this session — don't block the heartbeat.
+      this.removeActiveSession(sessionId);
+      return;
+    }
 
     const session = await getUploadSession(sessionId);
-    if (!session) return;
+    if (!session) {
+      this.removeActiveSession(sessionId);
+      return;
+    }
 
     // Guard: if session is paused, stop scheduling new uploads
+    // but keep it registered so the heartbeat survives.
     if (session.status === "paused") return;
 
     session.status = "uploading";
     session.lastHeartbeat = Date.now();
     await saveUploadSession(session);
-    this.activeSessionId = sessionId;
+    this.addActiveSession(sessionId);
 
     const pendingFiles = session.files.filter(
       (f) => f.stage === "queued" || f.stage === "failed"
@@ -327,6 +357,9 @@ class BackgroundUploadManager {
         await saveUploadSession(updatedSession);
       }
     }
+
+    // Unregister this session so heartbeat stops sending it once it reaches a terminal state.
+    this.removeActiveSession(sessionId);
   }
 
   private async uploadFile(sessionId: string, fileIndex: number) {
@@ -688,7 +721,7 @@ class BackgroundUploadManager {
       if (!claimed) continue;
 
       this.sessionCallback?.(session);
-      this.activeSessionId = session.id;
+      this.addActiveSession(session.id);
       await this.processQueue(session.id);
     }
   }
@@ -718,6 +751,7 @@ class BackgroundUploadManager {
       });
     }
 
+    this.removeActiveSession(sessionId);
     await deleteUploadSession(sessionId);
     await deleteFileData(sessionId);
     this.pendingFiles.delete(sessionId);
@@ -746,6 +780,7 @@ class BackgroundUploadManager {
     this.broadcastChannel = null;
     this.statusCallback = null;
     this.sessionCallback = null;
+    this.activeSessionIds.clear();
     this.activeSessionId = null;
     this.pendingFiles.clear();
   }
