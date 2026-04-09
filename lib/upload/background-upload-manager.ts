@@ -438,7 +438,14 @@ class BackgroundUploadManager {
     if (fileInfo.uploadUrl) {
       this.statusCallback?.(sessionId, fileIndex, "uploading", 1);
       await updateSessionFileProgress(sessionId, fileIndex, { stage: "uploading", percent: 1 });
-      if (this.swRegistration?.active) {
+      // Prefer XHR for maximum parallelism.  SW processes messages sequentially, so
+      // using it here collapses all concurrent uploads to a queue of 1.
+      // Only fall back to SW when the tab is not the active controller (e.g. page
+      // hidden/closed, or SW is in a different tab).
+      const isCurrentTab = Boolean(navigator.serviceWorker.controller);
+      if (isCurrentTab && this.swRegistration?.active) {
+        await this.uploadDirect(sessionId, fileIndex);
+      } else if (this.swRegistration?.active) {
         await this.sendToServiceWorker(sessionId, fileIndex);
       } else {
         await this.uploadDirect(sessionId, fileIndex);
@@ -504,7 +511,10 @@ class BackgroundUploadManager {
 
       this.statusCallback?.(sessionId, fileIndex, "uploading", 1);
       await updateSessionFileProgress(sessionId, fileIndex, { stage: "uploading", percent: 1 });
-      if (this.swRegistration?.active) {
+      const isCurrentTab = Boolean(navigator.serviceWorker.controller);
+      if (isCurrentTab && this.swRegistration?.active) {
+        await this.uploadDirect(sessionId, fileIndex);
+      } else if (this.swRegistration?.active) {
         await this.sendToServiceWorker(sessionId, fileIndex);
       } else {
         await this.uploadDirect(sessionId, fileIndex);
