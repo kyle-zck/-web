@@ -42,22 +42,37 @@ export async function POST(req: Request) {
   }
 
   const client = getS3Client();
-  const results = await Promise.all(
-    files.map(async ({ fileName, contentType }) => {
-      const key = `videos/${Date.now()}-${Math.random().toString(36).slice(2)}-${sanitizeFilename(fileName ?? "video.mp4")}`;
-      const type = (contentType ?? "video/mp4").trim();
-      const command = new PutObjectCommand({
-        Bucket: bucket,
-        Key: key,
-        ContentType: type,
-        CacheControl: "public, max-age=31536000, immutable"
-      });
-      // NOTE: Presigned URLs are bound to the S3_ENDPOINT host and must NOT be
-      // rewritten — doing so invalidates the signature and causes 403 errors.
-      const uploadUrl = await getSignedUrl(client, command, { expiresIn: 60 * 15 });
-      return { fileName, key, uploadUrl, publicUrl: buildPublicUrl(key) };
-    })
-  );
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
 
-  return NextResponse.json({ ok: true, items: results });
+  try {
+    const results = await Promise.all(
+      files.map(async ({ fileName, contentType }) => {
+        const key = `videos/${Date.now()}-${Math.random().toString(36).slice(2)}-${sanitizeFilename(fileName ?? "video.mp4")}`;
+        const type = (contentType ?? "video/mp4").trim();
+        const command = new PutObjectCommand({
+          Bucket: bucket,
+          Key: key,
+          ContentType: type,
+          CacheControl: "public, max-age=31536000, immutable"
+        });
+        // NOTE: Presigned URLs are bound to the S3_ENDPOINT host and must NOT be
+        // rewritten — doing so invalidates the signature and causes 403 errors.
+        const uploadUrl = await getSignedUrl(client, command, { expiresIn: 60 * 15 });
+        return { fileName, key, uploadUrl, publicUrl: buildPublicUrl(key) };
+      })
+    );
+
+    clearTimeout(timeoutId);
+    return NextResponse.json({ ok: true, items: results });
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err instanceof Error && err.name === "AbortError") {
+      return NextResponse.json(
+        { ok: false, error: "Presign request timeout. Please try again." },
+        { status: 504 }
+      );
+    }
+    throw err;
+  }
 }

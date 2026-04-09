@@ -25,6 +25,21 @@ const UPLOAD_TIMEOUT_MULTIPLIER = 2.5;
 const MAX_RETRIES = 3;
 /** How many files each batch-presign call requests at once. */
 const PRESIGN_BATCH_SIZE = 20;
+/** Transient network errors that should trigger retries instead of failing immediately. */
+const RETRYABLE_NETWORK_ERROR_PATTERNS = [
+  "ERR_NETWORK_CHANGED",
+  "ERR_INTERNET_DISCONNECTED",
+  "ERR_CONNECTION_RESET",
+  "ERR_ALPN_NEGOTIATION_FAILED",
+  "ERR_TIMED_OUT",
+  "ERR_NETWORK_IO_SUSPENDED",
+  "SSL_PROTOCOL_ERROR",
+  "TLS_VERSION_INCOMPATIBLE",
+  "CERT_AUTHORITY_INVALID",
+  "Failed to fetch",
+  "NetworkError",
+  "Network error",
+];
 
 function dynamicUploadTimeout(fileBytes: number): number {
   const rawMs = (fileBytes / MIN_BANDWIDTH_BPS) * 1000 * UPLOAD_TIMEOUT_MULTIPLIER;
@@ -691,7 +706,12 @@ class BackgroundUploadManager {
         }
 
         if (attempt <= MAX_RETRIES) {
-          this.statusCallback?.(sessionId, fileIndex, "uploading", 0);
+          const isRetryableNetworkError = RETRYABLE_NETWORK_ERROR_PATTERNS.some((p) =>
+            msg.includes(p)
+          );
+          if (!isRetryableNetworkError) {
+            this.statusCallback?.(sessionId, fileIndex, "uploading", 0);
+          }
         }
       }
     }

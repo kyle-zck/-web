@@ -31,6 +31,8 @@ function classifyError(err) {
     "No 'Access-Control-Allow-Origin'",
     "Response for preflight",
     "has been blocked by",
+    "target IP address space",
+    "IP address space",
   ];
   if (corsPatterns.some((p) => msg.includes(p))) {
     return "cors";
@@ -42,17 +44,27 @@ function classifyError(err) {
     return status >= 500 ? "http" : "cors";
   }
 
-  // All other failures — treat as retriable network error.
+  // Transient network errors — retry allowed.
   // Covers: net::ERR_NETWORK_CHANGED, ERR_INTERNET_DISCONNECTED,
-  // ERR_ALPN_NEGOTIATION_FAILED, Failed to fetch, NetworkError,
-  // SSL_PROTOCOL_ERROR, TLS_VERSION_INCOMPATIBLE, etc.
-  if (
-    msg.includes("Failed to fetch") ||
-    msg.includes("NetworkError") ||
-    msg.includes("Network error") ||
-    msg.includes("timeout") ||
-    msg.includes("Timeout")
-  ) {
+  // ERR_CONNECTION_RESET, ERR_ALPN_NEGOTIATION_FAILED, Failed to fetch,
+  // NetworkError, Network error, SSL_PROTOCOL_ERROR, TLS_VERSION_INCOMPATIBLE, etc.
+  const networkPatterns = [
+    "Failed to fetch",
+    "NetworkError",
+    "Network error",
+    "timeout",
+    "Timeout",
+    "ERR_NETWORK_CHANGED",
+    "ERR_INTERNET_DISCONNECTED",
+    "ERR_CONNECTION_RESET",
+    "ERR_ALPN_NEGOTIATION_FAILED",
+    "ERR_TIMED_OUT",
+    "SSL_PROTOCOL_ERROR",
+    "TLS_VERSION_INCOMPATIBLE",
+    "CERT_AUTHORITY_INVALID",
+    "net::ERR",
+  ];
+  if (networkPatterns.some((p) => msg.includes(p))) {
     return "network";
   }
 
