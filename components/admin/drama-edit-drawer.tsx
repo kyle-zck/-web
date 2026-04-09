@@ -352,13 +352,53 @@ export function DramaEditDrawer({
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch("/admin/api/upload/cover", { method: "POST", body: fd });
-    const json = await res.json();
-    if (json?.ok && json.coverUrl) {
-      setForm((f) => ({ ...f, coverUrl: json.coverUrl }));
+
+    let webpBlob: Blob;
+    try {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d")!;
+      const img = await createImageBitmap(file);
+      const maxDim = 1200;
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      webpBlob = await new Promise<Blob>((resolve, reject) =>
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Canvas toBlob failed"))), "image/webp", 0.75)
+      );
+    } catch {
+      showToast(t("common.admin.toastCoverUploadFail"), "error");
+      return;
+    }
+
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").slice(0, 120);
+
+    try {
+      const presignRes = await fetch("/admin/api/upload/cover/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileName: safeName }),
+      });
+      const presignJson = await presignRes.json();
+      if (!presignJson?.ok || !presignJson.uploadUrl) {
+        showToast(t("common.admin.toastCoverUploadFail"), "error");
+        return;
+      }
+
+      const xhr = new XMLHttpRequest();
+      await new Promise<void>((resolve, reject) => {
+        xhr.open("PUT", presignJson.uploadUrl, true);
+        xhr.setRequestHeader("Content-Type", "image/webp");
+        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`HTTP ${xhr.status}`)));
+        xhr.onerror = () => reject(new Error("Network error"));
+        xhr.ontimeout = () => reject(new Error("Upload timed out"));
+        xhr.send(webpBlob);
+      });
+
+      setForm((f) => ({ ...f, coverUrl: presignJson.uploadUrl.split("?")[0] }));
       setCoverImgError(false);
+    } catch {
+      showToast(t("common.admin.toastCoverUploadFail"), "error");
     }
     e.target.value = "";
   };

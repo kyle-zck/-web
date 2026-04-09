@@ -427,22 +427,58 @@ export default function AdminDramaUploadPage() {
       showToast(t("common.admin.toastCoverFormat"));
       return;
     }
-    const fd = new FormData();
-    fd.append("file", file);
+
+    // Client-side WebP compression via OffscreenCanvas (avoids the Vercel 4.5 MB
+    // request-body limit and skips the slow server-side sharp pipeline).
+    let webpBlob: Blob;
     try {
-      const controller = new AbortController();
-      const timer = globalThis.setTimeout(() => controller.abort(), 60000);
-      const { res, json } = await fetchAdminJson<{ ok?: boolean; coverUrl?: string; errorKey?: string; error?: string }>(
-        "/admin/api/upload/cover",
-        { method: "POST", body: fd, signal: controller.signal },
-        60000
-      ).finally(() => globalThis.clearTimeout(timer));
-      if (res.ok && json?.ok && json.coverUrl) {
-        const nextCover = json.coverUrl as string;
-        setForm((f) => ({ ...f, coverUrl: nextCover }));
-      } else {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d")!;
+      const img = await createImageBitmap(file);
+      const maxDim = 1200;
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      webpBlob = await new Promise<Blob>((resolve, reject) =>
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Canvas toBlob failed"))), "image/webp", 0.75)
+      );
+    } catch {
+      showToast(t("common.admin.toastCoverUploadFail"), "error");
+      return;
+    }
+
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").slice(0, 120);
+
+    try {
+      const { json } = await fetchAdminJson<{ ok?: boolean; uploadUrl?: string; errorKey?: string; error?: string }>(
+        "/admin/api/upload/cover/presign",
+        { method: "POST", body: JSON.stringify({ fileName: safeName }), headers: { "Content-Type": "application/json" } },
+        30000
+      );
+      if (!json?.ok || !json.uploadUrl) {
         showToast(translateAdminApiError(json as { ok?: boolean; errorKey?: string; error?: string }, t, "admin.toastCoverUploadFail"), "error");
+        return;
       }
+
+      // PUT WebP blob directly to R2 — bypasses Vercel entirely.
+      const xhr = new XMLHttpRequest();
+      const done = new Promise<void>((resolve, reject) => {
+        xhr.open("PUT", json.uploadUrl, true);
+        xhr.setRequestHeader("Content-Type", "image/webp");
+        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`HTTP ${xhr.status}`)));
+        xhr.onerror = () => reject(new Error("Network error"));
+        xhr.ontimeout = () => reject(new Error("Upload timed out"));
+      });
+
+      const timer = globalThis.setTimeout(() => xhr.abort(), 60000);
+      xhr.send(webpBlob);
+      await done;
+      globalThis.clearTimeout(timer);
+
+      // Extract public URL from the presign URL (strip query params).
+      const coverUrl = json.uploadUrl.split("?")[0];
+      setForm((f) => ({ ...f, coverUrl }));
     } catch {
       showToast(t("common.admin.networkErrorShort"), "error");
     }
