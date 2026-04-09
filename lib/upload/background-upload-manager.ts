@@ -17,10 +17,20 @@ import {
 const SW_FILENAME = "/sw-upload.js";
 const CHANNEL_NAME = "bg-upload-channel";
 /** How many files can upload simultaneously — higher = faster for large batches. */
-const MAX_CONCURRENT_UPLOADS = 10;
+const MAX_CONCURRENT_UPLOADS = 20;
+/** Minimum bandwidth assumption for dynamic timeout calculation (bytes/s). */
+const MIN_BANDWIDTH_BPS = 500_000; // 5 Mbps — realistic floor for consumer connections
+/** Timeout headroom multiplier applied over the theoretical minimum time. */
+const UPLOAD_TIMEOUT_MULTIPLIER = 2.5;
 const MAX_RETRIES = 3;
 /** How many files each batch-presign call requests at once. */
 const PRESIGN_BATCH_SIZE = 20;
+
+function dynamicUploadTimeout(fileBytes: number): number {
+  const rawMs = (fileBytes / MIN_BANDWIDTH_BPS) * 1000 * UPLOAD_TIMEOUT_MULTIPLIER;
+  // Cap at 2 hours; floor at 30 seconds.
+  return Math.min(7_200_000, Math.max(30_000, rawMs));
+}
 
 type UploadStatusCallback = (
   sessionId: string,
@@ -571,12 +581,8 @@ class BackgroundUploadManager {
     });
     const arrayBuffer = await fileData.arrayBuffer();
 
-    // Dynamically size the SW wait timeout based on file size.
-    // Estimate: 100 KB/s minimum expected speed (very conservative for background uploads).
-    // Add 50 % headroom for retries, network jitter, and SW queue delays.
-    const MIN_BANDWIDTH = 100 * 1024;
-    const rawSeconds = Math.ceil(fileData.size / MIN_BANDWIDTH);
-    const swTimeout = Math.max(600_000, rawSeconds * 1000 * 1.5);
+    // Use the same dynamic timeout as uploadDirect for consistency.
+    const swTimeout = dynamicUploadTimeout(fileData.size);
 
     const wk = BackgroundUploadManager.swWaitKey(sessionId, fileIndex);
     const waitPromise = new Promise<{ publicUrl: string; key: string }>((resolve, reject) => {
@@ -627,7 +633,8 @@ class BackgroundUploadManager {
 
     const data = await storedFileData.data.arrayBuffer();
     const fileType = storedFileData.fileType;
-    const MAX_RETRIES = 3;
+    const fileBytes = data.byteLength;
+    const timeoutMs = dynamicUploadTimeout(fileBytes);
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
@@ -641,7 +648,7 @@ class BackgroundUploadManager {
           const xhr = new XMLHttpRequest();
           xhr.open("PUT", fileInfo.uploadUrl!, true);
           xhr.setRequestHeader("Content-Type", fileType);
-          xhr.timeout = 300_000;
+          xhr.timeout = timeoutMs;
 
           xhr.upload.onprogress = (evt) => {
             if (!evt.lengthComputable) return;
