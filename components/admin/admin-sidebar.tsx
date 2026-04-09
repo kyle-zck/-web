@@ -13,7 +13,8 @@ const DRAMA_MENU = [
   { href: "/admin/series/detail", key: "dramaDetail" },
   { href: "/admin/series/episodes", key: "episodeManagement" },
   { href: "/admin/series/tags", key: "tagLibrary" },
-  { href: "/admin/distribution", key: "distributionCenter" }
+  { href: "/admin/distribution", key: "distributionCenter" },
+  { href: "/admin/upload-records", key: "uploadRecords" }
 ];
 
 const ASSET_NAV = [
@@ -36,7 +37,7 @@ export function AdminSidebar() {
   const { t } = useTranslation();
   const { lang, setLanguage, languageOptions } = useAppLanguage();
   const [dramaOpen, setDramaOpen] = useState(
-    pathname.startsWith("/admin/series") || pathname.startsWith("/admin/distribution")
+    pathname.startsWith("/admin/series") || pathname.startsWith("/admin/distribution") || pathname.startsWith("/admin/upload-records")
   );
   const [assetOpen, setAssetOpen] = useState(
     ASSET_NAV.some((m) => pathname === m.href || pathname.startsWith(m.href + "/"))

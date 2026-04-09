@@ -157,23 +157,23 @@ export default function AdminDramaUploadPage() {
           });
         });
 
-    backgroundUploadManager.onSessionChange((session) => {
-      setBgUpload((prev) => {
-        const existsIdx = prev.backgroundSessions.findIndex((s) => s.id === session.id);
-        if (existsIdx >= 0) {
-          return {
-            ...prev,
-            backgroundSessions: prev.backgroundSessions.map((s) =>
-              s.id === session.id ? session : s
-            ),
-          };
-        }
-        return {
-          ...prev,
-          backgroundSessions: [...prev.backgroundSessions, session],
-        };
-      });
-    });
+        backgroundUploadManager.onSessionChange((session) => {
+          setBgUpload((prev) => {
+            const existsIdx = prev.backgroundSessions.findIndex((s) => s.id === session.id);
+            if (existsIdx >= 0) {
+              return {
+                ...prev,
+                backgroundSessions: prev.backgroundSessions.map((s) =>
+                  s.id === session.id ? session : s
+                ),
+              };
+            }
+            return {
+              ...prev,
+              backgroundSessions: [...prev.backgroundSessions, session],
+            };
+          });
+        });
 
         const sessions = await getAllUploadSessions();
         setBgUpload({
@@ -182,6 +182,28 @@ export default function AdminDramaUploadPage() {
           activeSessionId: null,
           backgroundSessions: sessions,
         });
+
+        // Restore active upload UI state from IndexedDB so page refresh doesn't lose the view.
+        const activePendingSession = sessions.find(
+          (s) => s.status === "pending" || s.status === "uploading"
+        );
+        if (activePendingSession) {
+          activeBgUploadSessionRef.current = activePendingSession.id;
+          setUploadFilesProgress(
+            activePendingSession.files
+              .slice()
+              .sort((a, b) => a.index - b.index)
+              .map((f) => ({
+                key: `${f.index}-${f.fileName}-${f.fileSize}`,
+                episodeIndex: f.index,
+                fileName: f.fileName,
+                stage: f.stage as UploadStage,
+                percent: f.percent,
+                error: f.error,
+              }))
+          );
+          setShowBgUploadsPanel(true);
+        }
 
         cleanupRef.current = () => {
           backgroundUploadManager.destroy();
