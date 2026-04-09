@@ -9,6 +9,7 @@ import {
   generateSessionId,
   claimSession,
   touchSessionHeartbeat,
+  updateSessionFileProgress,
   TAB_HEARTBEAT_INTERVAL_MS,
   type UploadSession,
 } from "./background-upload-db";
@@ -301,7 +302,7 @@ class BackgroundUploadManager {
       // Heartbeat refresh during a long upload run
       await touchSessionHeartbeat(sessionId, this.tabId);
       await Promise.all(
-        batch.map((fileInfo) => this.uploadFile(sessionId, fileInfo))
+        batch.map((fileInfo) => this.uploadFile(sessionId, fileInfo.index))
       );
     }
 
@@ -321,22 +322,25 @@ class BackgroundUploadManager {
     }
   }
 
-  private async uploadFile(sessionId: string, fileInfo: UploadSession["files"][number]) {
-    // Guard: skip if session was paused by the time we reach this file
+  private async uploadFile(sessionId: string, fileIndex: number) {
     const session = await getUploadSession(sessionId);
     if (!session || session.status === "paused") return;
 
-    this.statusCallback?.(sessionId, fileInfo.index, "presign", 0);
+    const fileIdx = session.files.findIndex((f) => f.index === fileIndex);
+    if (fileIdx < 0) return;
 
-    // Build the file list for batch presign: current file + up to PRESIGN_BATCH_SIZE-1 queued peers
+    const fileInfo = session.files[fileIdx];
+    // Always re-read from IndexedDB at the start of each attempt so we never work with stale data.
+    await updateSessionFileProgress(sessionId, fileIndex, { stage: "presign", percent: 0 });
+    this.statusCallback?.(sessionId, fileIndex, "presign", 0);
+
+    // Batch presign: prefetch presigned URLs for this file + its peers to save round-trips.
     const queuedFiles = session.files
       .filter((f) => f.stage === "queued" || f.stage === "failed")
       .sort((a, b) => a.index - b.index);
 
-    // Take enough to cover this file; cap at batch size so we don't over-fetch presigned URLs
     const batchSize = Math.min(queuedFiles.length, PRESIGN_BATCH_SIZE);
     const peerFiles = queuedFiles.slice(0, batchSize);
-    const peerMap = new Map(peerFiles.map((f) => [f.index, f]));
 
     try {
       const presignRes = await fetch("/admin/api/upload/video/presign-batch", {
@@ -350,196 +354,152 @@ class BackgroundUploadManager {
         }),
       });
 
-      if (!presignRes.ok) {
-        throw new Error("Presign batch failed");
-      }
+      if (!presignRes.ok) throw new Error(`Presign failed (HTTP ${presignRes.status})`);
 
       const presignJson = (await presignRes.json()) as {
         ok?: boolean;
         items?: Array<{ fileName: string; key: string; uploadUrl: string; publicUrl?: string }>;
       };
 
-      if (!presignJson.ok || !Array.isArray(presignJson.items) || presignJson.items.length === 0) {
+      if (!presignJson.ok || !Array.isArray(presignJson.items)) {
         throw new Error("Invalid presign batch response");
       }
 
-      // Map results back — match by fileName so re-ordered peers still resolve correctly
+      // Resolve presigned URLs in IndexedDB for every peer so they don't re-fetch on retry.
       for (const item of presignJson.items) {
-        const match = peerFiles.find((f) => f.fileName === item.fileName);
-        if (match) {
-          match.uploadUrl = item.uploadUrl;
-          match.publicUrl = item.publicUrl;
-          match.key = item.key;
+        const peerIdx = session.files.findIndex((f) => f.index === peerFiles.find((p) => p.fileName === item.fileName)?.index);
+        if (peerIdx >= 0) {
+          session.files[peerIdx] = {
+            ...session.files[peerIdx],
+            uploadUrl: item.uploadUrl,
+            publicUrl: item.publicUrl,
+            key: item.key,
+          };
         }
       }
+      await saveUploadSession(session);
 
-      // Inject the already-resolved presigned URL for the file we were called with
-      if (peerMap.has(fileInfo.index)) {
-        const resolved = peerMap.get(fileInfo.index)!;
-        fileInfo.uploadUrl = resolved.uploadUrl;
-        fileInfo.key = resolved.key;
-        fileInfo.publicUrl = resolved.publicUrl;
+      // Re-fetch the specific file's record so it has uploadUrl/key/publicUrl.
+      const updatedSession = await getUploadSession(sessionId);
+      const targetFileIdx = updatedSession?.files.findIndex((f) => f.index === fileIndex) ?? -1;
+      if (targetFileIdx < 0) return;
+      const targetFile = updatedSession!.files[targetFileIdx];
+
+      if (!targetFile.uploadUrl) {
+        throw new Error("Presigned URL not found for this file");
       }
 
-      await this.updateFileProgress(sessionId, fileInfo);
-      this.statusCallback?.(sessionId, fileInfo.index, "uploading", 1);
+      this.statusCallback?.(sessionId, fileIndex, "uploading", 1);
+      await updateSessionFileProgress(sessionId, fileIndex, { stage: "uploading", percent: 1 });
 
-      await this.sendToServiceWorker(sessionId, fileInfo);
+      // Route: Service Worker (background tab) vs. direct upload (main thread fallback).
+      if (this.swRegistration?.active) {
+        await this.sendToServiceWorker(sessionId, fileIndex);
+      } else {
+        await this.uploadDirect(sessionId, fileIndex);
+      }
 
     } catch (err) {
-      fileInfo.retryCount += 1;
-      if (fileInfo.retryCount < MAX_RETRIES) {
-        await this.updateFileProgress(sessionId, fileInfo);
-        const s2 = await getUploadSession(sessionId);
-        const fresh = s2?.files.find((f) => f.index === fileInfo.index);
-        if (!fresh || s2?.status === "paused") return;
-        fresh.stage = "queued";
-        await this.updateFileProgress(sessionId, fresh);
-        setTimeout(() => this.uploadFile(sessionId, fresh), 1000 * fileInfo.retryCount);
+      const errorMsg = err instanceof Error ? err.message : "Upload failed";
+      const updated = await getUploadSession(sessionId);
+      const fi = updated?.files.find((f) => f.index === fileIndex);
+      if (!fi) return;
+
+      if (fi.retryCount < MAX_RETRIES) {
+        fi.retryCount += 1;
+        fi.stage = "queued";
+        await updateSessionFileProgress(sessionId, fileIndex, {
+          retryCount: fi.retryCount,
+          stage: "queued",
+        });
+        const delay = 1000 * fi.retryCount;
+        setTimeout(() => this.uploadFile(sessionId, fileIndex), delay);
       } else {
-        fileInfo.stage = "failed";
-        fileInfo.error = err instanceof Error ? err.message : "Upload failed";
-        await this.updateFileProgress(sessionId, fileInfo);
-        this.statusCallback?.(
-          sessionId,
-          fileInfo.index,
-          "failed",
-          undefined,
-          fileInfo.error
-        );
+        fi.stage = "failed";
+        fi.error = errorMsg;
+        await updateSessionFileProgress(sessionId, fileIndex, { stage: "failed", error: errorMsg });
+        this.statusCallback?.(sessionId, fileIndex, "failed", undefined, errorMsg);
       }
     }
   }
 
-  private async sendToServiceWorker(
-    sessionId: string,
-    fileInfo: UploadSession["files"][number]
-  ) {
+  private async sendToServiceWorker(sessionId: string, fileIndex: number) {
     const session = await getUploadSession(sessionId);
     if (!session) return;
 
-    let fileData: File | null = null;
-    let fileName = fileInfo.fileName;
-    let fileType = fileInfo.fileType;
+    const fileIdx = session.files.findIndex((f) => f.index === fileIndex);
+    if (fileIdx < 0) return;
+    const fileInfo = session.files[fileIdx];
 
-    const storedFileData = await getFileData(sessionId, fileInfo.index);
-    if (storedFileData) {
-      fileData = new File([storedFileData.data], storedFileData.fileName, {
-        type: storedFileData.fileType,
-      });
-      fileName = storedFileData.fileName;
-      fileType = storedFileData.fileType;
-    } else {
-      const formFiles = this.pendingFiles.get(sessionId)?.find((f) => f.index === fileInfo.index);
-      if (formFiles) {
-        fileData = formFiles.file;
-        fileName = formFiles.file.name;
-        fileType = formFiles.file.type;
-      }
+    if (!fileInfo.uploadUrl) {
+      const errorMsg = "Presigned URL not found";
+      await updateSessionFileProgress(sessionId, fileIndex, { stage: "failed", error: errorMsg });
+      this.statusCallback?.(sessionId, fileIndex, "failed", undefined, errorMsg);
+      throw new Error(errorMsg);
     }
 
-    if (!fileData) {
-      fileInfo.stage = "failed";
-      await this.updateFileProgress(sessionId, fileInfo);
-      this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, "File data not found");
-      throw new Error("File data not found");
+    const storedFileData = await getFileData(sessionId, fileIndex);
+    if (!storedFileData) {
+      const errorMsg = "File data not found in IndexedDB";
+      await updateSessionFileProgress(sessionId, fileIndex, { stage: "failed", error: errorMsg });
+      this.statusCallback?.(sessionId, fileIndex, "failed", undefined, errorMsg);
+      throw new Error(errorMsg);
     }
 
-    try {
-      const arrayBuffer = await fileData.arrayBuffer();
+    const fileData = new File([storedFileData.data], storedFileData.fileName, {
+      type: storedFileData.fileType,
+    });
+    const arrayBuffer = await fileData.arrayBuffer();
 
-      if (this.swRegistration?.active) {
-        const wk = BackgroundUploadManager.swWaitKey(sessionId, fileInfo.index);
-        const waitPromise = new Promise<{ publicUrl: string; key: string }>((resolve, reject) => {
-          const timeout = globalThis.setTimeout(() => {
-            this.swUploadWaiters.delete(wk);
-            reject(new Error("Upload timeout"));
-          }, 600_000);
-          this.swUploadWaiters.set(wk, { resolve, reject, timeout });
-        });
-
-        this.swRegistration.active.postMessage({
-          type: "start",
-          sessionId,
-          fileIndex: fileInfo.index,
-          tabId: this.tabId,
-          fileData: {
-            name: fileName,
-            type: fileType,
-            size: fileData.size,
-            data: arrayBuffer,
-          },
-          presignedUrl: fileInfo.uploadUrl,
-        });
-
-        const result = await waitPromise;
-        fileInfo.publicUrl = result.publicUrl || fileInfo.publicUrl;
-        fileInfo.key = result.key || fileInfo.key;
-        fileInfo.stage = "done";
-        fileInfo.percent = 100;
-        // IndexedDB already updated in onSwUploadComplete
-      } else {
-        await this.uploadDirect(sessionId, fileInfo, arrayBuffer, fileType);
-      }
-    } catch (err) {
-      const wk = BackgroundUploadManager.swWaitKey(sessionId, fileInfo.index);
-      if (this.swUploadWaiters.has(wk)) {
-        clearTimeout(this.swUploadWaiters.get(wk)!.timeout);
+    const wk = BackgroundUploadManager.swWaitKey(sessionId, fileIndex);
+    const waitPromise = new Promise<{ publicUrl: string; key: string }>((resolve, reject) => {
+      const timeout = globalThis.setTimeout(() => {
         this.swUploadWaiters.delete(wk);
-        fileInfo.stage = "failed";
-        await this.updateFileProgress(sessionId, fileInfo);
-        this.statusCallback?.(
-          sessionId,
-          fileInfo.index,
-          "failed",
-          undefined,
-          err instanceof Error ? err.message : "Upload failed"
-        );
-        return;
-      }
-      if (this.swRegistration?.active) {
-        const latest = await getUploadSession(sessionId);
-        const f = latest?.files.find((x) => x.index === fileInfo.index);
-        if (f?.stage === "failed" || f?.stage === "done") {
-          return;
-        }
-        fileInfo.stage = "failed";
-        await this.updateFileProgress(sessionId, fileInfo);
-        this.statusCallback?.(
-          sessionId,
-          fileInfo.index,
-          "failed",
-          undefined,
-          err instanceof Error ? err.message : "Upload failed"
-        );
-        return;
-      }
-      fileInfo.stage = "failed";
-      await this.updateFileProgress(sessionId, fileInfo);
-      this.statusCallback?.(
-        sessionId,
-        fileInfo.index,
-        "failed",
-        undefined,
-        err instanceof Error ? err.message : "Failed to read file"
-      );
-    }
+        reject(new Error("Service Worker upload timeout after 10 minutes"));
+      }, 600_000);
+      this.swUploadWaiters.set(wk, { resolve, reject, timeout });
+    });
+
+    this.swRegistration!.active!.postMessage({
+      type: "start",
+      sessionId,
+      fileIndex,
+      tabId: this.tabId,
+      fileData: {
+        name: storedFileData.fileName,
+        type: storedFileData.fileType,
+        size: storedFileData.fileSize,
+        data: arrayBuffer,
+      },
+      presignedUrl: fileInfo.uploadUrl,
+    });
+
+    // SwUploadComplete will resolve the promise and update IndexedDB.
+    // On timeout/reject the outer catch in uploadFile handles retry/failure.
+    await waitPromise;
   }
 
-  private async uploadDirect(
-    sessionId: string,
-    fileInfo: UploadSession["files"][number],
-    data: ArrayBuffer,
-    fileType: string
-  ): Promise<void> {
+  private async uploadDirect(sessionId: string, fileIndex: number): Promise<void> {
+    const session = await getUploadSession(sessionId);
+    const fileIdx = session?.files.findIndex((f) => f.index === fileIndex) ?? -1;
+    if (fileIdx < 0) return;
+    const fileInfo = session!.files[fileIdx];
+
     if (!fileInfo.uploadUrl) {
-      fileInfo.stage = "failed";
-      fileInfo.error = "Missing upload URL";
-      await this.updateFileProgress(sessionId, fileInfo);
-      this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, fileInfo.error);
+      await updateSessionFileProgress(sessionId, fileIndex, { stage: "failed", error: "Missing upload URL" });
+      this.statusCallback?.(sessionId, fileIndex, "failed", undefined, "Missing upload URL");
       return;
     }
 
+    const storedFileData = await getFileData(sessionId, fileIndex);
+    if (!storedFileData) {
+      await updateSessionFileProgress(sessionId, fileIndex, { stage: "failed", error: "File data not found" });
+      this.statusCallback?.(sessionId, fileIndex, "failed", undefined, "File data not found");
+      return;
+    }
+
+    const data = await storedFileData.data.arrayBuffer();
+    const fileType = storedFileData.fileType;
     const MAX_RETRIES = 3;
     let lastError: Error | null = null;
 
@@ -559,7 +519,7 @@ class BackgroundUploadManager {
           xhr.upload.onprogress = (evt) => {
             if (!evt.lengthComputable) return;
             const percent = Math.round((evt.loaded / evt.total) * 100);
-            this.statusCallback?.(sessionId, fileInfo.index, "uploading", percent);
+            this.statusCallback?.(sessionId, fileIndex, "uploading", percent);
           };
 
           xhr.onload = () => {
@@ -579,49 +539,33 @@ class BackgroundUploadManager {
           xhr.send(blob);
         });
 
-        fileInfo.stage = "done";
-        fileInfo.percent = 100;
-        await this.updateFileProgress(sessionId, fileInfo);
-        this.statusCallback?.(sessionId, fileInfo.index, "done", 100);
+        await updateSessionFileProgress(sessionId, fileIndex, { stage: "done", percent: 100 });
+        this.statusCallback?.(sessionId, fileIndex, "done", 100);
         return;
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err));
         const msg = lastError.message;
 
-        if (msg.includes("CORS") || msg.includes("Check R2 CORS") || (msg.includes("HTTP 4") && !msg.includes("Retrying"))) {
-          fileInfo.stage = "failed";
-          fileInfo.error = msg;
-          await this.updateFileProgress(sessionId, fileInfo);
-          this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, msg);
+        if (
+          msg.includes("CORS") ||
+          msg.includes("Check R2 CORS") ||
+          (msg.includes("HTTP 4") && !msg.includes("Retrying"))
+        ) {
+          await updateSessionFileProgress(sessionId, fileIndex, { stage: "failed", error: msg });
+          this.statusCallback?.(sessionId, fileIndex, "failed", undefined, msg);
           throw lastError;
         }
 
         if (attempt <= MAX_RETRIES) {
-          this.statusCallback?.(sessionId, fileInfo.index, "uploading", 0);
+          this.statusCallback?.(sessionId, fileIndex, "uploading", 0);
         }
       }
     }
 
-    fileInfo.stage = "failed";
-    fileInfo.error = lastError?.message ?? "Upload failed after max retries";
-    await this.updateFileProgress(sessionId, fileInfo);
-    this.statusCallback?.(sessionId, fileInfo.index, "failed", undefined, fileInfo.error);
-    throw lastError ?? new Error("Upload failed");
-  }
-
-  private async updateFileProgress(
-    sessionId: string,
-    fileInfo: UploadSession["files"][number]
-  ) {
-    const session = await getUploadSession(sessionId);
-    if (!session) return;
-
-    const idx = session.files.findIndex((f) => f.index === fileInfo.index);
-    if (idx >= 0) {
-      // Shallow merge so we never accidentally lose fields not present in fileInfo
-      session.files[idx] = { ...session.files[idx], ...fileInfo };
-      await saveUploadSession(session);
-    }
+    const errMsg = lastError?.message ?? "Upload failed after max retries";
+    await updateSessionFileProgress(sessionId, fileIndex, { stage: "failed", error: errMsg });
+    this.statusCallback?.(sessionId, fileIndex, "failed", undefined, errMsg);
+    throw lastError ?? new Error(errMsg);
   }
 
   private async createSeries(sessionId: string, session: UploadSession) {

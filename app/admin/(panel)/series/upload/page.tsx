@@ -1228,9 +1228,18 @@ export default function AdminDramaUploadPage() {
                 <div className="h-1.5 overflow-hidden rounded bg-zinc-800">
                   <div
                     className={`h-full transition-all ${
-                      it.stage === "failed" ? "bg-red-500" : "bg-brand"
+                      it.stage === "failed"
+                        ? "bg-red-500"
+                        : it.stage === "uploading" && it.percent === 0
+                          ? "bg-brand animate-pulse w-full"
+                          : "bg-brand"
                     }`}
-                    style={{ width: `${it.stage === "failed" ? 100 : it.percent}%` }}
+                    style={{
+                      width:
+                        it.stage === "uploading" && it.percent === 0
+                          ? undefined
+                          : `${it.stage === "failed" ? 100 : it.percent}%`
+                    }}
                   />
                 </div>
               </div>
@@ -1337,7 +1346,7 @@ export default function AdminDramaUploadPage() {
                             }`} />
                             <span className={`truncate ${file.stage === "failed" ? "text-red-400" : "text-zinc-400"}`}>
                               {t(`common.admin.uploadStage_${file.stage}`)}
-                              {file.stage === "uploading" ? ` ${file.percent}%` : ""}
+                              {file.stage === "uploading" && file.percent > 0 ? ` ${file.percent}%` : ""}
                             </span>
                           </div>
                           {file.stage === "failed" && file.error && (
