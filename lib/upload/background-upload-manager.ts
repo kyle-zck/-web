@@ -281,6 +281,7 @@ class BackgroundUploadManager {
 
     // Register this session so heartbeat keeps it alive while concurrent sessions run
     this.addActiveSession(sessionId);
+    console.log(`[startUpload] about to call processQueue for ${sessionId}`);
 
     this.processQueue(sessionId);
 
@@ -288,14 +289,17 @@ class BackgroundUploadManager {
   }
 
   private async processQueue(sessionId: string) {
+    console.log(`[processQueue] START sessionId=${sessionId}, tabId=${this.tabId}`);
     const claimed = await claimSession(sessionId, this.tabId);
+    console.log(`[processQueue] claimSession=${claimed} for sessionId=${sessionId}`);
     if (!claimed) {
-      // Someone else already owns this session — don't block the heartbeat.
       this.removeActiveSession(sessionId);
+      console.log(`[processQueue] NOT CLAIMED — removing ${sessionId} from active set`);
       return;
     }
 
     const session = await getUploadSession(sessionId);
+    console.log(`[processQueue] session=${session ? "found" : "NOT FOUND"} for ${sessionId}`);
     if (!session) {
       this.removeActiveSession(sessionId);
       return;
@@ -309,10 +313,12 @@ class BackgroundUploadManager {
     session.lastHeartbeat = Date.now();
     await saveUploadSession(session);
     this.addActiveSession(sessionId);
+    console.log(`[processQueue] set status=uploading, activeSessionIds=${[...this.activeSessionIds]}`);
 
     const pendingFiles = session.files.filter(
       (f) => f.stage === "queued" || f.stage === "failed"
     );
+    console.log(`[processQueue] pendingFiles count=${pendingFiles.length}, ids=${pendingFiles.map(f => f.index)}`);
 
     // Dynamic concurrency: raise cap when few files remain so they finish sooner
     const effectiveCap = Math.min(
@@ -363,10 +369,16 @@ class BackgroundUploadManager {
   }
 
   private async uploadFile(sessionId: string, fileIndex: number) {
+    console.log(`[uploadFile] START sessionId=${sessionId} fileIndex=${fileIndex}`);
     const session = await getUploadSession(sessionId);
-    if (!session || session.status === "paused") return;
+    console.log(`[uploadFile] session=${session ? "found" : "NOT FOUND"}, status=${session?.status}`);
+    if (!session || session.status === "paused") {
+      console.log(`[uploadFile] EARLY RETURN — !session=${!session}, paused=${session?.status === "paused"}`);
+      return;
+    }
 
     const fileIdx = session.files.findIndex((f) => f.index === fileIndex);
+    console.log(`[uploadFile] fileIdx=${fileIdx}`);
     if (fileIdx < 0) return;
 
     const fileInfo = session.files[fileIdx];
@@ -433,11 +445,13 @@ class BackgroundUploadManager {
       await updateSessionFileProgress(sessionId, fileIndex, { stage: "uploading", percent: 1 });
 
       // Route: Service Worker (background tab) vs. direct upload (main thread fallback).
+      console.log(`[uploadFile] routing to SW (sw=${!!this.swRegistration?.active})`);
       if (this.swRegistration?.active) {
         await this.sendToServiceWorker(sessionId, fileIndex);
       } else {
         await this.uploadDirect(sessionId, fileIndex);
       }
+      console.log(`[uploadFile] DONE sessionId=${sessionId} fileIndex=${fileIndex}`);
 
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Upload failed";
@@ -500,6 +514,7 @@ class BackgroundUploadManager {
       this.swUploadWaiters.set(wk, { resolve, reject, timeout });
     });
 
+    console.log(`[sendToServiceWorker] posting to SW sessionId=${sessionId} fileIndex=${fileIndex} url=${fileInfo.uploadUrl?.slice(0, 80)}`);
     this.swRegistration!.active!.postMessage({
       type: "start",
       sessionId,
@@ -513,6 +528,7 @@ class BackgroundUploadManager {
       },
       presignedUrl: fileInfo.uploadUrl,
     });
+    console.log(`[sendToServiceWorker] message sent, waiting for completion...`);
 
     // SwUploadComplete will resolve the promise and update IndexedDB.
     // On timeout/reject the outer catch in uploadFile handles retry/failure.
