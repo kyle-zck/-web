@@ -336,6 +336,7 @@ export default function AdminDramaUploadPage() {
     setUploadFilesProgress(
       sortedVideos.map((v, idx) => ({
         key: `${idx}-${v.file.name}-${v.file.size}`,
+        sessionId: "",
         episodeIndex: v.index,
         fileName: v.file.name,
         stage: "queued" as const,
