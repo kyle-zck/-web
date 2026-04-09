@@ -18,6 +18,7 @@ interface TagItem {
 type UploadStage = "queued" | "presign" | "uploading" | "completing" | "done" | "failed";
 type UploadFileProgress = {
   key: string;
+  sessionId: string;
   /** Episode index parsed from filename; matches background upload `fileIndex`. */
   episodeIndex: number;
   fileName: string;
@@ -77,8 +78,8 @@ export default function AdminDramaUploadPage() {
   });
   const [showBgUploadsPanel, setShowBgUploadsPanel] = useState(false);
   const cleanupRef = useRef<(() => void) | null>(null);
-  /** Only merge SW progress into the inline list for this background session. */
-  const activeBgUploadSessionRef = useRef<string | null>(null);
+  /** All active session IDs — progress from all of them is merged into the inline list. */
+  const activeBgUploadSessionRef = useRef<Set<string>>(new Set());
 
   const suggestWorkerCount = (total: number) => {
     if (total <= 1) return total;
@@ -141,8 +142,8 @@ export default function AdminDramaUploadPage() {
       if (initialized) {
         backgroundUploadManager.onStatusChange((sessionId, fileIndex, stage, percent, error) => {
           setUploadFilesProgress((prev) => {
-            if (activeBgUploadSessionRef.current !== sessionId) return prev;
-            const i = prev.findIndex((p) => p.episodeIndex === fileIndex);
+            if (!activeBgUploadSessionRef.current.has(sessionId)) return prev;
+            const i = prev.findIndex((p) => p.sessionId === sessionId && p.episodeIndex === fileIndex);
             if (i < 0) return prev;
             return prev.map((p, idx) =>
               idx === i
@@ -173,6 +174,31 @@ export default function AdminDramaUploadPage() {
               backgroundSessions: [...prev.backgroundSessions, session],
             };
           });
+
+          // Add the new session to the active set so its progress appears inline.
+          if (session.status === "pending" || session.status === "uploading") {
+            activeBgUploadSessionRef.current = new Set([
+              ...activeBgUploadSessionRef.current,
+              session.id,
+            ]);
+          }
+
+          // Merge new session's files into the inline progress list.
+          setUploadFilesProgress((prev) => {
+            const existingKeys = new Set(prev.map((p) => `${p.sessionId}-${p.episodeIndex}`));
+            const newItems: UploadFileProgress[] = session.files
+              .filter((f) => !existingKeys.has(`${session.id}-${f.index}`))
+              .map((f) => ({
+                key: `${session.id}-${f.index}-${f.fileName}-${f.fileSize}`,
+                sessionId: session.id,
+                episodeIndex: f.index,
+                fileName: f.fileName,
+                stage: f.stage as UploadStage,
+                percent: f.percent,
+                error: f.error,
+              }));
+            return [...prev, ...newItems];
+          });
         });
 
         const sessions = await getAllUploadSessions();
@@ -184,24 +210,31 @@ export default function AdminDramaUploadPage() {
         });
 
         // Restore active upload UI state from IndexedDB so page refresh doesn't lose the view.
-        const activePendingSession = sessions.find(
+        const activePendingSessions = sessions.filter(
           (s) => s.status === "pending" || s.status === "uploading"
         );
-        if (activePendingSession) {
-          activeBgUploadSessionRef.current = activePendingSession.id;
-          setUploadFilesProgress(
-            activePendingSession.files
-              .slice()
-              .sort((a, b) => a.index - b.index)
+        for (const session of activePendingSessions) {
+          activeBgUploadSessionRef.current = new Set([
+            ...activeBgUploadSessionRef.current,
+            session.id,
+          ]);
+          setUploadFilesProgress((prev) => {
+            const existingKeys = new Set(prev.map((p) => `${p.sessionId}-${p.episodeIndex}`));
+            const newItems: UploadFileProgress[] = session.files
+              .filter((f) => !existingKeys.has(`${session.id}-${f.index}`))
               .map((f) => ({
-                key: `${f.index}-${f.fileName}-${f.fileSize}`,
+                key: `${session.id}-${f.index}-${f.fileName}-${f.fileSize}`,
+                sessionId: session.id,
                 episodeIndex: f.index,
                 fileName: f.fileName,
                 stage: f.stage as UploadStage,
                 percent: f.percent,
                 error: f.error,
-              }))
-          );
+              }));
+            return [...prev, ...newItems];
+          });
+        }
+        if (activePendingSessions.length > 0) {
           setShowBgUploadsPanel(true);
         }
 
@@ -375,14 +408,15 @@ export default function AdminDramaUploadPage() {
 
   const handleBgUploadRemove = useCallback(async (sessionId: string) => {
     await backgroundUploadManager.cancelUpload(sessionId);
-    if (activeBgUploadSessionRef.current === sessionId) {
-      activeBgUploadSessionRef.current = null;
-    }
+    const nextSet = new Set(activeBgUploadSessionRef.current);
+    nextSet.delete(sessionId);
+    activeBgUploadSessionRef.current = nextSet;
     setBgUpload((prev) => ({
       ...prev,
       backgroundSessions: prev.backgroundSessions.filter((s) => s.id !== sessionId),
       activeSessionId: prev.activeSessionId === sessionId ? null : prev.activeSessionId
     }));
+    setUploadFilesProgress((prev) => prev.filter((p) => p.sessionId !== sessionId));
   }, []);
 
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -521,9 +555,10 @@ export default function AdminDramaUploadPage() {
       setUploadFilesProgress(
         sortedVideos.map((v, idx) => ({
           key: `${idx}-${v.file.name}-${v.file.size}`,
+          sessionId: "",
           episodeIndex: v.index,
           fileName: v.file.name,
-          stage: "queued",
+          stage: "queued" as const,
           percent: 0
         }))
       );
