@@ -29,7 +29,9 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as { fileName?: string };
   const rawName = (body.fileName ?? "cover").trim();
   const safeName = sanitizeFilename(rawName);
-  const key = `covers/${Date.now()}-${safeName}.webp`;
+  // 文件名可能已含 .webp 后缀（如 "photo.webp"），去重避免 "photo.webp.webp"
+  const finalName = safeName.endsWith(".webp") ? safeName : `${safeName}.webp`;
+  const key = `covers/${Date.now()}-${finalName}`;
 
   const client = getS3Client();
   const command = new PutObjectCommand({
@@ -39,9 +41,9 @@ export async function POST(req: Request) {
     CacheControl: "public, max-age=31536000, immutable"
   });
 
-  // Presigned URLs are bound to the S3_ENDPOINT host — never rewrite the URL,
-  // or the signature becomes invalid and causes 403.
-  const uploadUrl = await getSignedUrl(client, command, { expiresIn: 60 * 15 });
+// Presigned URLs are bound to the S3_ENDPOINT host — never rewrite the URL,
+// or the signature becomes invalid and causes 403.
+const uploadUrl = await getSignedUrl(client, command, { expiresIn: 60 * 120 }); // 2 hours
 
   return NextResponse.json({ ok: true, key, uploadUrl });
 }

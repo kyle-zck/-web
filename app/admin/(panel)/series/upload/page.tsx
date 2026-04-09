@@ -481,8 +481,12 @@ export default function AdminDramaUploadPage() {
       await done;
       globalThis.clearTimeout(timer);
 
-      // Extract public URL from the presign URL (strip query params).
-      const coverUrl = json.uploadUrl.split("?")[0];
+      // Build public URL from key — strip query params from uploadUrl AND replace
+      // the r2.cloudflarestorage.com host with the configured public base domain.
+      const publicBase = process.env.NEXT_PUBLIC_S3_PUBLIC_BASE_URL ?? "";
+      const coverUrl = publicBase
+        ? `${publicBase.replace(/\/$/, "")}/${json.key ?? ""}`
+        : json.uploadUrl.split("?")[0];
       setForm((f) => ({ ...f, coverUrl }));
     } catch {
       showToast(t("common.admin.networkErrorShort"), "error");

@@ -58,7 +58,7 @@ export async function POST(req: Request) {
         });
         // NOTE: Presigned URLs are bound to the S3_ENDPOINT host and must NOT be
         // rewritten — doing so invalidates the signature and causes 403 errors.
-        const uploadUrl = await getSignedUrl(client, command, { expiresIn: 60 * 15 });
+        const uploadUrl = await getSignedUrl(client, command, { expiresIn: 60 * 120 }); // 2 hours
         return { fileName, key, uploadUrl, publicUrl: buildPublicUrl(key) };
       })
     );
