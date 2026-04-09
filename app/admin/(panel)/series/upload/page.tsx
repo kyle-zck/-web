@@ -420,6 +420,10 @@ export default function AdminDramaUploadPage() {
     setUploadFilesProgress((prev) => prev.filter((p) => p.sessionId !== sessionId));
   }, []);
 
+  const handleBgUploadRetryFile = useCallback(async (sessionId: string, fileIndex: number) => {
+    await backgroundUploadManager.retryFile(sessionId, fileIndex);
+  }, []);
+
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1444,6 +1448,15 @@ export default function AdminDramaUploadPage() {
                               {t(`common.admin.uploadStage_${file.stage}`)}
                               {file.stage === "uploading" && file.percent > 0 ? ` ${file.percent}%` : ""}
                             </span>
+                            {file.stage === "failed" && (
+                              <button
+                                onClick={() => handleBgUploadRetryFile(session.id, file.index)}
+                                className="shrink-0 rounded border border-amber-500/50 px-1.5 py-0.5 text-[10px] text-amber-400 hover:bg-amber-500/20"
+                                title={t("common.admin.retryFile")}
+                              >
+                                {t("common.admin.retry")}
+                              </button>
+                            )}
                           </div>
                           {file.stage === "failed" && file.error && (
                             <span className="ml-4 truncate text-[10px] text-red-400/60">{file.error}</span>

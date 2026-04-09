@@ -17,12 +17,12 @@ import {
 const SW_FILENAME = "/sw-upload.js";
 const CHANNEL_NAME = "bg-upload-channel";
 /** How many files can upload simultaneously — higher = faster for large batches. */
-const MAX_CONCURRENT_UPLOADS = 20;
+const MAX_CONCURRENT_UPLOADS = 10;
 /** Minimum bandwidth assumption for dynamic timeout calculation (bytes/s). */
 const MIN_BANDWIDTH_BPS = 500_000; // 5 Mbps — realistic floor for consumer connections
 /** Timeout headroom multiplier applied over the theoretical minimum time. */
 const UPLOAD_TIMEOUT_MULTIPLIER = 2.5;
-const MAX_RETRIES = 3;
+const MAX_RETRIES = 2;
 /** How many files each batch-presign call requests at once. */
 const PRESIGN_BATCH_SIZE = 20;
 /** Transient network errors that should trigger retries instead of failing immediately. */
@@ -394,34 +394,40 @@ class BackgroundUploadManager {
           fileIndex: -1,
           error: errorMsg,
         });
-        this.removeActiveSession(sessionId);
-        return;
+        // Continue processing other batches instead of stopping
       }
     }
 
     await saveUploadSession(session);
 
     // ── Stage 2: upload all presigned files in parallel with semaphore ───────
-    const semaphore = { count: MAX_CONCURRENT_UPLOADS };
-    const enqueue = async (task: () => Promise<void>) => {
-      while (semaphore.count <= 0) {
-        await new Promise((r) => setTimeout(r, 50));
-      }
-      semaphore.count -= 1;
-      try {
-        await task();
-      } finally {
-        semaphore.count += 1;
-      }
-    };
+    // Use a Promise-based semaphore for faster task scheduling (no polling delays).
+    let availableSlots = MAX_CONCURRENT_UPLOADS;
+    const waitForSlot = () =>
+      new Promise<void>((resolve) => {
+        const tryAcquire = () => {
+          if (availableSlots > 0) {
+            availableSlots--;
+            resolve();
+          } else {
+            setTimeout(tryAcquire, 20);
+          }
+        };
+        tryAcquire();
+      });
 
     const uploadPromises = sorted.map(
       (f) =>
         new Promise<void>((resolve) => {
-          void enqueue(async () => {
-            await this.uploadFile(sessionId, f.index);
+          void (async () => {
+            await waitForSlot();
+            try {
+              await this.uploadFile(sessionId, f.index);
+            } finally {
+              availableSlots++;
+            }
             resolve();
-          });
+          })();
         })
     );
 
@@ -869,6 +875,40 @@ class BackgroundUploadManager {
     await deleteUploadSession(sessionId);
     await deleteFileData(sessionId);
     this.pendingFiles.delete(sessionId);
+  }
+
+  /**
+   * Retry uploading a single failed file.
+   * This method clears the existing error and re-triggers the upload process
+   * for the specified file index.
+   */
+  async retryFile(sessionId: string, fileIndex: number) {
+    const session = await getUploadSession(sessionId);
+    if (!session) return;
+
+    const fileIdx = session.files.findIndex((f) => f.index === fileIndex);
+    if (fileIdx < 0) return;
+
+    const fileInfo = session.files[fileIdx];
+    if (fileInfo.stage !== "failed") return;
+
+    // Reset the file state to queued so it can be re-uploaded
+    await updateSessionFileProgress(sessionId, fileIndex, {
+      stage: "queued",
+      percent: 0,
+      retryCount: 0,
+      error: undefined,
+    });
+
+    // If file still has uploadUrl (presigned), try direct upload
+    if (fileInfo.uploadUrl) {
+      this.addActiveSession(sessionId);
+      await this.uploadFile(sessionId, fileIndex);
+    } else {
+      // Otherwise, the queue processor will re-presign and upload
+      await saveUploadSession(session);
+      this.processQueue(sessionId);
+    }
   }
 
   async getSessionStatus(sessionId: string): Promise<UploadSession | undefined> {

@@ -787,6 +787,8 @@ export const en = {
       bgUploadSessionPaused: "Paused",
       uploadingShort: "uploading",
       failedShort: "failed",
+      retry: "Retry",
+      retryFile: "Retry upload",
       hide: "Hide",
       show: "Show",
       remove: "Remove",

@@ -718,6 +718,8 @@ export const zhCN = {
       bgUploadSessionPaused: "已暂停",
       uploadingShort: "上传中",
       failedShort: "失败",
+      retry: "重试",
+      retryFile: "重试上传",
       hide: "收起",
       show: "展开",
       remove: "移除",
