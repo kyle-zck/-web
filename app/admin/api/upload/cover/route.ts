@@ -61,13 +61,15 @@ export async function POST(req: Request) {
   let webpBody: Buffer;
   try {
     webpBody = await compressToWebP(body);
-  } catch {
+  } catch (e) {
+    console.error("[cover-upload] sharp compress failed:", e);
     return NextResponse.json({ ok: false, error: "Failed to process image" }, { status: 422 });
   }
 
   if (!bucket || !accessKeyId || !secretAccessKey) {
     // 生产环境必须使用对象存储，否则 URL 在无状态实例中会 404。
     if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+      console.error("[cover-upload] S3 env not configured:", { bucket, hasKey: !!accessKeyId, hasSecret: !!secretAccessKey });
       return NextResponse.json(
         {
           ok: false,
@@ -88,15 +90,20 @@ export async function POST(req: Request) {
   const client = getS3Client();
   const key = `covers/${Date.now()}-${sanitizeFilename(file.name || "cover")}.webp`;
 
-  await client.send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      Body: webpBody,
-      ContentType: "image/webp",
-      CacheControl: "public, max-age=31536000, immutable"
-    })
-  );
+  try {
+    await client.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: webpBody,
+        ContentType: "image/webp",
+        CacheControl: "public, max-age=31536000, immutable"
+      })
+    );
+  } catch (e) {
+    console.error("[cover-upload] S3 PutObject failed:", e);
+    return NextResponse.json({ ok: false, error: "Failed to upload to storage" }, { status: 500 });
+  }
 
   const url = buildPublicUrl(key);
   return NextResponse.json({ ok: true, coverUrl: url });

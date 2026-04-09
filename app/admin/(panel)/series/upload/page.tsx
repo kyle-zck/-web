@@ -397,7 +397,7 @@ export default function AdminDramaUploadPage() {
     try {
       const controller = new AbortController();
       const timer = globalThis.setTimeout(() => controller.abort(), 30000);
-      const { res, json } = await fetchAdminJson<{ ok?: boolean; coverUrl?: string; errorKey?: string }>(
+      const { res, json } = await fetchAdminJson<{ ok?: boolean; coverUrl?: string; errorKey?: string; error?: string }>(
         "/admin/api/upload/cover",
         { method: "POST", body: fd, signal: controller.signal },
         30000
@@ -406,7 +406,7 @@ export default function AdminDramaUploadPage() {
         const nextCover = json.coverUrl as string;
         setForm((f) => ({ ...f, coverUrl: nextCover }));
       } else {
-        showToast(translateAdminApiError(json, t, "admin.toastCoverUploadFail"), "error");
+        showToast(translateAdminApiError(json as { ok?: boolean; errorKey?: string; error?: string }, t, "admin.toastCoverUploadFail"), "error");
       }
     } catch {
       showToast(t("common.admin.networkErrorShort"), "error");

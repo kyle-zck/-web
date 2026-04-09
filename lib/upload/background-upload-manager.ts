@@ -309,13 +309,20 @@ class BackgroundUploadManager {
     const updatedSession = await getUploadSession(sessionId);
     if (updatedSession) {
       const allDone = updatedSession.files.every((f) => f.stage === "done");
+      const anyDone = updatedSession.files.some((f) => f.stage === "done");
       const anyFailed = updatedSession.files.some((f) => f.stage === "failed");
 
       if (allDone) {
         updatedSession.status = "completed";
         await saveUploadSession(updatedSession);
         await this.createSeries(sessionId, updatedSession);
+      } else if (anyDone) {
+        // Partial success: create series with what we have, broadcast error for missing ones.
+        updatedSession.status = "failed";
+        await saveUploadSession(updatedSession);
+        await this.createSeries(sessionId, updatedSession);
       } else if (anyFailed) {
+        // All failed — mark failed without creating series.
         updatedSession.status = "failed";
         await saveUploadSession(updatedSession);
       }
@@ -576,10 +583,11 @@ class BackgroundUploadManager {
       .sort((a, b) => a.index - b.index);
 
     const failedFiles = session.files.filter((f) => f.stage === "failed");
+    const allFailed = failedFiles.length > 0 && completedFiles.length === 0;
 
-    if (failedFiles.length > 0) {
+    if (allFailed) {
       const names = failedFiles.map((f) => f.fileName).join(", ");
-      const msg = `以下文件上传失败，无法创建剧目：${names}`;
+      const msg = `所有文件上传失败，无法创建剧目：${names}`;
       session.status = "failed";
       await saveUploadSession(session);
       this.broadcastChannel?.postMessage({
@@ -592,7 +600,16 @@ class BackgroundUploadManager {
     }
 
     if (completedFiles.length < session.files.length) {
-      return;
+      const names = failedFiles.map((f) => f.fileName).join(", ");
+      const msg = `以下文件上传失败：${names}；已完成的 ${completedFiles.length} 集将正常入库。`;
+      session.status = "failed";
+      await saveUploadSession(session);
+      this.broadcastChannel?.postMessage({
+        type: "error",
+        sessionId,
+        fileIndex: -1,
+        error: msg,
+      });
     }
 
     const episodeUrls = completedFiles.map((f) => f.publicUrl || "");
@@ -627,14 +644,27 @@ class BackgroundUploadManager {
       clearTimeout(timer);
 
       const json = await res.json();
-      if (json.ok) {
-        session.serverSeriesId = json.id;
+      if (json.ok && json.series?.id) {
+        session.serverSeriesId = json.series.id;
         session.status = "completed";
         await saveUploadSession(session);
         await deleteFileData(sessionId);
+        this.broadcastChannel?.postMessage({
+          type: "complete",
+          sessionId,
+          fileIndex: -1,
+          seriesId: json.series.id,
+        });
       } else {
+        const errMsg = json?.error ?? json?.errorKey ?? "Create series failed";
         session.status = "failed";
         await saveUploadSession(session);
+        this.broadcastChannel?.postMessage({
+          type: "error",
+          sessionId,
+          fileIndex: -1,
+          error: errMsg,
+        });
       }
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") {
