@@ -2,7 +2,7 @@
 export async function fetchAdminJson<T>(
   url: string,
   init?: RequestInit,
-  timeoutMs = 10000
+  timeoutMs = 30000
 ): Promise<{ res: Response; json: T | null }> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), Math.max(1000, timeoutMs));

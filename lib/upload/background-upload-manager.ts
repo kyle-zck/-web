@@ -647,6 +647,8 @@ class BackgroundUploadManager {
     }));
 
     try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 120_000);
       const res = await fetch("/admin/api/series", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -662,7 +664,9 @@ class BackgroundUploadManager {
           lockStartIndex: session.formData.lockStartIndex,
           listed: session.formData.listed,
         }),
+        signal: ctrl.signal,
       });
+      clearTimeout(timer);
 
       const json = await res.json();
       if (json.ok) {
@@ -674,7 +678,12 @@ class BackgroundUploadManager {
         session.status = "failed";
         await saveUploadSession(session);
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        session.status = "failed";
+        await saveUploadSession(session);
+        return;
+      }
       session.status = "failed";
       await saveUploadSession(session);
     }

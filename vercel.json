@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "app/admin/api/**/*.ts": {
+      "maxDuration": 300
+    }
+  }
+}
