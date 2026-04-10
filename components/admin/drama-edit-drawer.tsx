@@ -379,7 +379,7 @@ export function DramaEditDrawer({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fileName: safeName }),
       });
-      const presignJson = await presignRes.json();
+      const presignJson = (await presignRes.json()) as { ok?: boolean; key?: string; uploadUrl?: string };
       if (!presignJson?.ok || !presignJson.uploadUrl) {
         showToast(t("common.admin.toastCoverUploadFail"), "error");
         return;
@@ -395,7 +395,11 @@ export function DramaEditDrawer({
         xhr.send(webpBlob);
       });
 
-      setForm((f) => ({ ...f, coverUrl: presignJson.uploadUrl.split("?")[0] }));
+      const publicBase = process.env.NEXT_PUBLIC_S3_PUBLIC_BASE_URL ?? "";
+      const coverUrl = publicBase
+        ? `${publicBase.replace(/\/$/, "")}/${presignJson.key ?? ""}`
+        : presignJson.uploadUrl.split("?")[0];
+      setForm((f) => ({ ...f, coverUrl }));
       setCoverImgError(false);
     } catch {
       showToast(t("common.admin.toastCoverUploadFail"), "error");
