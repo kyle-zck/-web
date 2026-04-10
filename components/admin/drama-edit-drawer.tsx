@@ -384,10 +384,11 @@ export function DramaEditDrawer({
         showToast(t("common.admin.toastCoverUploadFail"), "error");
         return;
       }
+      const uploadUrl = presignJson.uploadUrl;
 
       const xhr = new XMLHttpRequest();
       await new Promise<void>((resolve, reject) => {
-        xhr.open("PUT", presignJson.uploadUrl, true);
+        xhr.open("PUT", uploadUrl, true);
         xhr.setRequestHeader("Content-Type", "image/webp");
         xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`HTTP ${xhr.status}`)));
         xhr.onerror = () => reject(new Error("Network error"));
@@ -398,7 +399,7 @@ export function DramaEditDrawer({
       const publicBase = process.env.NEXT_PUBLIC_S3_PUBLIC_BASE_URL ?? "";
       const coverUrl = publicBase
         ? `${publicBase.replace(/\/$/, "")}/${presignJson.key ?? ""}`
-        : presignJson.uploadUrl.split("?")[0];
+        : uploadUrl.split("?")[0];
       setForm((f) => ({ ...f, coverUrl }));
       setCoverImgError(false);
     } catch {
