@@ -306,45 +306,86 @@ export function DramaEditDrawer({
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file || !series) return;
+
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").slice(0, 200);
+
     setAddingEpisode(true);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const { res, json } = await fetchAdminJson<{
+      // Phase 1: presign — get R2 upload URL, bypassing Vercel's body limit.
+      const { json } = await fetchAdminJson<{
         ok?: boolean;
-        videoUrl?: string;
-        videoStreamId?: string;
-        videoPlaybackUrl?: string;
-        videoStatus?: "processing" | "ready" | "failed";
+        items?: Array<{ key: string; uploadUrl: string }>;
         errorKey?: string;
+        error?: string;
       }>(
-        "/admin/api/upload/video",
-        { method: "POST", body: fd }
+        "/admin/api/upload/video/presign-batch",
+        {
+          method: "POST",
+          body: JSON.stringify({ files: [{ name: safeName, type: file.type || "video/mp4", size: file.size }] }),
+          headers: { "Content-Type": "application/json" }
+        },
+        30000
       );
-      if (res.ok && json?.ok && json.videoUrl) {
-        const localVu = `file:///${file.name.replace(/\\/g, "/")}`;
-        await postAppendEpisode({
-          videoUrl: json.videoUrl,
-          sourceFileName: file.name,
-          localVideoUrl: localVu,
-          videoStreamId: json.videoStreamId,
-          videoPlaybackUrl: json.videoPlaybackUrl,
-          videoStatus: json.videoStatus
-        });
+      if (!json?.ok || !json.items?.[0]) {
+        showToast(translateAdminApiError(json as { ok?: boolean; errorKey?: string; error?: string }, t, "admin.saveFailed"), "error");
+        setAddingEpisode(false);
         return;
       }
-      if (json?.errorKey === "apiErrVideoTooLarge") {
-        showToast(translateAdminApiError(json, t, "admin.saveFailed"));
-        return;
-      }
-      showToast(t("common.admin.episodeSampleVideoFallback"), "info");
-      await postAppendEpisode({
-        videoUrl: sampleVideoUrl(),
-        sourceFileName: file.name,
-        localVideoUrl: `file:///${file.name.replace(/\\/g, "/")}`
+
+      const { uploadUrl } = json.items[0];
+
+      // Phase 2: PUT directly to R2 (same retry logic as upload/page.tsx).
+      await new Promise<void>((resolve, reject) => {
+        let attempt = 0;
+        const MAX_RETRIES = 3;
+        const attemptUpload = () => {
+          attempt++;
+          const xhr = new XMLHttpRequest();
+          xhr.open("PUT", uploadUrl, true);
+          xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
+          xhr.timeout = 300_000;
+
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve();
+            } else if (xhr.status >= 400 && xhr.status < 500) {
+              reject(new Error(`Upload rejected (HTTP ${xhr.status}). Check R2 CORS policy.`));
+            } else {
+              if (attempt <= MAX_RETRIES) {
+                globalThis.setTimeout(attemptUpload, 1000 * Math.pow(2, attempt - 1));
+              } else {
+                reject(new Error(`Server error (HTTP ${xhr.status}).`));
+              }
+            }
+          };
+          xhr.onerror = () => {
+            if (attempt <= MAX_RETRIES) {
+              globalThis.setTimeout(attemptUpload, 1000 * Math.pow(2, attempt - 1));
+            } else {
+              reject(new Error("Network error during upload."));
+            }
+          };
+          xhr.ontimeout = () => {
+            if (attempt <= MAX_RETRIES) {
+              globalThis.setTimeout(attemptUpload, 1000 * Math.pow(2, attempt - 1));
+            } else {
+              reject(new Error("Upload timed out."));
+            }
+          };
+          xhr.send(file);
+        };
+        attemptUpload();
       });
-    } catch {
-      showToast(t("common.admin.networkErrorShort"));
+
+      // Phase 3: append episode with the R2 video URL.
+      const key = json.items[0].key;
+      const videoUrl = `${process.env.NEXT_PUBLIC_S3_PUBLIC_BASE_URL ?? ""}/${key}`.replace(/^(https?:\/)/, "https://");
+      await postAppendEpisode({
+        videoUrl,
+        sourceFileName: file.name
+      });
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : t("common.admin.networkErrorShort"), "error");
     } finally {
       setAddingEpisode(false);
     }
@@ -353,6 +394,10 @@ export function DramaEditDrawer({
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!["image/png", "image/jpeg", "image/jpg", "image/webp"].includes(file.type)) {
+      showToast(t("common.admin.toastCoverFormat"));
+      return;
+    }
 
     let webpBlob: Blob;
     try {
@@ -375,31 +420,34 @@ export function DramaEditDrawer({
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").slice(0, 120);
 
     try {
-      const presignRes = await fetch("/admin/api/upload/cover/presign", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileName: safeName }),
-      });
-      const presignJson = (await presignRes.json()) as { ok?: boolean; key?: string; uploadUrl?: string };
-      if (!presignJson?.ok || !presignJson.uploadUrl) {
-        showToast(t("common.admin.toastCoverUploadFail"), "error");
+      const { json } = await fetchAdminJson<{ ok?: boolean; key?: string; uploadUrl?: string; errorKey?: string; error?: string }>(
+        "/admin/api/upload/cover/presign",
+        { method: "POST", body: JSON.stringify({ fileName: safeName }), headers: { "Content-Type": "application/json" } },
+        30000
+      );
+      if (!json?.ok || !json.uploadUrl) {
+        showToast(translateAdminApiError(json as { ok?: boolean; errorKey?: string; error?: string }, t, "admin.toastCoverUploadFail"), "error");
         return;
       }
-      const uploadUrl = presignJson.uploadUrl;
 
+      const uploadUrl: string = json.uploadUrl;
       const xhr = new XMLHttpRequest();
-      await new Promise<void>((resolve, reject) => {
+      const done = new Promise<void>((resolve, reject) => {
         xhr.open("PUT", uploadUrl, true);
         xhr.setRequestHeader("Content-Type", "image/webp");
         xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`HTTP ${xhr.status}`)));
         xhr.onerror = () => reject(new Error("Network error"));
         xhr.ontimeout = () => reject(new Error("Upload timed out"));
-        xhr.send(webpBlob);
       });
+
+      const timer = globalThis.setTimeout(() => xhr.abort(), 60000);
+      xhr.send(webpBlob);
+      await done;
+      globalThis.clearTimeout(timer);
 
       const publicBase = process.env.NEXT_PUBLIC_S3_PUBLIC_BASE_URL ?? "";
       const coverUrl = publicBase
-        ? `${publicBase.replace(/\/$/, "")}/${presignJson.key ?? ""}`
+        ? `${publicBase.replace(/\/$/, "")}/${json.key ?? ""}`
         : uploadUrl.split("?")[0];
       setForm((f) => ({ ...f, coverUrl }));
       setCoverImgError(false);
