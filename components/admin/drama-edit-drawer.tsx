@@ -54,6 +54,10 @@ export function DramaEditDrawer({
   const [seriesHlsRunning, setSeriesHlsRunning] = useState(false);
   const [seriesHlsFirstN, setSeriesHlsFirstN] = useState(0);
   const [coverImgError, setCoverImgError] = useState(false);
+  const [batchReuploadOpen, setBatchReuploadOpen] = useState(false);
+  const [batchReuploadFiles, setBatchReuploadFiles] = useState<Record<string, File>>({});
+  const [batchReuploadRunning, setBatchReuploadRunning] = useState(false);
+  const batchReuploadRef = useRef<Record<string, HTMLInputElement | null>>({});
 
   const statusLabel = (status?: Episode["videoStatus"]) => {
     if (status === "ready") return t("common.admin.videoStatusReady");
@@ -473,6 +477,88 @@ export function DramaEditDrawer({
     }
   };
 
+  /**
+   * 批量重传：收集已选文件，并行上传所有集。
+   */
+  const runBatchReupload = async () => {
+    if (!series) return;
+    const entries = Object.entries(batchReuploadFiles);
+    if (entries.length === 0) {
+      showToast(t("common.admin.batchReuploadNoFiles"), "info");
+      return;
+    }
+    setBatchReuploadRunning(true);
+    let success = 0;
+    let fail = 0;
+    await Promise.allSettled(
+      entries.map(async ([epId, file]) => {
+        const ep = series.episodes?.find((e) => e.id === epId);
+        if (!ep) return;
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").slice(0, 200);
+        setReuploadEpId(epId);
+        try {
+          const { json } = await fetchAdminJson<{
+            ok?: boolean;
+            items?: Array<{ key: string; uploadUrl: string }>;
+            errorKey?: string;
+          }>(
+            "/admin/api/upload/video/presign-batch",
+            {
+              method: "POST",
+              body: JSON.stringify({ files: [{ name: safeName, type: file.type || "video/mp4", size: file.size }] }),
+              headers: { "Content-Type": "application/json" }
+            },
+            30000
+          );
+          if (!json?.ok || !json.items?.[0]) { fail++; return; }
+          const { uploadUrl } = json.items[0];
+          await new Promise<void>((resolve, reject) => {
+            let attempt = 0;
+            const attemptUpload = () => {
+              attempt++;
+              const xhr = new XMLHttpRequest();
+              xhr.open("PUT", uploadUrl, true);
+              xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
+              xhr.timeout = 300_000;
+              xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) resolve();
+                else if (xhr.status >= 400 && xhr.status < 500) reject(new Error("Upload rejected"));
+                else if (attempt < 3) globalThis.setTimeout(attemptUpload, 1000 * Math.pow(2, attempt - 1));
+                else reject(new Error("Upload failed"));
+              };
+              xhr.onerror = () => {
+                if (attempt < 3) globalThis.setTimeout(attemptUpload, 1000 * Math.pow(2, attempt - 1));
+                else reject(new Error("Network error"));
+              };
+              xhr.ontimeout = () => {
+                if (attempt < 3) globalThis.setTimeout(attemptUpload, 1000 * Math.pow(2, attempt - 1));
+                else reject(new Error("Timeout"));
+              };
+              xhr.send(file);
+            };
+            attemptUpload();
+          });
+          const key = json.items[0].key;
+          const videoUrl = `${process.env.NEXT_PUBLIC_S3_PUBLIC_BASE_URL ?? ""}/${key}`.replace(/^(https?:\/)/, "https://");
+          const { res, json: patchJson } = await fetchAdminJson<{ ok?: boolean; series?: Series }>(
+            `/admin/api/series/${series.id}/episodes/${epId}`,
+            { method: "PATCH", body: JSON.stringify({ videoUrl, videoStatus: "processing" as const }), headers: { "Content-Type": "application/json" } }
+          );
+          if (res.ok && patchJson?.ok && patchJson.series) {
+            onSeriesUpdated?.(patchJson.series);
+            success++;
+          } else { fail++; }
+        } catch { fail++; }
+        finally { setReuploadEpId((prev) => (prev === epId ? null : prev)); }
+      })
+    );
+    setBatchReuploadRunning(false);
+    setBatchReuploadFiles({});
+    setBatchReuploadOpen(false);
+    if (success > 0) showToast(t("common.admin.batchReuploadDone", { ok: success, fail }), "success");
+    else if (fail > 0) showToast(t("common.admin.batchReuploadFailed", { fail }), "error");
+  };
+
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -702,12 +788,31 @@ export function DramaEditDrawer({
               </select>
             </div>
             <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-3">
-              <label className="block text-xs font-semibold text-zinc-400">
-                {t("common.admin.editFieldEpisodes")}
-              </label>
-              <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
-                {t("common.admin.editEpisodesHint")}
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-400">
+                    {t("common.admin.editFieldEpisodes")}
+                  </label>
+                  <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
+                    {t("common.admin.editEpisodesHint")}
+                  </p>
+                </div>
+                {((series?.episodes ?? []).some((e) => e.videoStatus === "failed" || !e.videoUrl)) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBatchReuploadFiles({});
+                      setBatchReuploadOpen(true);
+                    }}
+                    className="flex items-center gap-1 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-500/20"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    {t("common.admin.batchReupload")}
+                  </button>
+                )}
+              </div>
               <div className="mt-3 max-h-48 space-y-2 overflow-y-auto pr-1">
                 {(series?.episodes?.length ?? 0) === 0 ? (
                   <p className="text-xs text-zinc-500">{t("common.admin.episodeListEmpty")}</p>
@@ -931,6 +1036,83 @@ export function DramaEditDrawer({
           </button>
         </div>
       </div>
+
+      {/* 批量重传弹窗 */}
+      {batchReuploadOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="relative w-full max-w-2xl rounded-2xl border border-zinc-700 bg-zinc-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-zinc-700 px-5 py-4">
+              <h3 className="text-sm font-semibold text-zinc-100">{t("common.admin.batchReupload")}</h3>
+              <button
+                type="button"
+                onClick={() => setBatchReuploadOpen(false)}
+                className="rounded p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="max-h-[60vh] space-y-2 overflow-y-auto px-5 py-4">
+              {(series?.episodes ?? []).map((ep) => {
+                const file = batchReuploadFiles[ep.id];
+                return (
+                  <div key={ep.id} className="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-950/60 px-4 py-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-medium text-zinc-200">
+                        {t("common.admin.episodeRowLabel", { n: ep.index })}
+                      </div>
+                      <span className={cn("mt-0.5 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1", statusTone(ep.videoStatus))}>
+                        {statusLabel(ep.videoStatus)}
+                      </span>
+                      {file && <div className="mt-1 truncate text-[11px] text-amber-400">{file.name}</div>}
+                    </div>
+                    <label className={cn(
+                      "flex cursor-pointer items-center gap-1 rounded-lg border px-3 py-2 text-xs font-semibold transition",
+                      file ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-300" : "border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
+                    )}>
+                      <input
+                        type="file"
+                        accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.mkv"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) setBatchReuploadFiles((prev) => ({ ...prev, [ep.id]: f }));
+                          e.target.value = "";
+                        }}
+                      />
+                      {file ? file.name.slice(0, 20) : t("common.admin.pickFile")}
+                    </label>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex justify-end gap-2 border-t border-zinc-700 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setBatchReuploadOpen(false)}
+                className="rounded-lg border border-zinc-600 px-4 py-2 text-sm font-semibold text-zinc-300 hover:bg-zinc-800"
+              >
+                {t("common.admin.cancel")}
+              </button>
+              <button
+                type="button"
+                disabled={batchReuploadRunning || Object.keys(batchReuploadFiles).length === 0}
+                onClick={runBatchReupload}
+                className="flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500 disabled:opacity-50"
+              >
+                {batchReuploadRunning && (
+                  <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                )}
+                {batchReuploadRunning ? t("common.admin.uploading") : t("common.admin.batchReuploadStart")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
