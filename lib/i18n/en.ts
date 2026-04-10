@@ -504,6 +504,7 @@ export const en = {
       dramaBasicInfo: "Basic Info",
       dramaExtended: "Extended Info",
       edit: "Edit",
+      reupload: "Re-upload",
       cancel: "Cancel",
       submit: "Submit",
       close: "Close",
@@ -743,6 +744,7 @@ export const en = {
       episodeAddByUrl: "Add episode (URL)",
       episodePickVideoFile: "Upload video file",
       episodeAddedToast: "Episode added",
+      episodeReuploadSuccess: "Episode {{n}} video re-uploaded",
       episodeDeletedToast: "Episode removed",
       episodeListEmpty: "No episodes yet",
       episodeSampleVideoFallback:

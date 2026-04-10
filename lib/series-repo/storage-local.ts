@@ -236,6 +236,7 @@ export async function updateEpisodeStreamState(
   seriesId: string,
   episodeId: string,
   patch: {
+    videoUrl?: string;
     videoStreamId?: string;
     videoPlaybackUrl?: string;
     videoStatus?: "processing" | "ready" | "failed";
@@ -252,6 +253,7 @@ export async function updateEpisodeStreamState(
   const ep = nextEpisodes[epIdx];
   nextEpisodes[epIdx] = {
     ...ep,
+    videoUrl: patch.videoUrl ?? ep.videoUrl,
     videoStreamId: patch.videoStreamId ?? ep.videoStreamId,
     videoPlaybackUrl: patch.videoPlaybackUrl ?? ep.videoPlaybackUrl,
     videoStatus: patch.videoStatus ?? ep.videoStatus

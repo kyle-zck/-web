@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import type { Episode, Series } from "@/constants/mock-data";
@@ -50,6 +50,7 @@ export function DramaEditDrawer({
   const [addingEpisode, setAddingEpisode] = useState(false);
   const [bulkAdding, setBulkAdding] = useState(false);
   const [refreshingEpId, setRefreshingEpId] = useState<string | null>(null);
+  const [reuploadEpId, setReuploadEpId] = useState<string | null>(null);
   const [seriesHlsRunning, setSeriesHlsRunning] = useState(false);
   const [seriesHlsFirstN, setSeriesHlsFirstN] = useState(0);
   const [coverImgError, setCoverImgError] = useState(false);
@@ -391,6 +392,87 @@ export function DramaEditDrawer({
     }
   };
 
+  /**
+   * 重新上传某个已有 episode 的视频：presign → XHR PUT R2 → PATCH episode。
+   * 与 upload/page.tsx 逻辑完全一致。
+   */
+  const handleReuploadEpisode = async (ep: Episode, file: File) => {
+    if (!series) return;
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").slice(0, 200);
+    setReuploadEpId(ep.id);
+    try {
+      const { json } = await fetchAdminJson<{
+        ok?: boolean;
+        items?: Array<{ key: string; uploadUrl: string }>;
+        errorKey?: string;
+        error?: string;
+      }>(
+        "/admin/api/upload/video/presign-batch",
+        {
+          method: "POST",
+          body: JSON.stringify({ files: [{ name: safeName, type: file.type || "video/mp4", size: file.size }] }),
+          headers: { "Content-Type": "application/json" }
+        },
+        30000
+      );
+      if (!json?.ok || !json.items?.[0]) {
+        showToast(translateAdminApiError(json as { ok?: boolean; errorKey?: string; error?: string }, t, "admin.saveFailed"), "error");
+        return;
+      }
+
+      const { uploadUrl } = json.items[0];
+
+      await new Promise<void>((resolve, reject) => {
+        let attempt = 0;
+        const MAX_RETRIES = 3;
+        const attemptUpload = () => {
+          attempt++;
+          const xhr = new XMLHttpRequest();
+          xhr.open("PUT", uploadUrl, true);
+          xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
+          xhr.timeout = 300_000;
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) resolve();
+            else if (xhr.status >= 400 && xhr.status < 500) reject(new Error(`Upload rejected (HTTP ${xhr.status}).`));
+            else if (attempt <= MAX_RETRIES) globalThis.setTimeout(attemptUpload, 1000 * Math.pow(2, attempt - 1));
+            else reject(new Error(`Server error (HTTP ${xhr.status}).`));
+          };
+          xhr.onerror = () => {
+            if (attempt <= MAX_RETRIES) globalThis.setTimeout(attemptUpload, 1000 * Math.pow(2, attempt - 1));
+            else reject(new Error("Network error during upload."));
+          };
+          xhr.ontimeout = () => {
+            if (attempt <= MAX_RETRIES) globalThis.setTimeout(attemptUpload, 1000 * Math.pow(2, attempt - 1));
+            else reject(new Error("Upload timed out."));
+          };
+          xhr.send(file);
+        };
+        attemptUpload();
+      });
+
+      const key = json.items[0].key;
+      const videoUrl = `${process.env.NEXT_PUBLIC_S3_PUBLIC_BASE_URL ?? ""}/${key}`.replace(/^(https?:\/)/, "https://");
+      const { res, json: patchJson } = await fetchAdminJson<{ ok?: boolean; series?: Series }>(
+        `/admin/api/series/${series.id}/episodes/${ep.id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ videoUrl, videoStatus: "processing" as const }),
+          headers: { "Content-Type": "application/json" }
+        }
+      );
+      if (res.ok && patchJson?.ok && patchJson.series) {
+        showToast(t("common.admin.episodeReuploadSuccess", { n: ep.index }), "success");
+        onSeriesUpdated?.(patchJson.series);
+      } else {
+        showToast(translateAdminApiError(patchJson as { ok?: boolean; errorKey?: string; error?: string }, t, "admin.saveFailed"), "error");
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : t("common.admin.networkErrorShort"), "error");
+    } finally {
+      setReuploadEpId(null);
+    }
+  };
+
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -630,55 +712,84 @@ export function DramaEditDrawer({
                 {(series?.episodes?.length ?? 0) === 0 ? (
                   <p className="text-xs text-zinc-500">{t("common.admin.episodeListEmpty")}</p>
                 ) : (
-                  (series?.episodes ?? []).map((ep) => (
-                    <div
-                      key={ep.id}
-                      className="flex items-center justify-between gap-2 rounded-lg border border-zinc-800/80 bg-zinc-950/80 px-3 py-2"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs font-medium text-zinc-200">
-                          {t("common.admin.episodeRowLabel", { n: ep.index })}
+                  (series?.episodes ?? []).map((ep) => {
+                    const isUploading = reuploadEpId === ep.id;
+                    const showReupload = ep.videoStatus === "failed" || !ep.videoUrl;
+                    return (
+                      <div
+                        key={ep.id}
+                        className="flex items-start justify-between gap-2 rounded-lg border border-zinc-800/80 bg-zinc-950/80 px-3 py-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-medium text-zinc-200">
+                            {t("common.admin.episodeRowLabel", { n: ep.index })}
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-1">
+                            <span
+                              className={cn(
+                                "inline-flex rounded-full px-2 py-1 text-[10px] font-semibold ring-1",
+                                statusTone(ep.videoStatus)
+                              )}
+                            >
+                              {statusLabel(ep.videoStatus)}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={refreshingEpId === ep.id || isUploading}
+                              onClick={() => refreshEpisodeStatus(ep)}
+                              className="rounded-md border border-zinc-600 px-2 py-1 text-[10px] font-semibold text-zinc-200 hover:bg-zinc-700/60 disabled:opacity-50"
+                            >
+                              {refreshingEpId === ep.id
+                                ? t("common.admin.videoStatusRefreshing")
+                                : t("common.admin.videoStatusRefresh")}
+                            </button>
+                          </div>
+                          {ep.sourceFileName ? (
+                            <div className="truncate text-[11px] text-zinc-500" title={ep.sourceFileName}>
+                              {ep.sourceFileName}
+                            </div>
+                          ) : ep.videoUrl ? (
+                            <div className="truncate text-[11px] text-zinc-500" title={ep.videoUrl}>
+                              {ep.videoUrl}
+                            </div>
+                          ) : null}
                         </div>
-                        <div className="mt-1">
-                          <span
-                            className={[
-                              "inline-flex rounded-full px-2 py-1 text-[10px] font-semibold ring-1",
-                              statusTone(ep.videoStatus)
-                            ].join(" ")}
-                          >
-                            {statusLabel(ep.videoStatus)}
-                          </span>
+                        <div className="flex flex-col items-end gap-1">
+                          {showReupload && (
+                            <label
+                              className={cn(
+                                "flex cursor-pointer items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-semibold transition",
+                                isUploading
+                                  ? "border-amber-500/50 bg-amber-500/10 text-amber-300 opacity-50"
+                                  : "border-amber-500/50 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
+                              )}
+                            >
+                              <input
+                                type="file"
+                                accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.mkv"
+                                className="hidden"
+                                disabled={isUploading}
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) handleReuploadEpisode(ep, file);
+                                  e.target.value = "";
+                                }}
+                              />
+                              {isUploading ? t("common.admin.uploading") : t("common.admin.reupload")}
+                            </label>
+                          )}
                           <button
                             type="button"
-                            disabled={refreshingEpId === ep.id}
-                            onClick={() => refreshEpisodeStatus(ep)}
-                            className="ml-2 rounded-md border border-zinc-600 px-2 py-1 text-[10px] font-semibold text-zinc-200 hover:bg-zinc-700/60 disabled:opacity-50"
+                            disabled={deletingEpId === ep.id || isUploading}
+                            onClick={() => handleDeleteEpisode(ep)}
+                            className="rounded-lg border border-red-500/40 px-2 py-1 text-[10px] font-semibold text-red-300 hover:bg-red-500/15 disabled:opacity-50"
                           >
-                            {refreshingEpId === ep.id
-                              ? t("common.admin.videoStatusRefreshing")
-                              : t("common.admin.videoStatusRefresh")}
+                            {deletingEpId === ep.id ? "..." : t("common.admin.delete")}
                           </button>
                         </div>
-                        {ep.sourceFileName ? (
-                          <div className="truncate text-[11px] text-zinc-500" title={ep.sourceFileName}>
-                            {ep.sourceFileName}
-                          </div>
-                        ) : (
-                          <div className="truncate text-[11px] text-zinc-500" title={ep.videoUrl}>
-                            {ep.videoUrl}
-                          </div>
-                        )}
                       </div>
-                      <button
-                        type="button"
-                        disabled={deletingEpId === ep.id || addingEpisode}
-                        onClick={() => handleDeleteEpisode(ep)}
-                        className="shrink-0 rounded-lg border border-red-500/40 px-2 py-1 text-[11px] font-semibold text-red-300 hover:bg-red-500/15 disabled:opacity-50"
-                      >
-                        {t("common.admin.delete")}
-                      </button>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
               <div className="mt-3 space-y-2">

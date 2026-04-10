@@ -9,6 +9,7 @@ import { DramaEditDrawer } from "@/components/admin/drama-edit-drawer";
 import { fetchAdminJson } from "@/lib/admin/fetch-admin-json";
 import { getSeriesVideoMode } from "@/lib/video/series-video-mode";
 import { translateAdminApiError } from "@/lib/admin/api-error";
+import { cn } from "@/lib/utils";
 
 function formatDate(ts: number | undefined, locale: string) {
   if (!ts) return "—";
@@ -658,23 +659,53 @@ export default function AdminDramaDetailPage() {
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex flex-wrap gap-1">
-                          {(s.episodes ?? []).slice(0, 3).map((e) => (
-                            <a
-                              key={e.id}
-                              href={e.videoUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-[11px] text-blue-400 hover:underline"
-                            >
-                              {t("common.admin.epLinkLabel", { n: e.index })}
-                            </a>
+                          {(s.episodes ?? []).slice(0, 5).map((e) => (
+                            <div key={e.id} className="flex items-center gap-1">
+                              <span
+                                title={e.videoStatus === "failed" ? t("common.admin.videoStatusFailed") : e.videoStatus === "ready" ? t("common.admin.videoStatusReady") : t("common.admin.videoStatusProcessing")}
+                                className={cn(
+                                  "inline-block h-2 w-2 shrink-0 rounded-full",
+                                  e.videoStatus === "failed"
+                                    ? "bg-red-500"
+                                    : e.videoStatus === "ready"
+                                      ? "bg-emerald-400"
+                                      : "bg-amber-400"
+                                )}
+                              />
+                              {e.videoUrl ? (
+                                <a
+                                  href={e.videoUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[11px] text-blue-400 hover:underline"
+                                >
+                                  {t("common.admin.epLinkLabel", { n: e.index })}
+                                </a>
+                              ) : (
+                                <span className="text-[11px] text-zinc-600">
+                                  {t("common.admin.epLinkLabel", { n: e.index })}
+                                </span>
+                              )}
+                            </div>
                           ))}
-                          {(s.episodes?.length ?? 0) > 3 && (
+                          {(s.episodes?.length ?? 0) > 5 && (
                             <span className="text-[11px] text-zinc-500">
-                              +{s.episodes!.length - 3}
+                              +{s.episodes!.length - 5}
                             </span>
                           )}
                         </div>
+                        {((s.episodes ?? []).some((e) => e.videoStatus === "failed" || !e.videoUrl)) && (
+                          <button
+                            type="button"
+                            onClick={() => setEditTarget(s)}
+                            className="mt-1 flex items-center gap-1 rounded border border-red-500/40 bg-red-500/10 px-2 py-0.5 text-[10px] font-semibold text-red-300 hover:bg-red-500/20"
+                          >
+                            <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            {t("common.admin.reupload")}
+                          </button>
+                        )}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2">
                         <div className="flex gap-2">

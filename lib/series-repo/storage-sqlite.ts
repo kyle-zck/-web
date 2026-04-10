@@ -594,6 +594,7 @@ export async function updateEpisodeStreamState(
   seriesId: string,
   episodeId: string,
   patch: {
+    videoUrl?: string;
     videoStreamId?: string;
     videoPlaybackUrl?: string;
     videoStatus?: "processing" | "ready" | "failed";
@@ -606,6 +607,7 @@ export async function updateEpisodeStreamState(
       `
       UPDATE episodes
       SET
+        video_url = COALESCE(?, video_url),
         video_stream_id = COALESCE(?, video_stream_id),
         video_playback_url = COALESCE(?, video_playback_url),
         video_status = COALESCE(?, video_status)
@@ -613,6 +615,7 @@ export async function updateEpisodeStreamState(
     `
     )
     .run(
+      patch.videoUrl ?? null,
       patch.videoStreamId ?? null,
       patch.videoPlaybackUrl ?? null,
       patch.videoStatus ?? null,
