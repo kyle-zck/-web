@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
@@ -727,11 +728,12 @@ export function DramaEditDrawer({
                         </button>
                       </div>
                     ) : (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <Image
+                        unoptimized
                         src={form.coverUrl}
                         alt={t("common.admin.coverAlt")}
-                        className="aspect-[3/4] h-24 rounded-lg object-cover"
+                        fill
+                        className="object-cover"
                         onError={() => setCoverImgError(true)}
                       />
                     )}

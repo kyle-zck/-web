@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useUserStore } from "@/lib/store/user";
@@ -131,11 +132,12 @@ export function AuthModal({
         <div className="flex flex-col items-center pt-2 pb-5">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-brand via-red-600 to-brand ring-2 ring-white/10">
             {logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
+                unoptimized
                 src={logoUrl}
                 alt=""
-                className="h-10 w-10 rounded-xl object-cover"
+                fill
+                className="object-cover"
               />
             ) : (
               <span className="text-3xl font-extrabold leading-none text-white">Rs</span>

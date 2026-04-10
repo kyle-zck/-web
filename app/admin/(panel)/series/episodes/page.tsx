@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { showToast } from "@/components/ui/toast";
@@ -602,15 +603,15 @@ export default function AdminEpisodeManagementPage() {
                             href={s.cover}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="block w-10 shrink-0"
+                            className="relative block w-10 shrink-0"
                             title={t("common.admin.clickViewCover")}
                           >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
+                            <Image
+                              unoptimized
                               src={s.cover}
                               alt={s.title}
-                              className="aspect-[3/4] h-12 w-10 rounded object-cover ring-1 ring-zinc-700/80"
-                              loading="lazy"
+                              fill
+                              className="object-cover"
                             />
                           </a>
                         </td>

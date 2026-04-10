@@ -1198,12 +1198,14 @@ export default function AdminDramaUploadPage() {
               {t("common.admin.clickUpload")}
             </label>
             {form.coverUrl && (
-              <div className="mt-2 flex items-center gap-2">
+              <div className="relative mt-2 flex items-center gap-2">
                 <div className="relative aspect-[3/4] h-24 overflow-hidden rounded-lg">
-                  <img
+                  <Image
+                    unoptimized
                     src={form.coverUrl}
                     alt={t("common.admin.coverAlt")}
-                    className="h-full w-full object-cover"
+                    fill
+                    className="object-cover"
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = "none";
                     }}

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
@@ -100,11 +101,12 @@ export function MultiImageUpload({
         />
         {displayUrl ? (
           <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
+              unoptimized
               src={displayUrl}
               alt={t("common.admin.coverAlt")}
-              className="h-full w-full object-cover object-center"
+              fill
+              className="object-cover object-center"
             />
             <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity hover:opacity-100">
               <span className="rounded-lg bg-white/90 px-4 py-2 text-xs font-semibold text-zinc-800">

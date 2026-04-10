@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { showToast } from "@/components/ui/toast";
@@ -196,12 +197,13 @@ export function UploadSeriesForm({
           />
 
           {coverPreviewUrl ? (
-            <div className="mt-3 overflow-hidden rounded-2xl border border-zinc-800/80 bg-black/30">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+            <div className="relative mt-3 h-40 overflow-hidden rounded-2xl border border-zinc-800/80 bg-black/30">
+              <Image
+                unoptimized
                 src={coverPreviewUrl}
                 alt="cover preview"
-                className="h-40 w-full object-cover"
+                fill
+                className="object-cover"
               />
             </div>
           ) : (

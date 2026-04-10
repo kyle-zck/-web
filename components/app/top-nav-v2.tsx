@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -206,20 +207,23 @@ export function TopNavV2() {
         <div className="page-gutter-x mx-auto flex max-w-[1400px] items-center justify-between gap-4 py-3 sm:gap-6 sm:py-4">
           {/* 左侧：Logo + 品牌名 + 中部菜单 */}
           <div className="flex flex-1 items-center gap-8">
-            <Link href="/" className="flex items-center gap-2 sm:gap-3">
+            <Link href="/" className="relative flex items-center gap-2 sm:gap-3">
               {logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={logoUrl}
-                  alt=""
-                  className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-zinc-600 sm:h-12 sm:w-12 lg:h-14 lg:w-14"
-                />
+                <span className="relative h-10 w-10 shrink-0 sm:h-12 sm:w-12 lg:h-14 lg:w-14">
+                  <Image
+                    unoptimized
+                    src={logoUrl}
+                    alt=""
+                    fill
+                    className="object-cover"
+                  />
+                </span>
               ) : (
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand via-red-600 to-brand ring-2 ring-zinc-600 sm:h-12 sm:w-12 lg:h-14 lg:w-14">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand via-red-600 to-brand ring-2 ring-zinc-600 sm:h-12 sm:w-12 lg:h-14 lg:w-14">
                   <span className="text-2xl font-extrabold leading-none text-white sm:text-3xl lg:text-4xl">
                     Rs
                   </span>
-                </div>
+                </span>
               )}
               <div className="min-w-0 leading-tight">
                 <p className="truncate text-[clamp(1rem,0.85rem+0.5vw,1.75rem)] font-bold leading-tight text-white sm:max-w-[200px] lg:max-w-[260px]">
