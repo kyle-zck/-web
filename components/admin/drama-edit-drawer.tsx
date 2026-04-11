@@ -57,7 +57,14 @@ export function DramaEditDrawer({
   const [batchReuploadOpen, setBatchReuploadOpen] = useState(false);
   const [batchReuploadFiles, setBatchReuploadFiles] = useState<Record<string, File>>({});
   const [batchReuploadRunning, setBatchReuploadRunning] = useState(false);
-  const batchReuploadRef = useRef<Record<string, HTMLInputElement | null>>({});
+
+  /** 视频批量上传相关状态 */
+  const [pendingVideos, setPendingVideos] = useState<{ file: File; index: number }[]>([]);
+  const [videoUploadProgress, setVideoUploadProgress] = useState<Record<number, {
+    stage: "queued" | "presign" | "uploading" | "completing" | "done" | "failed";
+    percent: number;
+    error?: string;
+  }>>({});
 
   const statusLabel = (status?: Episode["videoStatus"]) => {
     if (status === "ready") return t("common.admin.videoStatusReady");
@@ -115,11 +122,228 @@ export function DramaEditDrawer({
     setBulkVideoUrls("");
     setSeriesHlsFirstN(0);
     setCoverImgError(false);
+    setPendingVideos([]);
+    setVideoUploadProgress({});
   }, [series?.id]);
 
   const sampleVideoUrl = () =>
     process.env.NEXT_PUBLIC_SAMPLE_VIDEO_URL?.trim() ||
     "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4";
+
+  const isVideoLikeFile = (f: File) => {
+    const mime = f.type;
+    if (mime && mime.startsWith("video/")) return true;
+    const ext = f.name.toLowerCase().split(".").pop() ?? "";
+    return ["mp4", "webm", "mov", "m4v", "mkv", "avi", "mpeg", "mpg"].includes(ext);
+  };
+
+  function topLevelDir(webkitRelativePath: string): string {
+    if (!webkitRelativePath) return "";
+    const slashIdx = webkitRelativePath.indexOf("/");
+    return slashIdx < 0 ? "" : webkitRelativePath.slice(0, slashIdx);
+  }
+
+  /**
+   * 批量视频上传入口：支持文件夹选择和批量文件选择。
+   * 文件名中提取集数，自动按集数排序。
+   */
+  const handleVideoBatchUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = Array.from(e.target.files ?? []).filter(isVideoLikeFile);
+    if (raw.length === 0) {
+      e.target.value = "";
+      return;
+    }
+
+    const sorted = [...raw].sort((a, b) =>
+      (a.webkitRelativePath || a.name).localeCompare(b.webkitRelativePath || b.name, undefined, { numeric: true })
+    );
+
+    const dirs = new Set(sorted.map((f) => topLevelDir(f.webkitRelativePath || "")));
+    const hasSubfolders = dirs.size > 1 || (!dirs.has("") && dirs.size === 1);
+    const chosenDir = dirs.size === 1 && dirs.has("") ? "" : [...dirs][0] ?? "";
+
+    const files = hasSubfolders
+      ? sorted.filter((f) => topLevelDir(f.webkitRelativePath || "") === chosenDir)
+      : sorted;
+
+    const parsed = files
+      .map((f) => {
+        const m = f.name.match(/(\d+)/);
+        const index = m ? parseInt(m[1], 10) : 0;
+        return { file: f, index: index || 0 };
+      })
+      .filter((x) => x.index > 0)
+      .sort((a, b) => a.index - b.index);
+
+    if (parsed.length === 0 && files.length > 0) {
+      showToast(t("common.admin.toastVideoNameParse"));
+      e.target.value = "";
+      return;
+    }
+
+    setPendingVideos(parsed);
+    setVideoUploadProgress(
+      parsed.reduce<Record<number, { stage: "queued"; percent: number }>>((acc, v) => {
+        acc[v.index] = { stage: "queued", percent: 0 };
+        return acc;
+      }, {})
+    );
+    e.target.value = "";
+  };
+
+  /**
+   * 批量视频上传执行函数：对齐 drama-upload 的上传逻辑。
+   * presign 批量获取 URL → XHR 直传 R2 → PATCH 分集。
+   */
+  const runBatchVideoUpload = async () => {
+    if (!series || pendingVideos.length === 0) return;
+    setAddingEpisode(true);
+    setBatchReuploadRunning(true);
+
+    const sorted = [...pendingVideos].sort((a, b) => a.index - b.index);
+    const total = sorted.length;
+    const progressKeyMap = new Map(sorted.map((v, i) => [`${i}-${v.file.name}-${v.file.size}`, v.index]));
+
+    const updateProg = (index: number, patch: { stage: string; percent?: number; error?: string }) => {
+      setVideoUploadProgress((prev) => {
+        if (!prev[index]) return prev;
+        return { ...prev, [index]: { ...prev[index], ...patch } as typeof prev[number] };
+      });
+    };
+
+    const putByXhr = async (
+      url: string,
+      file: File,
+      onProgress?: (p: number) => void
+    ): Promise<void> => {
+      const MAX_RETRIES = 3;
+      let lastError: Error | null = null;
+      for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+        if (attempt > 1) await new Promise((r) => globalThis.setTimeout(r, 1000 * Math.pow(2, attempt - 2)));
+        try {
+          await new Promise<void>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open("PUT", url, true);
+            xhr.timeout = 300_000;
+            xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
+            xhr.upload.onprogress = (ev) => {
+              if (!ev.lengthComputable) return;
+              onProgress?.(Math.round((ev.loaded / ev.total) * 100));
+            };
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) resolve();
+              else if (xhr.status >= 400 && xhr.status < 500) reject(new Error(`Upload rejected (HTTP ${xhr.status})`));
+              else reject(new Error(`Server error (HTTP ${xhr.status})`));
+            };
+            xhr.onerror = () => reject(new Error("Network error"));
+            xhr.ontimeout = () => reject(new Error("Upload timed out"));
+            xhr.send(file);
+          });
+          return;
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error(String(err));
+          const msg = lastError.message;
+          if (msg.includes("rejected") || msg.includes("HTTP 4")) throw lastError;
+          if (attempt <= MAX_RETRIES) onProgress?.(0);
+        }
+      }
+      throw lastError ?? new Error("Upload failed");
+    };
+
+    try {
+      // Phase 1: 批量 presign
+      const { json: presignJson } = await fetchAdminJson<{
+        ok?: boolean;
+        items?: Array<{ key: string; uploadUrl: string }>;
+        errorKey?: string; error?: string;
+      }>(
+        "/admin/api/upload/video/presign-batch",
+        {
+          method: "POST",
+          body: JSON.stringify({ files: sorted.map((v) => ({
+            name: v.file.name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").slice(0, 200),
+            type: v.file.type || "video/mp4",
+            size: v.file.size
+          })) }),
+          headers: { "Content-Type": "application/json" }
+        },
+        30000
+      );
+
+      if (!presignJson?.ok || !Array.isArray(presignJson.items) || presignJson.items.length === 0) {
+        showToast(translateAdminApiError(presignJson as { ok?: boolean; errorKey?: string; error?: string }, t, "admin.saveFailed"), "error");
+        setAddingEpisode(false);
+        setBatchReuploadRunning(false);
+        return;
+      }
+
+      const presignedMap = new Map(presignJson.items.map((item, i) => [`${i}-${sorted[i].file.name}-${sorted[i].file.size}`, item]));
+
+      // Phase 2: 并行 XHR 上传
+      let cursor = 0;
+      const workerCount = Math.min(3, total);
+      const results: Array<{ index: number; key: string; uploadUrl: string } | null> = new Array(total).fill(null);
+
+      await Promise.all(
+        Array.from({ length: workerCount }).map(async () => {
+          while (cursor < total) {
+            const current = cursor;
+            cursor += 1;
+            const v = sorted[current];
+            const progressKey = `${current}-${v.file.name}-${v.file.size}`;
+            const presigned = presignedMap.get(progressKey);
+            const epIdx = progressKeyMap.get(progressKey);
+            if (!presigned || epIdx === undefined) {
+              if (epIdx !== undefined) updateProg(epIdx, { stage: "failed", error: "Presign failed" });
+              continue;
+            }
+            updateProg(epIdx, { stage: "presign", percent: 0 });
+            updateProg(epIdx, { stage: "uploading", percent: 1 });
+            try {
+              await putByXhr(presigned.uploadUrl, v.file, (p) => updateProg(epIdx, { stage: "uploading", percent: p }));
+              updateProg(epIdx, { stage: "completing", percent: 100 });
+              results[current] = { index: epIdx, key: presigned.key, uploadUrl: presigned.uploadUrl };
+              updateProg(epIdx, { stage: "done", percent: 100 });
+            } catch (err) {
+              updateProg(epIdx, { stage: "failed", error: err instanceof Error ? err.message : "Upload failed" });
+            }
+          }
+        })
+      );
+
+      // Phase 3: 逐集 PATCH
+      let okCount = 0;
+      for (const result of results) {
+        if (!result) continue;
+        const publicBase = process.env.NEXT_PUBLIC_S3_PUBLIC_BASE_URL ?? "";
+        const videoUrl = `${publicBase.replace(/\/$/, "")}/${result.key}`.replace(/^(https?:\/)/, "https://");
+        const ok = await postAppendEpisode(
+          { videoUrl, sourceFileName: sorted[results.indexOf(result)].file.name },
+          { silent: true }
+        );
+        if (ok) okCount++;
+      }
+
+      if (okCount > 0) {
+        showToast(t("common.admin.batchVideoUploadDone", { ok: okCount, total }), "success");
+        setPendingVideos([]);
+        setVideoUploadProgress({});
+      } else {
+        showToast(t("common.admin.batchVideoUploadFailed"), "error");
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : t("common.admin.networkErrorShort"), "error");
+    } finally {
+      setAddingEpisode(false);
+      setBatchReuploadRunning(false);
+    }
+  };
+
+  /** 清除待上传队列 */
+  const handleClearPendingVideos = () => {
+    setPendingVideos([]);
+    setVideoUploadProgress({});
+  };
 
   const postAppendEpisode = async (
     payload: {
@@ -307,95 +531,6 @@ export function DramaEditDrawer({
     }
   };
 
-  const handleVideoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file || !series) return;
-
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").slice(0, 200);
-
-    setAddingEpisode(true);
-    try {
-      // Phase 1: presign — get R2 upload URL, bypassing Vercel's body limit.
-      const { json } = await fetchAdminJson<{
-        ok?: boolean;
-        items?: Array<{ key: string; uploadUrl: string }>;
-        errorKey?: string;
-        error?: string;
-      }>(
-        "/admin/api/upload/video/presign-batch",
-        {
-          method: "POST",
-          body: JSON.stringify({ files: [{ name: safeName, type: file.type || "video/mp4", size: file.size }] }),
-          headers: { "Content-Type": "application/json" }
-        },
-        30000
-      );
-      if (!json?.ok || !json.items?.[0]) {
-        showToast(translateAdminApiError(json as { ok?: boolean; errorKey?: string; error?: string }, t, "admin.saveFailed"), "error");
-        setAddingEpisode(false);
-        return;
-      }
-
-      const { uploadUrl } = json.items[0];
-
-      // Phase 2: PUT directly to R2 (same retry logic as upload/page.tsx).
-      await new Promise<void>((resolve, reject) => {
-        let attempt = 0;
-        const MAX_RETRIES = 3;
-        const attemptUpload = () => {
-          attempt++;
-          const xhr = new XMLHttpRequest();
-          xhr.open("PUT", uploadUrl, true);
-          xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
-          xhr.timeout = 300_000;
-
-          xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              resolve();
-            } else if (xhr.status >= 400 && xhr.status < 500) {
-              reject(new Error(`Upload rejected (HTTP ${xhr.status}). Check R2 CORS policy.`));
-            } else {
-              if (attempt <= MAX_RETRIES) {
-                globalThis.setTimeout(attemptUpload, 1000 * Math.pow(2, attempt - 1));
-              } else {
-                reject(new Error(`Server error (HTTP ${xhr.status}).`));
-              }
-            }
-          };
-          xhr.onerror = () => {
-            if (attempt <= MAX_RETRIES) {
-              globalThis.setTimeout(attemptUpload, 1000 * Math.pow(2, attempt - 1));
-            } else {
-              reject(new Error("Network error during upload."));
-            }
-          };
-          xhr.ontimeout = () => {
-            if (attempt <= MAX_RETRIES) {
-              globalThis.setTimeout(attemptUpload, 1000 * Math.pow(2, attempt - 1));
-            } else {
-              reject(new Error("Upload timed out."));
-            }
-          };
-          xhr.send(file);
-        };
-        attemptUpload();
-      });
-
-      // Phase 3: append episode with the R2 video URL.
-      const key = json.items[0].key;
-      const videoUrl = `${process.env.NEXT_PUBLIC_S3_PUBLIC_BASE_URL ?? ""}/${key}`.replace(/^(https?:\/)/, "https://");
-      await postAppendEpisode({
-        videoUrl,
-        sourceFileName: file.name
-      });
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : t("common.admin.networkErrorShort"), "error");
-    } finally {
-      setAddingEpisode(false);
-    }
-  };
-
   /**
    * 重新上传某个已有 episode 的视频：presign → XHR PUT R2 → PATCH episode。
    * 与 upload/page.tsx 逻辑完全一致。
@@ -495,7 +630,6 @@ export function DramaEditDrawer({
         const ep = series.episodes?.find((e) => e.id === epId);
         if (!ep) return;
         const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").slice(0, 200);
-        setReuploadEpId(epId);
         try {
           const { json } = await fetchAdminJson<{
             ok?: boolean;
@@ -512,32 +646,33 @@ export function DramaEditDrawer({
           );
           if (!json?.ok || !json.items?.[0]) { fail++; return; }
           const { uploadUrl } = json.items[0];
-          await new Promise<void>((resolve, reject) => {
-            let attempt = 0;
-            const attemptUpload = () => {
-              attempt++;
-              const xhr = new XMLHttpRequest();
-              xhr.open("PUT", uploadUrl, true);
-              xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
-              xhr.timeout = 300_000;
-              xhr.onload = () => {
-                if (xhr.status >= 200 && xhr.status < 300) resolve();
-                else if (xhr.status >= 400 && xhr.status < 500) reject(new Error("Upload rejected"));
-                else if (attempt < 3) globalThis.setTimeout(attemptUpload, 1000 * Math.pow(2, attempt - 1));
-                else reject(new Error("Upload failed"));
-              };
-              xhr.onerror = () => {
-                if (attempt < 3) globalThis.setTimeout(attemptUpload, 1000 * Math.pow(2, attempt - 1));
-                else reject(new Error("Network error"));
-              };
-              xhr.ontimeout = () => {
-                if (attempt < 3) globalThis.setTimeout(attemptUpload, 1000 * Math.pow(2, attempt - 1));
-                else reject(new Error("Timeout"));
-              };
-              xhr.send(file);
-            };
-            attemptUpload();
-          });
+          const MAX_RETRIES = 3;
+          let uploadOk = false;
+          for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+            try {
+              await new Promise<void>((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open("PUT", uploadUrl, true);
+                xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
+                xhr.timeout = 300_000;
+                xhr.onload = () => {
+                  if (xhr.status >= 200 && xhr.status < 300) resolve();
+                  else reject(new Error(`HTTP ${xhr.status}`));
+                };
+                xhr.onerror = () => reject(new Error("Network error"));
+                xhr.ontimeout = () => reject(new Error("Upload timed out"));
+                xhr.send(file);
+              });
+              uploadOk = true;
+              break;
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : String(err);
+              if (msg.includes("rejected") || msg.startsWith("HTTP 4")) throw err;
+              if (attempt <= MAX_RETRIES) await new Promise((r) => globalThis.setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+              else throw err;
+            }
+          }
+          if (!uploadOk) { fail++; return; }
           const key = json.items[0].key;
           const videoUrl = `${process.env.NEXT_PUBLIC_S3_PUBLIC_BASE_URL ?? ""}/${key}`.replace(/^(https?:\/)/, "https://");
           const { res, json: patchJson } = await fetchAdminJson<{ ok?: boolean; series?: Series }>(
@@ -797,7 +932,7 @@ export function DramaEditDrawer({
                     {t("common.admin.editEpisodesHint")}
                   </p>
                 </div>
-                {((series?.episodes ?? []).some((e) => e.videoStatus === "failed" || !e.videoUrl)) && (
+                {((series?.episodes ?? []).length > 0) && (
                   <button
                     type="button"
                     onClick={() => {
@@ -818,8 +953,6 @@ export function DramaEditDrawer({
                   <p className="text-xs text-zinc-500">{t("common.admin.episodeListEmpty")}</p>
                 ) : (
                   (series?.episodes ?? []).map((ep) => {
-                    const isUploading = reuploadEpId === ep.id;
-                    const showReupload = ep.videoStatus === "failed" || !ep.videoUrl;
                     return (
                       <div
                         key={ep.id}
@@ -840,7 +973,7 @@ export function DramaEditDrawer({
                             </span>
                             <button
                               type="button"
-                              disabled={refreshingEpId === ep.id || isUploading}
+                              disabled={refreshingEpId === ep.id || addingEpisode || bulkAdding || batchReuploadRunning}
                               onClick={() => refreshEpisodeStatus(ep)}
                               className="rounded-md border border-zinc-600 px-2 py-1 text-[10px] font-semibold text-zinc-200 hover:bg-zinc-700/60 disabled:opacity-50"
                             >
@@ -860,32 +993,31 @@ export function DramaEditDrawer({
                           ) : null}
                         </div>
                         <div className="flex flex-col items-end gap-1">
-                          {showReupload && (
-                            <label
-                              className={cn(
-                                "flex cursor-pointer items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-semibold transition",
-                                isUploading
-                                  ? "border-amber-500/50 bg-amber-500/10 text-amber-300 opacity-50"
-                                  : "border-amber-500/50 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
-                              )}
-                            >
-                              <input
-                                type="file"
-                                accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.mkv"
-                                className="hidden"
-                                disabled={isUploading}
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) handleReuploadEpisode(ep, file);
-                                  e.target.value = "";
-                                }}
-                              />
-                              {isUploading ? t("common.admin.uploading") : t("common.admin.reupload")}
-                            </label>
-                          )}
+                          <label
+                            title={t("common.admin.reuploadFile")}
+                            className={cn(
+                              "inline-flex cursor-pointer items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-semibold transition",
+                              reuploadEpId === ep.id
+                                ? "border-amber-500/50 bg-amber-500/10 text-amber-400 opacity-60 cursor-not-allowed"
+                                : "border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
+                            )}
+                          >
+                            <input
+                              type="file"
+                              accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.mkv"
+                              className="hidden"
+                              disabled={reuploadEpId === ep.id}
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (file) await handleReuploadEpisode(ep, file);
+                                e.target.value = "";
+                              }}
+                            />
+                            {reuploadEpId === ep.id ? "..." : t("common.admin.reupload")}
+                          </label>
                           <button
                             type="button"
-                            disabled={deletingEpId === ep.id || isUploading}
+                            disabled={deletingEpId === ep.id}
                             onClick={() => handleDeleteEpisode(ep)}
                             className="rounded-lg border border-red-500/40 px-2 py-1 text-[10px] font-semibold text-red-300 hover:bg-red-500/15 disabled:opacity-50"
                           >
@@ -897,36 +1029,128 @@ export function DramaEditDrawer({
                   })
                 )}
               </div>
-              <div className="mt-3 space-y-2">
-                <input
-                  type="url"
-                  value={newVideoUrl}
-                  onChange={(e) => setNewVideoUrl(e.target.value)}
-                  placeholder={t("common.admin.episodeVideoUrlPlaceholder")}
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-xs text-zinc-100 placeholder-zinc-600"
-                />
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={addingEpisode || bulkAdding || !series}
-                    onClick={handleAddEpisodeByUrl}
-                    className="rounded-lg bg-zinc-700 px-3 py-2 text-xs font-semibold text-zinc-100 hover:bg-zinc-600 disabled:opacity-50"
-                  >
-                    {addingEpisode ? t("common.admin.savingShort") : t("common.admin.episodeAddByUrl")}
-                  </button>
-                  <label className="inline-flex cursor-pointer items-center rounded-lg border border-zinc-600 bg-zinc-800/60 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-700/60 disabled:opacity-50">
-                    <input
-                      type="file"
-                      accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.mkv"
-                      className="hidden"
-                      disabled={addingEpisode || bulkAdding || !series}
-                      onChange={handleVideoFile}
-                    />
-                    {t("common.admin.episodePickVideoFile")}
-                  </label>
+              <div className="mt-3 space-y-3">
+                {/* 视频文件批量上传 */}
+                <div className="rounded-lg border border-zinc-800/80 bg-zinc-950/60 p-3">
+                  <p className="mb-2 text-[11px] font-semibold text-zinc-400">{t("common.admin.videoBatchHint")}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-brand/50 bg-brand/10 px-3 py-2 text-xs font-semibold text-brand hover:bg-brand/20">
+                      <input
+                        type="file"
+                        accept="video/*"
+                        multiple
+                        onChange={handleVideoBatchUpload}
+                        className="hidden"
+                      />
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      {t("common.admin.videoUploadSelectFiles")}
+                    </label>
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-600 bg-zinc-800/60 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-700/60">
+                      <input
+                        type="file"
+                        onChange={handleVideoBatchUpload}
+                        className="hidden"
+                        {...({ webkitdirectory: "", mozdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
+                      />
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                      </svg>
+                      {t("common.admin.videoUploadSelectFolder")}
+                    </label>
+                    {pendingVideos.length > 0 && (
+                      <button
+                        type="button"
+                        disabled={batchReuploadRunning}
+                        onClick={runBatchVideoUpload}
+                        className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50"
+                      >
+                        {batchReuploadRunning ? t("common.admin.uploading") : t("common.admin.batchVideoUploadStart")}
+                        <span className="text-[10px] opacity-70">({pendingVideos.length})</span>
+                      </button>
+                    )}
+                    {pendingVideos.length > 0 && (
+                      <button
+                        type="button"
+                        disabled={batchReuploadRunning}
+                        onClick={handleClearPendingVideos}
+                        className="rounded-lg border border-zinc-600 px-3 py-2 text-xs font-semibold text-zinc-400 hover:bg-zinc-700/60 disabled:opacity-50"
+                      >
+                        {t("common.admin.clear")}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* 待上传视频列表 */}
+                  {pendingVideos.length > 0 && (
+                    <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                      {pendingVideos
+                        .slice()
+                        .sort((a, b) => a.index - b.index)
+                        .map((v) => {
+                          const prog = videoUploadProgress[v.index];
+                          const stageLabel: Record<string, string> = {
+                            queued: t("common.admin.uploadStage_queued"),
+                            presign: t("common.admin.uploadStage_presign"),
+                            uploading: t("common.admin.uploadStage_uploading"),
+                            completing: t("common.admin.uploadStage_completing"),
+                            done: t("common.admin.uploadStage_done"),
+                            failed: t("common.admin.uploadStage_failed"),
+                          };
+                          return (
+                            <div key={v.index} className="flex items-center gap-2 rounded px-2 py-1.5 bg-zinc-900/60">
+                              <span className="w-6 shrink-0 text-[11px] font-mono text-zinc-500">#{v.index}</span>
+                              <span className="flex-1 truncate text-[11px] text-zinc-300" title={v.file.name}>{v.file.name}</span>
+                              {prog && (
+                                <>
+                                  <span className={`shrink-0 text-[10px] font-medium ${
+                                    prog.stage === "failed" ? "text-red-400" :
+                                    prog.stage === "done" ? "text-emerald-400" :
+                                    prog.stage === "uploading" ? "text-blue-400" : "text-zinc-500"
+                                  }`}>
+                                    {stageLabel[prog.stage] ?? prog.stage}
+                                    {prog.stage === "uploading" && prog.percent > 0 ? ` ${prog.percent}%` : ""}
+                                  </span>
+                                  {prog.stage === "failed" && prog.error && (
+                                    <span className="max-w-[80px] truncate text-[10px] text-red-400/70" title={prog.error}>{"!"}</span>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
                 </div>
+
+                {/* URL 方式单条/批量添加 */}
                 <div className="rounded-lg border border-zinc-800/80 bg-zinc-950/60 p-2">
-                  <p className="mb-1 text-[11px] text-zinc-500">{t("common.admin.bulkUrlHint")}</p>
+                  <p className="mb-1 text-[11px] text-zinc-500">{t("common.admin.episodeByUrlHint")}</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      value={newVideoUrl}
+                      onChange={(e) => setNewVideoUrl(e.target.value)}
+                      placeholder={t("common.admin.episodeVideoUrlPlaceholder")}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleAddEpisodeByUrl();
+                        }
+                      }}
+                      className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-xs text-zinc-100 placeholder-zinc-600"
+                    />
+                    <button
+                      type="button"
+                      disabled={addingEpisode || bulkAdding || !series}
+                      onClick={handleAddEpisodeByUrl}
+                      className="rounded-lg bg-zinc-700 px-3 py-2 text-xs font-semibold text-zinc-100 hover:bg-zinc-600 disabled:opacity-50"
+                    >
+                      {addingEpisode ? "..." : t("common.admin.episodeAddByUrl")}
+                    </button>
+                  </div>
+                  <p className="mt-1 text-[11px] text-zinc-600">{t("common.admin.bulkUrlHint")}</p>
                   <textarea
                     rows={4}
                     value={bulkVideoUrls}

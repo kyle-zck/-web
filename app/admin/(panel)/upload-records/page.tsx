@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
   getAllUploadSessions,
-  deleteUploadSession
+  deleteUploadSession,
+  isBackgroundUploadSupported
 } from "@/lib/upload/background-upload-db";
+import { backgroundUploadManager } from "@/lib/upload/background-upload-manager";
+import { showToast } from "@/components/ui/toast";
 
 const BG_UPLOAD_CHANNEL = "bg-upload-channel";
 
@@ -183,6 +186,50 @@ function SessionRow({ session }: { session: UploadSessionRecord }) {
                     <td className="py-2 text-xs text-zinc-600 font-mono max-w-[100px] truncate" title={f.key}>
                       {f.key ? f.key.split("/").pop() : "—"}
                     </td>
+                    <td className="py-2">
+                      {f.stage === "failed" && bgSupported ? (
+                        <div className="flex items-center gap-1">
+                          <label
+                            title={t("common.admin.reuploadFile")}
+                            className={[
+                              "flex cursor-pointer items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-semibold transition",
+                              reuploadSessionId === session.id && reuploadFileIdx === f.index
+                                ? "border-amber-500/50 bg-amber-500/10 text-amber-400 opacity-60 cursor-not-allowed"
+                                : "border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
+                            ].join(" ")}
+                          >
+                            <input
+                              ref={(el) => { fileInputRef.current[`${session.id}-${f.index}`] = el; }}
+                              type="file"
+                              accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.mkv"
+                              className="hidden"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (file) await handleReuploadFile(session.id, f.index, file);
+                                e.target.value = "";
+                              }}
+                            />
+                            {reuploadSessionId === session.id && reuploadFileIdx === f.index
+                              ? "..."
+                              : t("common.admin.reupload")}
+                          </label>
+                          <button
+                            title={t("common.admin.retry")}
+                            onClick={() => {
+                              const el = fileInputRef.current[`${session.id}-${f.index}`];
+                              if (el) el.click();
+                            }}
+                            className="rounded-lg border border-zinc-600 px-2 py-1 text-[10px] font-semibold text-zinc-300 hover:bg-zinc-700/60"
+                          >
+                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                          </button>
+                        </div>
+                      ) : f.stage === "failed" ? (
+                        <span className="text-[10px] text-red-400">{"—"}</span>
+                      ) : null}
+                    </td>
                   </tr>
                 ))}
             </tbody>
@@ -199,6 +246,10 @@ export default function AdminUploadRecordsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "active" | "done" | "failed">("all");
+  const [bgSupported, setBgSupported] = useState(false);
+  const [reuploadSessionId, setReuploadSessionId] = useState<string | null>(null);
+  const [reuploadFileIdx, setReuploadFileIdx] = useState<number | null>(null);
+  const fileInputRef = useRef<Record<string, HTMLInputElement | null>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -213,6 +264,16 @@ export default function AdminUploadRecordsPage() {
     }
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+    const init = async () => {
+      const supported = await isBackgroundUploadSupported();
+      if (mounted) setBgSupported(supported);
+    };
+    init();
+    return () => { mounted = false; };
+  }, []);
+
   useEffect(() => { load(); }, [load]);
 
   // Subscribe to upload events so the page auto-refreshes when sessions change.
@@ -221,6 +282,21 @@ export default function AdminUploadRecordsPage() {
     ch.onmessage = () => { load(); };
     return () => { ch.close(); };
   }, [load]);
+
+  const handleReuploadFile = async (sessionId: string, fileIndex: number, file: File) => {
+    setReuploadSessionId(sessionId);
+    setReuploadFileIdx(fileIndex);
+    try {
+      await backgroundUploadManager.reuploadFile(sessionId, fileIndex, file);
+      showToast(t("common.admin.fileReuploadStarted"), "success");
+      await load();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : t("common.admin.networkErrorShort"), "error");
+    } finally {
+      setReuploadSessionId(null);
+      setReuploadFileIdx(null);
+    }
+  };
 
   const handleDelete = async (id: string) => {
     if (!window.confirm(t("common.admin.confirmDeleteUploadRecord") ?? "Delete this record?")) return;

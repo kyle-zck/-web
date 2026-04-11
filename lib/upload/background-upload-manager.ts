@@ -911,6 +911,61 @@ class BackgroundUploadManager {
     }
   }
 
+  /**
+   * Re-upload a failed file with a newly selected file.
+   * Replaces the file data in IndexedDB and re-triggers the upload pipeline.
+   */
+  async reuploadFile(sessionId: string, fileIndex: number, newFile: File) {
+    const session = await getUploadSession(sessionId);
+    if (!session) throw new Error("Session not found");
+
+    const fileIdx = session.files.findIndex((f) => f.index === fileIndex);
+    if (fileIdx < 0) throw new Error("File not found in session");
+
+    const fileInfo = session.files[fileIdx];
+
+    // Replace file data in IndexedDB
+    await saveFileData({
+      sessionId,
+      fileIndex,
+      fileName: newFile.name,
+      fileType: newFile.type || "video/mp4",
+      fileSize: newFile.size,
+      data: newFile,
+    });
+
+    // Reset file progress to queued
+    await updateSessionFileProgress(sessionId, fileIndex, {
+      stage: "queued",
+      percent: 0,
+      retryCount: 0,
+      error: undefined,
+      uploadUrl: undefined,
+      publicUrl: undefined,
+      key: undefined,
+    });
+
+    // Update session's file metadata to reflect the new file
+    session.files[fileIdx] = {
+      ...fileInfo,
+      fileName: newFile.name,
+      fileSize: newFile.size,
+      fileType: newFile.type || "video/mp4",
+      stage: "queued",
+      percent: 0,
+      retryCount: 0,
+      error: undefined,
+      uploadUrl: undefined,
+      publicUrl: undefined,
+      key: undefined,
+    };
+    await saveUploadSession(session);
+
+    // Clear old file data from IndexedDB for safety, then process queue
+    this.addActiveSession(sessionId);
+    this.processQueue(sessionId);
+  }
+
   async getSessionStatus(sessionId: string): Promise<UploadSession | undefined> {
     return getUploadSession(sessionId);
   }
