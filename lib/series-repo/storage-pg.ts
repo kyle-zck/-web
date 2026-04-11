@@ -701,28 +701,32 @@ export async function updateEpisodeStreamState(
     videoStreamId?: string;
     videoPlaybackUrl?: string;
     videoStatus?: "processing" | "ready" | "failed";
+    title?: string;
   }
 ): Promise<Series | null> {
   await initIfNeeded();
   const conn = getPool();
+  const parts: string[] = [];
+  const vals: unknown[] = [];
+  let p = 1;
+
+  const push = (col: string, val: unknown) => {
+    parts.push(`${col} = $${p++}`);
+    vals.push(val);
+  };
+
+  if (patch.videoUrl !== undefined) push("video_url", patch.videoUrl || null);
+  if (patch.videoStreamId !== undefined) push("video_stream_id", patch.videoStreamId || null);
+  if (patch.videoPlaybackUrl !== undefined) push("video_playback_url", patch.videoPlaybackUrl || null);
+  if (patch.videoStatus !== undefined) push("video_status", patch.videoStatus || null);
+  if (patch.title !== undefined) push("title", patch.title || null);
+
+  if (parts.length === 0) return getSeriesById(seriesId);
+
+  vals.push(seriesId, episodeId);
   await conn.query(
-    `
-    UPDATE episodes
-    SET
-      video_url = COALESCE($1, video_url),
-      video_stream_id = COALESCE($2, video_stream_id),
-      video_playback_url = COALESCE($3, video_playback_url),
-      video_status = COALESCE($4, video_status)
-    WHERE series_id = $5 AND id = $6
-  `,
-    [
-      patch.videoUrl ?? null,
-      patch.videoStreamId ?? null,
-      patch.videoPlaybackUrl ?? null,
-      patch.videoStatus ?? null,
-      seriesId,
-      episodeId
-    ]
+    `UPDATE episodes SET ${parts.join(", ")} WHERE series_id = $${p++} AND id = $${p}`,
+    vals
   );
   return getSeriesById(seriesId);
 }

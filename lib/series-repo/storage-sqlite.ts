@@ -598,30 +598,30 @@ export async function updateEpisodeStreamState(
     videoStreamId?: string;
     videoPlaybackUrl?: string;
     videoStatus?: "processing" | "ready" | "failed";
+    title?: string;
   }
 ): Promise<Series | null> {
   initIfNeeded();
   const conn = getDb();
-  conn
-    .prepare(
-      `
-      UPDATE episodes
-      SET
-        video_url = COALESCE(?, video_url),
-        video_stream_id = COALESCE(?, video_stream_id),
-        video_playback_url = COALESCE(?, video_playback_url),
-        video_status = COALESCE(?, video_status)
-      WHERE series_id = ? AND id = ?
-    `
-    )
-    .run(
-      patch.videoUrl ?? null,
-      patch.videoStreamId ?? null,
-      patch.videoPlaybackUrl ?? null,
-      patch.videoStatus ?? null,
-      seriesId,
-      episodeId
-    );
+  const parts: string[] = [];
+  const vals: unknown[] = [];
+  let p = 1;
+
+  const push = (col: string, val: unknown) => {
+    parts.push(`${col} = ?`);
+    vals.push(val);
+  };
+
+  if (patch.videoUrl !== undefined) push("video_url", patch.videoUrl || null);
+  if (patch.videoStreamId !== undefined) push("video_stream_id", patch.videoStreamId || null);
+  if (patch.videoPlaybackUrl !== undefined) push("video_playback_url", patch.videoPlaybackUrl || null);
+  if (patch.videoStatus !== undefined) push("video_status", patch.videoStatus || null);
+  if (patch.title !== undefined) push("title", patch.title || null);
+
+  if (parts.length === 0) return getSeriesById(seriesId);
+
+  vals.push(seriesId, episodeId);
+  conn.prepare(`UPDATE episodes SET ${parts.join(", ")} WHERE series_id = ? AND id = ?`).run(...vals);
   return getSeriesById(seriesId);
 }
 

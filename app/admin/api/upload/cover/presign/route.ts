@@ -12,6 +12,18 @@ function sanitizeFilename(name: string) {
     .slice(0, 120);
 }
 
+function buildPublicUrl(key: string): string {
+  const base = process.env.S3_PUBLIC_BASE_URL;
+  if (base) return `${base.replace(/\/$/, "")}/${key}`;
+
+  const endpoint = process.env.S3_ENDPOINT ?? "";
+  const bucket = process.env.S3_BUCKET ?? "";
+  if (!endpoint || !bucket) return key;
+
+  const cleanEndpoint = endpoint.replace(/\/$/, "");
+  return `${cleanEndpoint}/${bucket}/${key}`;
+}
+
 export async function POST(req: Request) {
   const unauth = await requireAdminSession();
   if (unauth) return unauth;
@@ -29,7 +41,6 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as { fileName?: string };
   const rawName = (body.fileName ?? "cover").trim();
   const safeName = sanitizeFilename(rawName);
-  // 文件名可能已含 .webp 后缀（如 "photo.webp"），去重避免 "photo.webp.webp"
   const finalName = safeName.endsWith(".webp") ? safeName : `${safeName}.webp`;
   const key = `covers/${Date.now()}-${finalName}`;
 
@@ -41,9 +52,11 @@ export async function POST(req: Request) {
     CacheControl: "public, max-age=31536000, immutable"
   });
 
-// Presigned URLs are bound to the S3_ENDPOINT host — never rewrite the URL,
-// or the signature becomes invalid and causes 403.
-const uploadUrl = await getSignedUrl(client, command, { expiresIn: 60 * 120 }); // 2 hours
+  // Presigned URL 绑定到 S3_ENDPOINT，不可用它构建永久公开 URL。
+  const uploadUrl = await getSignedUrl(client, command, { expiresIn: 60 * 120 });
 
-  return NextResponse.json({ ok: true, key, uploadUrl });
+  // 永久公开 URL（不含签名凭证）
+  const publicUrl = buildPublicUrl(key);
+
+  return NextResponse.json({ ok: true, key, uploadUrl, publicUrl });
 }

@@ -240,6 +240,7 @@ export async function updateEpisodeStreamState(
     videoStreamId?: string;
     videoPlaybackUrl?: string;
     videoStatus?: "processing" | "ready" | "failed";
+    title?: string;
   }
 ): Promise<Series | null> {
   const store = readStore();
@@ -256,7 +257,8 @@ export async function updateEpisodeStreamState(
     videoUrl: patch.videoUrl ?? ep.videoUrl,
     videoStreamId: patch.videoStreamId ?? ep.videoStreamId,
     videoPlaybackUrl: patch.videoPlaybackUrl ?? ep.videoPlaybackUrl,
-    videoStatus: patch.videoStatus ?? ep.videoStatus
+    videoStatus: patch.videoStatus ?? ep.videoStatus,
+    title: patch.title !== undefined ? patch.title : ep.title
   };
 
   const nextSeries = { ...series, episodes: nextEpisodes };

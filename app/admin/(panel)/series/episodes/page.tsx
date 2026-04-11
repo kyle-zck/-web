@@ -17,6 +17,274 @@ function statusTone(status: Episode["videoStatus"]) {
   return "bg-amber-500/15 text-amber-300 ring-amber-500/40";
 }
 
+/** 单个 episode 的编辑抽屉 */
+interface EpisodeEditDrawerProps {
+  open: boolean;
+  series: Series;
+  episode: Episode;
+  onClose: () => void;
+  onSaved: (s: Series) => void;
+}
+
+function EpisodeEditDrawer({ open, series, episode, onClose, onSaved }: EpisodeEditDrawerProps) {
+  const { t } = useTranslation();
+  const [form, setForm] = useState({
+    episodeTitle: "",
+    episodeIndex: 1,
+    seriesTitle: "",
+    coverUrl: ""
+  });
+  const [coverImgError, setCoverImgError] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setForm({
+        episodeTitle: episode.title,
+        episodeIndex: episode.index,
+        seriesTitle: series.title,
+        coverUrl: series.cover ?? ""
+      });
+      setCoverImgError(false);
+    }
+  }, [open, episode, series]);
+
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!["image/png", "image/jpeg", "image/jpg", "image/webp"].includes(file.type)) {
+      showToast(t("common.admin.toastCoverFormat"));
+      return;
+    }
+
+    let webpBlob: Blob;
+    try {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d")!;
+      const img = await createImageBitmap(file);
+      const maxDim = 1200;
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      webpBlob = await new Promise<Blob>((resolve, reject) =>
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Canvas toBlob failed"))), "image/webp", 0.75)
+      );
+    } catch {
+      showToast(t("common.admin.toastCoverUploadFail"), "error");
+      return;
+    }
+
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").slice(0, 120);
+    setUploadingCover(true);
+    try {
+      const { json } = await fetchAdminJson<{ ok?: boolean; key?: string; uploadUrl?: string; publicUrl?: string; errorKey?: string; error?: string }>(
+        "/admin/api/upload/cover/presign",
+        { method: "POST", body: JSON.stringify({ fileName: safeName }), headers: { "Content-Type": "application/json" } },
+        30000
+      );
+      if (!json?.ok || !json.uploadUrl) {
+        showToast(translateAdminApiError(json as { ok?: boolean; errorKey?: string; error?: string }, t, "admin.toastCoverUploadFail"), "error");
+        return;
+      }
+
+      const uploadUrl = json.uploadUrl as string;
+      const xhr = new XMLHttpRequest();
+      const done = new Promise<void>((resolve, reject) => {
+        xhr.open("PUT", uploadUrl, true);
+        xhr.setRequestHeader("Content-Type", "image/webp");
+        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`HTTP ${xhr.status}`)));
+        xhr.onerror = () => reject(new Error("Network error"));
+        xhr.ontimeout = () => reject(new Error("Upload timed out"));
+      });
+      const timer = globalThis.setTimeout(() => xhr.abort(), 60000);
+      xhr.send(webpBlob);
+      await done;
+      globalThis.clearTimeout(timer);
+
+      const coverUrl = json.publicUrl ?? uploadUrl.split("?")[0];
+      setForm((f) => ({ ...f, coverUrl }));
+      setCoverImgError(false);
+    } catch {
+      showToast(t("common.admin.toastCoverUploadFail"), "error");
+    } finally {
+      setUploadingCover(false);
+    }
+    e.target.value = "";
+  };
+
+  const handleSave = async () => {
+    if (!form.episodeTitle.trim()) {
+      showToast(t("common.admin.toastEpisodeTitleEmpty"));
+      return;
+    }
+    if (form.episodeIndex < 1) {
+      showToast(t("common.admin.toastEpisodeIndexInvalid"));
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // 1. 更新 episode 的 title
+      const { res: epRes, json: epJson } = await fetchAdminJson<{ ok?: boolean; series?: Series }>(
+        `/admin/api/series/${series.id}/episodes/${episode.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: form.episodeTitle.trim() })
+        },
+        15000
+      );
+
+      // 2. 更新 series 的 title 和 cover
+      const patchSeries: Record<string, unknown> = {};
+      if (form.seriesTitle.trim() && form.seriesTitle.trim() !== series.title) {
+        patchSeries.title = form.seriesTitle.trim();
+      }
+      if (form.coverUrl && form.coverUrl !== series.cover) {
+        patchSeries.cover = form.coverUrl;
+        patchSeries.poster = form.coverUrl;
+      }
+
+      let updatedSeries = epJson?.series;
+      if (Object.keys(patchSeries).length > 0) {
+        const { res: sRes, json: sJson } = await fetchAdminJson<{ ok?: boolean; series?: Series }>(
+          `/admin/api/series/${series.id}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(patchSeries)
+          },
+          15000
+        );
+        if (sRes.ok && sJson?.ok && sJson.series) {
+          updatedSeries = sJson.series;
+        }
+      }
+
+      if (updatedSeries) {
+        showToast(t("common.admin.saveSuccess"), "success");
+        onSaved(updatedSeries);
+        onClose();
+      } else {
+        showToast(translateAdminApiError(epJson as { ok?: boolean; errorKey?: string; error?: string }, t, "admin.saveFailed"), "error");
+      }
+    } catch {
+      showToast(t("common.admin.networkErrorShort"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={onClose} aria-hidden />
+      <div className="fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col bg-zinc-950 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-zinc-800/80 p-4">
+          <h2 className="text-lg font-bold text-zinc-100">{t("common.admin.editEpisodeTitle")}</h2>
+          <button type="button" onClick={onClose} className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100">✕</button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-5">
+          {/* Episode 字段 */}
+          <section>
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">{t("common.admin.episodeInfo")}</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400">{t("common.admin.editFieldEpisodeTitle")}</label>
+                <input
+                  type="text"
+                  value={form.episodeTitle}
+                  onChange={(e) => setForm((f) => ({ ...f, episodeTitle: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-100"
+                  placeholder={t("common.admin.episodeTitlePlaceholder")}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400">{t("common.admin.editFieldEpisodeIndex")}</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={form.episodeIndex}
+                  onChange={(e) => setForm((f) => ({ ...f, episodeIndex: parseInt(e.target.value || "1", 10) }))}
+                  className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-100"
+                />
+                <p className="mt-1 text-[11px] text-zinc-500">{t("common.admin.episodeIndexHint")}</p>
+              </div>
+            </div>
+          </section>
+
+          {/* Series 字段 */}
+          <section>
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">{t("common.admin.dramaInfo")}</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400">{t("common.admin.editFieldSeriesTitle")}</label>
+                <input
+                  type="text"
+                  value={form.seriesTitle}
+                  onChange={(e) => setForm((f) => ({ ...f, seriesTitle: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-100"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400">{t("common.admin.editFieldCover")}</label>
+                <div className="mt-2">
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/60 px-4 py-3 text-sm font-medium text-zinc-200 hover:bg-zinc-700/60 disabled:opacity-50">
+                    <input
+                      type="file"
+                      accept=".png,.jpg,.jpeg,.webp"
+                      onChange={handleCoverUpload}
+                      disabled={uploadingCover}
+                      className="hidden"
+                    />
+                    {uploadingCover ? t("common.admin.uploading") : t("common.admin.clickUpload")}
+                  </label>
+                  {form.coverUrl && (
+                    <div className="mt-2">
+                      {coverImgError ? (
+                        <div className="flex flex-col items-center gap-2 rounded-lg border border-red-500/30 bg-red-950/20 p-4">
+                          <div className="text-xs text-red-400">{t("common.admin.coverLoadFailed")}</div>
+                          <button type="button" onClick={() => setCoverImgError(false)} className="rounded-md border border-red-500/40 px-3 py-1 text-xs text-red-300 hover:bg-red-500/15">
+                            {t("common.admin.coverRetry")}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="relative h-40 w-28 overflow-hidden rounded-lg border border-zinc-700">
+                          <Image
+                            unoptimized
+                            src={form.coverUrl}
+                            alt={form.seriesTitle || series.title}
+                            fill
+                            className="object-cover"
+                            onError={() => setCoverImgError(true)}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+        <div className="border-t border-zinc-800/80 p-4">
+          <button
+            type="button"
+            disabled={saving}
+            onClick={handleSave}
+            className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+          >
+            {saving ? t("common.admin.savingShort") : t("common.admin.saveBtn")}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function AdminEpisodeManagementPage() {
   const { t } = useTranslation();
   const [series, setSeries] = useState<Series[]>([]);
@@ -40,6 +308,7 @@ export default function AdminEpisodeManagementPage() {
       }
     >
   >({});
+  const [editTarget, setEditTarget] = useState<{ series: Series; episode: Episode } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -717,6 +986,13 @@ export default function AdminEpisodeManagementPage() {
                             </button>
                             <button
                               type="button"
+                              onClick={() => setEditTarget({ series: s, episode: e })}
+                              className="rounded-lg bg-blue-600/20 px-3 py-1.5 text-xs font-semibold text-blue-300 hover:bg-blue-600/30"
+                            >
+                              {t("common.admin.edit")}
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => deleteEpisode(s, e)}
                               className="rounded-lg border border-red-500/50 px-3 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/15"
                             >
@@ -733,6 +1009,16 @@ export default function AdminEpisodeManagementPage() {
           )}
         </div>
       </section>
+
+      <EpisodeEditDrawer
+        open={!!editTarget}
+        series={editTarget!.series}
+        episode={editTarget!.episode}
+        onClose={() => setEditTarget(null)}
+        onSaved={(s) => {
+          setSeries((prev) => prev.map((x) => (x.id === s.id ? s : x)));
+        }}
+      />
     </main>
   );
 }

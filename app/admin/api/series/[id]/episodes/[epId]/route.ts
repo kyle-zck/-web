@@ -15,13 +15,15 @@ export async function PATCH(
     videoStreamId?: string;
     videoPlaybackUrl?: string;
     videoStatus?: "processing" | "ready" | "failed";
+    title?: string;
   };
 
   const series = await updateEpisodeStreamState(params.id, params.epId, {
     videoUrl: body.videoUrl,
     videoStreamId: body.videoStreamId,
     videoPlaybackUrl: body.videoPlaybackUrl,
-    videoStatus: body.videoStatus
+    videoStatus: body.videoStatus,
+    title: body.title
   });
 
   if (!series) {

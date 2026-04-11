@@ -35,6 +35,37 @@ function dirRelativePath(webkitRelativePath: string): string {
   return i < 0 ? "" : webkitRelativePath.slice(0, i);
 }
 
+/**
+ * 从文件名中提取集数。
+ * 支持格式：
+ *   8 / 08 / 008                      → 8
+ *   Episode 8 / Episode 08             → 8
+ *   E8 / E08                           → 8
+ *   EP8 / EP08                         → 8
+ *   S01E08 / S1E8 / s01ep08           → 8
+ *   第8集 / 第08集                     → 8
+ * 返回 0 表示未匹配到有效集数。
+ */
+function parseEpisodeIndex(fileName: string): number {
+  const name = fileName.replace(/[._-]/g, " ").trim();
+  const patterns = [
+    /(?:s\d+)?e(\d+)/i,      // S01E08 / E08 / s01e08
+    /(?:s\d+)?ep(\d+)/i,     // EP08 / ep08
+    /(?:s\d+)?p(\d+)/i,      // P08 / p08 (less common)
+    /episode\s*(\d+)/i,      // Episode 8
+    /第\s*(\d+)\s*集/i,     // 第8集 / 第 8 集
+    /^(\d+)(?:\s|$|\.)/,     // 8 / 08 / 008 (standalone number at start)
+  ];
+  for (const re of patterns) {
+    const m = name.match(re);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n > 0) return n;
+    }
+  }
+  return 0;
+}
+
 interface BackgroundUploadState {
   isEnabled: boolean;
   isInitialized: boolean;
@@ -551,9 +582,8 @@ export default function AdminDramaUploadPage() {
 
     const parsed = files
       .map((f) => {
-        const m = f.name.match(/(\d+)/);
-        const index = m ? parseInt(m[1], 10) : 0;
-        return { file: f, index: index || 0 };
+        const index = parseEpisodeIndex(f.name);
+        return { file: f, index };
       })
       .filter((x) => x.index > 0)
       .sort((a, b) => a.index - b.index);

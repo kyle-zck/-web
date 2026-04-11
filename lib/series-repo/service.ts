@@ -68,9 +68,11 @@ type RepoProvider = {
     seriesId: string,
     episodeId: string,
     patch: {
+      videoUrl?: string;
       videoStreamId?: string;
       videoPlaybackUrl?: string;
       videoStatus?: "processing" | "ready" | "failed";
+      title?: string;
     }
   ) => Promise<Series | null>;
   updateSeries: (
@@ -228,6 +230,7 @@ export async function updateEpisodeStreamState(
     videoStreamId?: string;
     videoPlaybackUrl?: string;
     videoStatus?: "processing" | "ready" | "failed";
+    title?: string;
   }
 ): Promise<Series | null> {
   const s = await (await getProvider()).updateEpisodeStreamState(seriesId, episodeId, patch);

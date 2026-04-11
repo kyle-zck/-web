@@ -166,11 +166,41 @@ export function DramaEditDrawer({
       ? sorted.filter((f) => topLevelDir(f.webkitRelativePath || "") === chosenDir)
       : sorted;
 
+/**
+ * 从文件名中提取集数。
+ * 支持格式：
+ *   8 / 08 / 008                      → 8
+ *   Episode 8 / Episode 08             → 8
+ *   E8 / E08                           → 8
+ *   EP8 / EP08                         → 8
+ *   S01E08 / S1E8 / s01ep08           → 8
+ *   第8集 / 第08集                     → 8
+ * 返回 0 表示未匹配到有效集数。
+ */
+function parseEpisodeIndex(fileName: string): number {
+  const name = fileName.replace(/[._-]/g, " ").trim();
+  const patterns = [
+    /(?:s\d+)?e(\d+)/i,          // S01E08 / E08 / s01e08
+    /(?:s\d+)?ep(\d+)/i,         // EP08 / ep08
+    /(?:s\d+)?p(\d+)/i,          // P08 / p08 (less common)
+    /episode\s*(\d+)/i,           // Episode 8
+    /第\s*(\d+)\s*集/i,          // 第8集 / 第 8 集
+    /^(\d+)(?:\s|$|\.)/,          // 8 / 08 / 008 (standalone number at start)
+  ];
+  for (const re of patterns) {
+    const m = name.match(re);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n > 0) return n;
+    }
+  }
+  return 0;
+}
+
     const parsed = files
       .map((f) => {
-        const m = f.name.match(/(\d+)/);
-        const index = m ? parseInt(m[1], 10) : 0;
-        return { file: f, index: index || 0 };
+        const index = parseEpisodeIndex(f.name);
+        return { file: f, index };
       })
       .filter((x) => x.index > 0)
       .sort((a, b) => a.index - b.index);
@@ -723,7 +753,7 @@ export function DramaEditDrawer({
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").slice(0, 120);
 
     try {
-      const { json } = await fetchAdminJson<{ ok?: boolean; key?: string; uploadUrl?: string; errorKey?: string; error?: string }>(
+      const { json } = await fetchAdminJson<{ ok?: boolean; key?: string; uploadUrl?: string; publicUrl?: string; errorKey?: string; error?: string }>(
         "/admin/api/upload/cover/presign",
         { method: "POST", body: JSON.stringify({ fileName: safeName }), headers: { "Content-Type": "application/json" } },
         30000
@@ -748,10 +778,7 @@ export function DramaEditDrawer({
       await done;
       globalThis.clearTimeout(timer);
 
-      const publicBase = process.env.NEXT_PUBLIC_S3_PUBLIC_BASE_URL ?? "";
-      const coverUrl = publicBase
-        ? `${publicBase.replace(/\/$/, "")}/${json.key ?? ""}`
-        : uploadUrl.split("?")[0];
+      const coverUrl = json.publicUrl ?? json.uploadUrl.split("?")[0];
       setForm((f) => ({ ...f, coverUrl }));
       setCoverImgError(false);
     } catch {
