@@ -25,9 +25,16 @@ export function SeriesDetailClient({
   series,
   initialEngagement
 }: {
-  series: Series;
+  series: Series | null;
   initialEngagement?: EngagementCounts;
 }) {
+  if (!series) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <p className="text-zinc-400">Series not found.</p>
+      </div>
+    );
+  }
   return (
     <ImmersiveSeriesDetail
       key={series.id}

@@ -108,7 +108,8 @@ export function resolvePublicImageUrl(raw: string): string {
   return normalizeImageField(raw);
 }
 
-export function normalizeSeriesPublicUrls(series: Series): Series {
+export function normalizeSeriesPublicUrls(series: Series | null): Series | null {
+  if (!series) return null;
   const episodes: Episode[] = (series.episodes ?? []).map((ep) => {
     const vu = normalizeAssetUrl(ep.videoUrl);
     const vpu = normalizeAssetUrl(ep.videoPlaybackUrl);

@@ -149,12 +149,12 @@ async function getAllSeriesOnce(): Promise<Series[]> {
   const p = await getProvider();
   try {
     const list = await p.getAllSeries();
-    return list.map(normalizeSeriesPublicUrls);
+    return list.map((s) => normalizeSeriesPublicUrls(s)).filter((s): s is Series => s !== null);
   } catch (e) {
     if (mode === "pg") {
       console.error("[series-repo] Postgres getAllSeries 失败，回退本地 JSON", e);
       const list = await getAllLocal();
-      return list.map(normalizeSeriesPublicUrls);
+      return list.map((s) => normalizeSeriesPublicUrls(s)).filter((s): s is Series => s !== null);
     }
     throw e;
   }
@@ -192,7 +192,8 @@ export async function createSeries(data: {
   originalName?: string;
   localOrTranslated?: "local" | "translated";
 }): Promise<Series> {
-  return normalizeSeriesPublicUrls(await (await getProvider()).createSeries(data));
+  const created = await (await getProvider()).createSeries(data);
+  return normalizeSeriesPublicUrls(created)!;
 }
 
 export async function deleteSeries(id: string): Promise<void> {
