@@ -77,7 +77,16 @@ function StageBadge({ stage }: { stage: string }) {
   );
 }
 
-function SessionRow({ session }: { session: UploadSessionRecord }) {
+interface SessionRowProps {
+  session: UploadSessionRecord;
+  bgSupported: boolean;
+  reuploadSessionId: string | null;
+  reuploadFileIdx: number | null;
+  fileInputRef: React.MutableRefObject<Record<string, HTMLInputElement | null>>;
+  onReupload: (sessionId: string, fileIndex: number, file: File) => Promise<void>;
+}
+
+function SessionRow({ session, bgSupported, reuploadSessionId, reuploadFileIdx, fileInputRef, onReupload }: SessionRowProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
 
@@ -205,7 +214,7 @@ function SessionRow({ session }: { session: UploadSessionRecord }) {
                               className="hidden"
                               onChange={async (e) => {
                                 const file = e.target.files?.[0];
-                                if (file) await handleReuploadFile(session.id, f.index, file);
+                                if (file) await onReupload(session.id, f.index, file);
                                 e.target.value = "";
                               }}
                             />
@@ -399,7 +408,14 @@ export default function AdminUploadRecordsPage() {
           filtered.map((session) => (
             <div key={session.id} className="flex gap-2 items-start">
               <div className="flex-1">
-                <SessionRow session={session} />
+                <SessionRow
+                  session={session}
+                  bgSupported={bgSupported}
+                  reuploadSessionId={reuploadSessionId}
+                  reuploadFileIdx={reuploadFileIdx}
+                  fileInputRef={fileInputRef}
+                  onReupload={handleReuploadFile}
+                />
               </div>
               <button
                 type="button"
